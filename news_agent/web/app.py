@@ -364,11 +364,27 @@ async def digest_stream(topic: str, hours: float = 24):
 @app.get("/api/panel", response_class=HTMLResponse)
 async def panel_fragment(topic: str = "", hours: float = 24, langs: str = ""):
     """Return just the news-list inner HTML for a single panel (used for live updates)."""
+    import asyncio
+    from news_agent.collectors.rss import _resolve_url
+
     languages = _parse_languages(langs)
     async with get_session() as session:
         repo = NewsRepository(session)
         items = await repo.search(topic, hours=hours, languages=languages) if topic else await repo.get_recent(hours=hours, limit=60, languages=languages)
         starred = await repo.get_starred_ids()
+
+    # Resolve any stale Google News redirect URLs and persist the real URL
+    google_items = [i for i in items if "news.google.com" in i.url]
+    if google_items:
+        resolved = await asyncio.gather(*[_resolve_url(i.url) for i in google_items])
+        changed = [(item, url) for item, url in zip(google_items, resolved) if url != item.url]
+        if changed:
+            async with get_session() as session:
+                repo = NewsRepository(session)
+                for item, real_url in changed:
+                    item.url = real_url
+                    await repo.update_url(item.id, real_url)
+
     return render("partials/panel_items.html", topic=topic, items=items, starred_ids=starred)
 
 

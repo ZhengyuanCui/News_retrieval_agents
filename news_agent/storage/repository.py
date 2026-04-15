@@ -55,6 +55,14 @@ class NewsRepository:
         for item in items:
             await self.upsert(item)
 
+    async def update_url(self, item_id: str, url: str) -> None:
+        """Persist a resolved URL for an existing item (e.g. Google News redirect → real URL)."""
+        from sqlalchemy import update
+        await self.session.execute(
+            update(NewsItemORM).where(NewsItemORM.id == item_id).values(url=url)
+        )
+        await self.session.commit()
+
     async def get_by_id(self, item_id: str) -> NewsItem | None:
         result = await self.session.get(NewsItemORM, item_id)
         return result.to_pydantic() if result else None

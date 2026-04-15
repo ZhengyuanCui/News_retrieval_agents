@@ -18,18 +18,24 @@ async def _resolve_url(url: str) -> str:
     """Follow a Google News redirect URL to get the real article URL.
 
     Google News RSS entries use opaque redirect links (news.google.com/rss/articles/CBMi…).
-    A HEAD request with follow_redirects resolves them to the original publisher URL.
+    HEAD requests don't reliably follow Google's redirect chain; a streaming GET
+    opens the connection and reads the final URL without downloading the body.
     Returns the original URL unchanged if resolution fails or is unnecessary.
     """
     if "news.google.com" not in url:
         return url
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; NewsAgent/1.0)",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
     try:
-        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
-            resp = await client.head(url)
-            final = str(resp.url)
-            # If still on Google (e.g. consent page), fall back to original
-            return url if "news.google.com" in final else final
-    except Exception:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            async with client.stream("GET", url, headers=headers) as resp:
+                final = str(resp.url)
+        # If still on Google (e.g. consent page), fall back to original
+        return url if "news.google.com" in final else final
+    except Exception as e:
+        logger.debug("URL resolution failed for %s: %s", url[:80], e)
         return url
 
 # (url, topic, source_id, display_label)

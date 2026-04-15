@@ -83,59 +83,35 @@ document.querySelectorAll('.pub-time[data-utc]').forEach(el => {
 
 // ── Refresh panel ────────────────────────────────────────────────────────────
 
-function refreshPanel(panelIdx, topic) {
+async function refreshPanel(panelIdx, topic) {
   const panelEl = document.getElementById(`panel-${panelIdx}`);
   if (!panelEl) return;
 
   const btn = panelEl.querySelector('.refresh-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⟳'; }
 
-  // Remove stale digest so it regenerates after new items arrive
-  const staleDigest = panelEl.querySelector('.digest-summary');
-  if (staleDigest) staleDigest.remove();
+  try {
+    // Kick off a fresh API fetch, bypassing the cooldown
+    await fetch(`/api/fetch?keyword=${encodeURIComponent(topic)}&force=true`, { method: 'POST' })
+      .catch(() => {});
 
-  // Insert a fetching indicator if one isn't already there
-  const newsList = panelEl.querySelector('.news-list');
-  if (newsList && !newsList.querySelector('.auto-fetch-empty')) {
-    const indicator = document.createElement('div');
-    indicator.className = 'fetch-more auto-fetch-empty';
-    indicator.innerHTML = '<div class="spinner" style="width:20px;height:20px;border-width:2px"></div><p style="font-size:13px;color:var(--text-muted)">Fetching latest…</p>';
-    newsList.prepend(indicator);
-  }
-
-  // force=true bypasses the 5-minute cooldown so explicit refresh always hits the APIs
-  fetch(`/api/fetch?keyword=${encodeURIComponent(topic)}&force=true`, { method: 'POST' }).catch(() => {});
-
-  const initial = parseInt(newsList?.dataset.count || '0', 10);
-  let rounds = 0;
-
-  async function poll() {
-    await new Promise(r => setTimeout(r, 1500));
-    const res = await fetch(`/api/fetch/status?topic=${encodeURIComponent(topic)}&hours=${_hours}`)
-      .then(r => r.json()).catch(() => ({ running: false, count: initial }));
-
-    if (res.count > initial) {
-      // New items arrived — update panel and regenerate digest
-      await updatePanel(panelEl, topic);
-      const stale = panelEl.querySelector('.digest-summary');
-      if (stale) stale.remove();
-      pollDigest(panelEl, topic);
-      if (btn) { btn.disabled = false; btn.textContent = '↻'; }
-      return;
+    // Wait until the fetch is no longer running (max ~60s)
+    for (let i = 0; i < 40; i++) {
+      await new Promise(r => setTimeout(r, 1500));
+      const { running } = await fetch(
+        `/api/fetch/status?topic=${encodeURIComponent(topic)}&hours=${_hours}`
+      ).then(r => r.json()).catch(() => ({ running: false }));
+      if (!running) break;
     }
 
-    if (!res.running) {
-      rounds++;
-      if (rounds >= 2) {
-        // Fetch finished but no new items — still refresh the panel view
-        await updatePanel(panelEl, topic);
-        if (btn) { btn.disabled = false; btn.textContent = '↻'; }
-        return;
-      }
-    }
-    poll();
+    // Always re-render the panel with whatever is now in the DB
+    const stale = panelEl.querySelector('.digest-summary');
+    if (stale) stale.remove();
+    await updatePanel(panelEl, topic);
+    pollDigest(panelEl, topic);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↻'; }
   }
-  poll();
 }
 
 // ── Podcast ───────────────────────────────────────────────────────────────────

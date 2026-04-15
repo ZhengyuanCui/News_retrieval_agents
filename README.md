@@ -67,11 +67,24 @@ data/                    # SQLite database (gitignored)
 
 ### 1. Install
 
+**macOS / Linux**
 ```bash
 python -m venv .venv
-source .venv/bin/activate      # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -e ".[dev]"
 ```
+
+**Windows (PowerShell)**
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+```
+
+> If PowerShell blocks the activation script with *"running scripts is disabled on this system"*, run this once then try again:
+> ```powershell
+> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+> ```
 
 ### 2. Configure
 
@@ -133,15 +146,19 @@ Open `http://localhost:8000` in your browser.
 ## CLI Reference
 
 ```
-news-agent fetch        Run a single fetch cycle
-news-agent schedule     Start the background scheduler
-news-agent serve        Start the web server
-news-agent digest       Generate and print a topic digest
-news-agent export       Export items to JSON or Markdown
-news-agent status       Show database stats and per-source status
-news-agent sources list           List all sources and their status
-news-agent sources enable <name>  Enable a source
-news-agent sources disable <name> Disable a source
+news-agent fetch                      Run a single fetch cycle
+news-agent fetch --topics "ai,stocks" Fetch specific topics only
+news-agent refetch                    Clear DB and re-fetch with current filters
+news-agent refetch --yes              Skip confirmation prompt
+news-agent schedule                   Start the background scheduler
+news-agent serve                      Start the web server
+news-agent serve --reload             Dev mode with auto-reload
+news-agent digest --topic ai          Generate and print a topic digest
+news-agent export --format markdown   Export items to Markdown
+news-agent status                     Show database stats and per-source status
+news-agent sources list               List all sources and their status
+news-agent sources enable <name>      Enable a source
+news-agent sources disable <name>     Disable a source
 ```
 
 ---

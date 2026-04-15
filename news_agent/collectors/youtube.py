@@ -10,8 +10,33 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from news_agent.collectors.base import BaseCollector
 from news_agent.config import settings
 from news_agent.models import NewsItem
+from news_agent.spam import is_spam_ml
 
 logger = logging.getLogger(__name__)
+
+# YouTube-specific spam patterns not well covered by the SMS spam model
+_YT_SPAM_PHRASES = [
+    "deleted in 24 hours", "will be deleted", "remove this video",
+    "this video will be removed",
+    "dm me", "dm for", "message me for",
+    "guaranteed profit", "guaranteed return",
+    "100% win", "never lose",
+    "get rich", "financial freedom in",
+    "copy my trades",
+]
+
+# Titles crammed with stock tickers / hashtags are almost always spam.
+# Count '#' or '$' symbols; if there are 4+, it's a spam dump.
+_HASHTAG_SPAM_THRESHOLD = 4
+
+
+def _is_yt_spam(title: str, description: str = "") -> bool:
+    text = f"{title} {description}".lower()
+    if any(p in text for p in _YT_SPAM_PHRASES):
+        return True
+    if title.count("#") + title.count("$") >= _HASHTAG_SPAM_THRESHOLD:
+        return True
+    return is_spam_ml(title)
 
 # Channel-to-topic mapping: add entries here when you add new channels.
 # Topic is just a label — it does not restrict what gets fetched.
@@ -139,11 +164,16 @@ class YouTubeCollector(BaseCollector):
                     published_at = datetime.fromisoformat(published_str.replace("Z", "+00:00")).replace(tzinfo=None)
                 except (ValueError, AttributeError):
                     published_at = datetime.utcnow()
+                title = snippet.get("title", "")
+                description = snippet.get("description", "")[:1000]
+                if _is_yt_spam(title, description):
+                    logger.debug("Skipping spam YouTube video: %s", title[:80])
+                    continue
                 items.append(NewsItem(
                     source="youtube", topic=keyword,
-                    title=snippet.get("title", ""),
+                    title=title,
                     url=f"https://www.youtube.com/watch?v={video_id}",
-                    content=snippet.get("description", "")[:1000] or snippet.get("title", ""),
+                    content=description or title,
                     author=snippet.get("channelTitle"),
                     published_at=published_at,
                     raw_score=0.5,

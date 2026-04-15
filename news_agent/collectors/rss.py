@@ -13,6 +13,25 @@ from news_agent.models import NewsItem
 
 logger = logging.getLogger(__name__)
 
+
+async def _resolve_url(url: str) -> str:
+    """Follow a Google News redirect URL to get the real article URL.
+
+    Google News RSS entries use opaque redirect links (news.google.com/rss/articles/CBMi…).
+    A HEAD request with follow_redirects resolves them to the original publisher URL.
+    Returns the original URL unchanged if resolution fails or is unnecessary.
+    """
+    if "news.google.com" not in url:
+        return url
+    try:
+        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
+            resp = await client.head(url)
+            final = str(resp.url)
+            # If still on Google (e.g. consent page), fall back to original
+            return url if "news.google.com" in final else final
+    except Exception:
+        return url
+
 # (url, topic, source_id, display_label)
 DEFAULT_RSS_FEEDS: list[tuple[str, str, str]] = [
     # AI / Tech
@@ -156,6 +175,13 @@ class RSSCollector(BaseCollector):
                 ))
             except Exception as e:
                 logger.debug("Skipping invalid entry from %s: %s", source_id, e)
+
+        # Resolve Google News redirect URLs concurrently
+        if any("news.google.com" in i.url for i in items):
+            import asyncio as _asyncio
+            resolved = await _asyncio.gather(*[_resolve_url(i.url) for i in items])
+            for item, real_url in zip(items, resolved):
+                item.url = real_url
 
         logger.debug("News search '%s' → %d items", source_id, len(items))
         return items

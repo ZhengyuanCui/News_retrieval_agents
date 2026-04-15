@@ -167,6 +167,16 @@ class NewsRepository:
         )
         return set(result.scalars())
 
+    async def clear_all(self) -> dict[str, int]:
+        """Delete every row from news_items and digests. Returns row counts deleted."""
+        items_result = await self.session.execute(delete(NewsItemORM))
+        digests_result = await self.session.execute(delete(DigestORM))
+        await self.session.commit()
+        return {
+            "items": items_result.rowcount,
+            "digests": digests_result.rowcount,
+        }
+
     async def prune_old_items(self, retention_days: int) -> int:
         cutoff = datetime.utcnow() - timedelta(days=retention_days)
         result = await self.session.execute(

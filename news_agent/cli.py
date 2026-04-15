@@ -110,6 +110,42 @@ def export(fmt: str, date: str | None, hours: int):
     asyncio.run(_run())
 
 
+# ── refetch ───────────────────────────────────────────────────────────────────
+
+@main.command()
+@click.option("--topics", default="", show_default=True, help="Comma-separated topics (empty = fetch everything)")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
+def refetch(topics: str, yes: bool):
+    """Clear the entire database and re-fetch with current filters.
+
+    Useful after changing spam filters or other criteria so old
+    unfiltered content is removed and fresh content is fetched.
+    """
+    from news_agent.storage import init_db, get_session
+    from news_agent.storage.repository import NewsRepository
+    from news_agent.orchestrator import run_fetch_cycle
+
+    if not yes:
+        console.print("[bold yellow]This will delete ALL news items and digests from the database.[/]")
+        click.confirm("Continue?", abort=True)
+
+    topic_list = [t.strip() for t in topics.split(",") if t.strip()]
+
+    async def _run():
+        await init_db()
+        async with get_session() as session:
+            repo = NewsRepository(session)
+            counts = await repo.clear_all()
+        console.print(
+            f"[red]Deleted {counts['items']} items and {counts['digests']} digests.[/]"
+        )
+        with console.status("[bold green]Fetching fresh news…"):
+            summary = await run_fetch_cycle(topic_list)
+        rprint(f"\n[bold green]Done![/] {summary}")
+
+    asyncio.run(_run())
+
+
 # ── status ────────────────────────────────────────────────────────────────────
 
 @main.command()

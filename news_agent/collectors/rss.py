@@ -14,16 +14,49 @@ from news_agent.models import NewsItem
 logger = logging.getLogger(__name__)
 
 
-async def _resolve_url(url: str) -> str:
-    """Follow a Google News redirect URL to get the real article URL.
+import base64 as _base64
+import re as _re
 
-    Google News RSS entries use opaque redirect links (news.google.com/rss/articles/CBMi…).
-    HEAD requests don't reliably follow Google's redirect chain; a streaming GET
-    opens the connection and reads the final URL without downloading the body.
-    Returns the original URL unchanged if resolution fails or is unnecessary.
+
+def _decode_google_news_url(url: str) -> str:
+    """Decode a Google News RSS redirect URL to the real article URL.
+
+    Google News encodes the target URL in base64 inside the path segment
+    (e.g. news.google.com/rss/articles/CBMi...).  Decoding the base64 payload
+    reveals the real URL without any HTTP request.
     """
     if "news.google.com" not in url:
         return url
+    match = _re.search(r"/articles/([A-Za-z0-9_=-]+)", url)
+    if not match:
+        return url
+    encoded = match.group(1)
+    # Restore padding
+    encoded += "=" * (4 - len(encoded) % 4)
+    try:
+        data = _base64.urlsafe_b64decode(encoded)
+        for prefix in (b"https://", b"http://"):
+            idx = data.find(prefix)
+            if idx != -1:
+                end = data.find(b"\x00", idx)
+                decoded_url = data[idx: end if end != -1 else len(data)].decode("utf-8", errors="replace")
+                # Sanity check: must look like a real URL with a dot in the host
+                if "." in decoded_url[:60]:
+                    return decoded_url
+    except Exception as e:
+        logger.debug("Google News URL decode failed for %s: %s", url[:80], e)
+    return url
+
+
+async def _resolve_url(url: str) -> str:
+    """Resolve a Google News redirect URL — try local base64 decode first,
+    fall back to an HTTP GET if that doesn't yield a non-Google URL."""
+    if "news.google.com" not in url:
+        return url
+    decoded = _decode_google_news_url(url)
+    if decoded != url:
+        return decoded
+    # Fallback: follow HTTP redirect
     headers = {
         "User-Agent": "Mozilla/5.0 (compatible; NewsAgent/1.0)",
         "Accept-Language": "en-US,en;q=0.9",
@@ -32,10 +65,9 @@ async def _resolve_url(url: str) -> str:
         async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
             async with client.stream("GET", url, headers=headers) as resp:
                 final = str(resp.url)
-        # If still on Google (e.g. consent page), fall back to original
         return url if "news.google.com" in final else final
     except Exception as e:
-        logger.debug("URL resolution failed for %s: %s", url[:80], e)
+        logger.debug("URL resolution fallback failed for %s: %s", url[:80], e)
         return url
 
 # (url, topic, source_id, display_label)
@@ -169,6 +201,8 @@ class RSSCollector(BaseCollector):
             published_at = datetime(*published[:6]) if published else datetime.utcnow()
             if published_at < max_age:
                 continue
+            # Decode Google News redirect URLs immediately — no HTTP request needed
+            link = _decode_google_news_url(link)
             try:
                 items.append(NewsItem(
                     source=source_id,

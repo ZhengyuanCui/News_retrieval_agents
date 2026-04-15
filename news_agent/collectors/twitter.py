@@ -43,17 +43,18 @@ _SPAM_PHRASES = [
     "quickly becoming", "highly recommend follow",
 ]
 
-# Spam tweets dump a mix of $TICKER cashtags and #HASHTAG tickers.
-# Count both together — legitimate posts rarely exceed 3 combined.
-_TICKER_SPAM_THRESHOLD = 4
+# Spam tweets dump many $TICKER cashtags. Legitimate financial discussion
+# rarely has more than 3–4 cashtags; spam dumps pile on 5+.
+# Note: # hashtags are NOT counted here — financial news tweets commonly
+# use topic hashtags (#AI, #semiconductors) alongside a cashtag.
+_CASHTAG_SPAM_THRESHOLD = 5
 
 
 def _keyword_spam(text: str) -> bool:
     t = text.lower()
     if any(p in t for p in _SPAM_PHRASES):
         return True
-    # Count combined $ cashtags + # stock hashtags
-    if text.count("$") + text.count("#") >= _TICKER_SPAM_THRESHOLD:
+    if text.count("$") >= _CASHTAG_SPAM_THRESHOLD:
         return True
     return False
 

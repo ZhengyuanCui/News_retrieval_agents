@@ -146,15 +146,35 @@ class YouTubeCollector(BaseCollector):
         items: list[NewsItem] = []
         try:
             await self._rate_limit()
+            # order=relevance surfaces popular/viral videos, not just the newest
             resp = service.search().list(
                 part="snippet",
                 q=keyword,
                 type="video",
-                order="date",
-                maxResults=15,
+                order="relevance",
+                maxResults=20,
                 relevanceLanguage="en",
             ).execute()
-            for result in resp.get("items", []):
+
+            results = resp.get("items", [])
+            video_ids = [r["id"]["videoId"] for r in results if r.get("id", {}).get("videoId")]
+
+            # Fetch view/like counts in one batch call
+            stats: dict[str, dict] = {}
+            if video_ids:
+                stats_resp = service.videos().list(
+                    part="statistics",
+                    id=",".join(video_ids),
+                ).execute()
+                for v in stats_resp.get("items", []):
+                    stats[v["id"]] = v.get("statistics", {})
+
+            max_views = max(
+                (int(stats.get(vid, {}).get("viewCount", 0)) for vid in video_ids),
+                default=1,
+            ) or 1
+
+            for result in results:
                 snippet = result.get("snippet", {})
                 video_id = result.get("id", {}).get("videoId")
                 if not video_id:
@@ -169,6 +189,12 @@ class YouTubeCollector(BaseCollector):
                 if _is_yt_spam(title, description):
                     logger.debug("Skipping spam YouTube video: %s", title[:80])
                     continue
+                video_stats = stats.get(video_id, {})
+                view_count = int(video_stats.get("viewCount", 0))
+                like_count = int(video_stats.get("likeCount", 0))
+                # Score by combined engagement; views weighted less than likes
+                engagement = view_count * 0.001 + like_count
+                raw_score = min(1.0, engagement / (max_views * 0.001 + 1))
                 items.append(NewsItem(
                     source="youtube", topic=keyword,
                     title=title,
@@ -176,7 +202,7 @@ class YouTubeCollector(BaseCollector):
                     content=description or title,
                     author=snippet.get("channelTitle"),
                     published_at=published_at,
-                    raw_score=0.5,
+                    raw_score=raw_score,
                 ))
         except Exception as e:
             logger.error("YouTube keyword fetch error (%r): %s", keyword, e)

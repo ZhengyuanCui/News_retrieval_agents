@@ -1,0 +1,356 @@
+// ── Expand / collapse ────────────────────────────────────────────────────────
+
+function toggleExpand(card) {
+  const expanded = card.querySelector('.card-expanded');
+  const isOpen = expanded.style.display !== 'none';
+
+  if (isOpen) {
+    // Closing — log how long it was open as read time
+    const openedAt = parseFloat(card.dataset.openedAt || '0');
+    if (openedAt) {
+      const secs = (Date.now() - openedAt) / 1000;
+      if (secs >= 5) {
+        logInteraction(card.dataset.id, 'read', secs);
+      }
+    }
+    expanded.style.display = 'none';
+    delete card.dataset.openedAt;
+  } else {
+    expanded.style.display = 'block';
+    card.dataset.openedAt = Date.now();
+    logInteraction(card.dataset.id, 'click');
+  }
+}
+
+// ── Star ─────────────────────────────────────────────────────────────────────
+
+function toggleStar(event, itemId) {
+  event.stopPropagation(); // don't expand card
+  const btn = event.currentTarget;
+  const card = btn.closest('.news-card');
+  const isStarred = btn.classList.contains('on');
+
+  btn.classList.toggle('on', !isStarred);
+  card.classList.toggle('starred', !isStarred);
+
+  logInteraction(itemId, isStarred ? 'unstar' : 'star');
+}
+
+// ── Click on external link ────────────────────────────────────────────────────
+
+function logClick(itemId) {
+  logInteraction(itemId, 'click');
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+
+function logInteraction(itemId, action, readSeconds) {
+  const payload = { item_id: itemId, action };
+  if (readSeconds !== undefined) payload.read_seconds = readSeconds;
+
+  // Fire-and-forget; use sendBeacon for unload-time events
+  if (navigator.sendBeacon && action === 'read') {
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    navigator.sendBeacon('/api/interaction', blob);
+  } else {
+    fetch('/api/interaction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).catch(() => {}); // best-effort
+  }
+}
+
+// ── Local time ────────────────────────────────────────────────────────────────
+
+const _headerDate = document.getElementById('header-date');
+if (_headerDate) {
+  _headerDate.textContent = new Date().toLocaleDateString(undefined, {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+}
+
+document.querySelectorAll('.pub-time[data-utc]').forEach(el => {
+  const iso = el.dataset.utc;
+  if (!iso) return;
+  const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
+  el.textContent = d.toLocaleString(undefined, {
+    month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+});
+
+// ── Podcast ───────────────────────────────────────────────────────────────────
+
+function requestPodcast(topic, btn) {
+  btn.disabled = true;
+  btn.textContent = '⏳ Generating…';
+
+  const hours = new URLSearchParams(window.location.search).get('hours') || '24';
+  fetch(`/api/podcast/${topic}?hours=${hours}`, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.reason === 'already generating' || data.started) {
+        pollPodcast(topic, btn);
+      } else {
+        btn.disabled = false;
+        btn.textContent = '🎙 Podcast';
+        alert(data.reason || 'Could not start podcast generation.');
+      }
+    })
+    .catch(() => { btn.disabled = false; btn.textContent = '🎙 Podcast'; });
+}
+
+function pollPodcast(topic, btn) {
+  const hours = new URLSearchParams(window.location.search).get('hours') || '24';
+  fetch(`/api/podcast/${topic}/status?hours=${hours}`)
+    .then(r => r.json())
+    .then(status => {
+      if (status.ready) {
+        const player = document.getElementById(`podcast-player-${topic}`);
+        const audio = player.querySelector('audio');
+        audio.src = status.url;
+        player.style.display = 'block';
+        btn.textContent = '▶ Play again';
+        btn.disabled = false;
+        btn.onclick = () => { player.style.display = 'block'; audio.play(); };
+      } else if (status.error) {
+        btn.disabled = false;
+        btn.textContent = '🎙 Podcast';
+        alert('Podcast failed: ' + status.error);
+      } else if (status.generating) {
+        setTimeout(() => pollPodcast(topic, btn), 3000);
+      } else {
+        btn.disabled = false;
+        btn.textContent = '🎙 Podcast';
+      }
+    })
+    .catch(() => setTimeout(() => pollPodcast(topic, btn), 3000));
+}
+
+// On load, check if today's podcast already exists for the active panel topics
+document.addEventListener('DOMContentLoaded', () => {
+  const hours = new URLSearchParams(window.location.search).get('hours') || '24';
+  const urlParams = new URLSearchParams(window.location.search);
+  [urlParams.get('topic1'), urlParams.get('topic2')].filter(Boolean).forEach(topic => {
+    fetch(`/api/podcast/${encodeURIComponent(topic)}/status?hours=${hours}`)
+      .then(r => r.json())
+      .then(status => {
+        if (status.ready) {
+          const player = document.getElementById(`podcast-player-${topic}`);
+          if (!player) return;
+          const audio = player.querySelector('audio');
+          audio.src = status.url;
+          player.style.display = 'block';
+          const btn = player.previousElementSibling?.querySelector('.podcast-btn');
+          if (btn) { btn.textContent = '▶ Play again'; }
+        }
+      }).catch(() => {});
+  });
+});
+
+// ── Digest polling ───────────────────────────────────────────────────────────
+
+// ── Digest streaming ─────────────────────────────────────────────────────────
+
+function _boldMd(text) {
+  return text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
+
+function _renderDigestText(container, text) {
+  /** Parse streamed plain-text digest and render headline + bullets. */
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return;
+  const headline = lines[0];
+  const bullets = lines.slice(1);
+  let html = `<div class="digest-label">Summary</div>`;
+  if (headline) html += `<p class="digest-headline">${_boldMd(headline)}</p>`;
+  if (bullets.length) {
+    html += `<ul class="digest-bullets">` +
+      bullets.map(b => `<li>${_boldMd(b)}</li>`).join('') +
+      `</ul>`;
+  }
+  container.innerHTML = html;
+}
+
+function streamDigest(panelEl, topic) {
+  if (!topic) return;
+  if (panelEl.querySelector('.digest-summary')) return; // already shown
+
+  const hours = new URLSearchParams(window.location.search).get('hours') || '24';
+  const url = `/api/digest-stream/${encodeURIComponent(topic)}?hours=${hours}`;
+
+  // Insert placeholder immediately
+  const container = document.createElement('div');
+  container.className = 'digest-summary';
+  container.innerHTML = '<div class="digest-label">Summary</div><p class="digest-streaming">&#8203;</p>';
+  const newsList = panelEl.querySelector('.news-list');
+  if (!newsList) return;
+  newsList.insertAdjacentElement('beforebegin', container);
+
+  const streamEl = container.querySelector('.digest-streaming');
+  let accumulated = '';
+
+  const source = new EventSource(url);
+
+  source.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.done) {
+      source.close();
+      if (accumulated.trim()) {
+        _renderDigestText(container, accumulated);
+      } else {
+        container.remove();
+      }
+      return;
+    }
+    if (data.t) {
+      accumulated += data.t;
+      // Show raw accumulating text until we have at least one full line
+      if (streamEl) streamEl.textContent = accumulated;
+      // Once we have at least 2 lines, switch to formatted rendering
+      const lines = accumulated.split('\n').filter(l => l.trim());
+      if (lines.length >= 2) _renderDigestText(container, accumulated);
+    }
+  };
+
+  source.onerror = () => {
+    source.close();
+    if (!accumulated.trim()) container.remove();
+  };
+}
+
+// Alias for compatibility with places that call injectDigest or pollDigest
+function injectDigest(panelEl, topic) { streamDigest(panelEl, topic); return Promise.resolve(false); }
+function pollDigest(panelEl, topic) { streamDigest(panelEl, topic); }
+
+// Re-check for digests when the tab becomes visible again
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  const urlParams = new URLSearchParams(window.location.search);
+  [1, 2].forEach(idx => {
+    const panelEl = document.getElementById(`panel-${idx}`);
+    if (!panelEl) return;
+    const topic = urlParams.get(`topic${idx}`) || '';
+    if (topic && !panelEl.querySelector('.digest-summary')) {
+      streamDigest(panelEl, topic);
+    }
+  });
+});
+
+// ── Auto-fetch ────────────────────────────────────────────────────────────────
+// Each panel polls independently; when results arrive, only that panel updates.
+
+(function () {
+  const urlParams = new URLSearchParams(window.location.search);
+  const hours = urlParams.get('hours') || '24';
+
+  function formatPubTime(el) {
+    const iso = el.dataset.utc;
+    if (!iso) return;
+    const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
+    el.textContent = d.toLocaleString(undefined, {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+  }
+
+  async function updatePanel(panelEl, topic) {
+    const langs = urlParams.get('langs') || '';
+    const langParam = langs ? `&langs=${encodeURIComponent(langs)}` : '';
+    const [panelResp, digestResp] = await Promise.all([
+      fetch(`/api/panel?topic=${encodeURIComponent(topic)}&hours=${hours}${langParam}`),
+      topic ? fetch(`/api/digest-fragment?topic=${encodeURIComponent(topic)}&hours=${hours}`) : Promise.resolve(null),
+    ]);
+
+    // Update news list
+    const html = await panelResp.text();
+    const newsList = panelEl.querySelector('.news-list');
+    if (newsList) {
+      newsList.innerHTML = html;
+      const count = newsList.querySelectorAll('.news-card').length;
+      newsList.dataset.count = count;
+      const countBadge = panelEl.querySelector('.count');
+      if (countBadge) countBadge.textContent = `${count} items`;
+      newsList.querySelectorAll('.pub-time[data-utc]').forEach(formatPubTime);
+    }
+
+    // Update digest summary (inject or replace above the news list)
+    if (digestResp) {
+      const digestHtml = await digestResp.text();
+      const existing = panelEl.querySelector('.digest-summary');
+      if (existing) {
+        existing.outerHTML = digestHtml || '';
+      } else if (digestHtml.trim() && newsList) {
+        newsList.insertAdjacentHTML('beforebegin', digestHtml);
+      }
+    }
+  }
+
+  async function pollTopic(panelEl, topic) {
+    const newsList = panelEl.querySelector('.news-list');
+    const initial = parseInt(newsList?.dataset.count || '0', 10);
+    const emptyEl = panelEl.querySelector('.auto-fetch-empty');
+    let noChangeRounds = 0;
+
+    while (true) {
+      await new Promise(r => setTimeout(r, 1000));
+      const res = await fetch(`/api/fetch/status?topic=${encodeURIComponent(topic)}&hours=${hours}`)
+        .then(r => r.json())
+        .catch(() => ({ running: false, count: initial }));
+
+      if (res.count > initial) {
+        await updatePanel(panelEl, topic);
+        // Remove any digest that was shown before the fetch completed — it was
+        // built from the old item set and won't match the new results.
+        const staleDigest = panelEl.querySelector('.digest-summary');
+        if (staleDigest) staleDigest.remove();
+        pollDigest(panelEl, topic);
+        return;
+      }
+
+      if (!res.running) {
+        noChangeRounds++;
+        if (noChangeRounds >= 2) {
+          if (emptyEl) {
+            if (emptyEl.classList.contains('fetch-more')) emptyEl.remove();
+            else emptyEl.innerHTML = '<p style="color:var(--text-muted)">No new items found. Try a wider time range.</p>';
+          }
+          // No new items — show digest for whatever is already in the panel
+          if (!panelEl.querySelector('.digest-summary')) pollDigest(panelEl, topic);
+          return;
+        }
+      }
+    }
+  }
+
+  [1, 2].forEach(idx => {
+    const panelEl = document.getElementById(`panel-${idx}`);
+    if (!panelEl) return;
+    const topic = urlParams.get(`topic${idx}`) || '';
+    if (topic && panelEl.querySelector('.auto-fetch-empty')) {
+      // Specific topic — kick off a keyword fetch and poll for new results.
+      // Digest is triggered by pollTopic once fetch completes, so we don't
+      // start it here — that would show a stale digest from the previous fetch.
+      fetch(`/api/fetch?keyword=${encodeURIComponent(topic)}`, { method: 'POST' }).catch(() => {});
+      pollTopic(panelEl, topic);
+    } else if (!topic && panelEl.querySelector('.auto-fetch-empty')) {
+      // General news — items come from the scheduled fetch; just update the panel once
+      updatePanel(panelEl, '');
+    } else if (topic && !panelEl.querySelector('.digest-summary')) {
+      // Panel has items but no digest yet — analysis still running in background
+      pollDigest(panelEl, topic);
+    }
+  });
+})();
+
+// ── Send read time when user navigates away ───────────────────────────────────
+
+window.addEventListener('beforeunload', () => {
+  document.querySelectorAll('.news-card[data-opened-at]').forEach(card => {
+    const secs = (Date.now() - parseFloat(card.dataset.openedAt)) / 1000;
+    if (secs >= 5) {
+      logInteraction(card.dataset.id, 'read', secs);
+    }
+  });
+});

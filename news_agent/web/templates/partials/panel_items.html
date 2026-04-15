@@ -1,0 +1,26 @@
+{% if not items %}
+<p style="color:var(--text-muted)">No new items found. Try a wider time range.</p>
+{% else %}
+  {% for item in items %}
+  <article class="news-card{% if item.id in starred_ids %} starred{% endif %}" data-id="{{ item.id }}">
+    <div class="card-header" onclick="toggleExpand(this.parentElement)">
+      <div class="card-meta">
+        <span class="source source-{{ item.source }}">{{ item.source }}</span>
+        {% if item.sentiment %}<span class="sentiment sentiment-{{ item.sentiment }}">{{ item.sentiment }}</span>{% endif %}
+          <span class="pub-time" data-utc="{{ item.published_at.isoformat() if item.published_at else '' }}"></span>
+      </div>
+      <div class="card-title-row">
+        <h3 class="card-title">{{ item.title }}</h3>
+        <button class="star-btn{% if item.id in starred_ids %} on{% endif %}" onclick="toggleStar(event,'{{ item.id }}')">&#9733;</button>
+      </div>
+      <p class="card-summary">{{ (item.summary or item.content[:300])|strip_html }}{% if not item.summary and item.content|length > 300 %}…{% endif %}</p>
+      {% if item.tags %}<div class="tags">{% for tag in item.tags %}<span class="tag">{{ tag }}</span>{% endfor %}</div>{% endif %}
+    </div>
+    <div class="card-expanded" style="display:none">
+      {% if item.key_entities %}<div class="entities"><strong>Key entities:</strong>{% for e in item.key_entities %}<span class="entity">{{ e }}</span>{% endfor %}</div>{% endif %}
+      <div class="full-content">{{ item.content }}</div>
+      <a class="read-more" href="{{ item.url }}" target="_blank" rel="noopener" onclick="logClick('{{ item.id }}')">Read full article &#8599;</a>
+    </div>
+  </article>
+  {% endfor %}
+{% endif %}

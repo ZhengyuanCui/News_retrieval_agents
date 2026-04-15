@@ -1,0 +1,16 @@
+.codex
+.env
+data/news.db
+data/news.db-shm
+data/news.db-wal
+data/exports/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/

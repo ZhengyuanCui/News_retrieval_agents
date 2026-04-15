@@ -1,0 +1,13 @@
+{% if digest %}
+<div class="digest-summary">
+  <div class="digest-label">Summary</div>
+  {% if digest.headline %}<p class="digest-headline">{{ digest.headline }}</p>{% endif %}
+  {% if digest.bullets %}
+  <ul class="digest-bullets">
+    {% for bullet in digest.bullets %}
+    <li>{{ bullet|bold_md }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endif %}

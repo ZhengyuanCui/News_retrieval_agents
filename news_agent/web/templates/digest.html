@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>News Digest — {{ date }}</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <h1><a href="/" style="color:inherit;text-decoration:none">News Digest</a></h1>
+    <span class="date" id="header-date">{{ date }}</span>
+    <button class="lang-btn" id="lang-btn" onclick="toggleLangDropdown()">&#127760; Languages</button>
+    <button class="settings-btn" onclick="toggleSettings()" title="Default topics">&#9881;</button>
+    <select class="hours-select" id="hours-select">
+      <option value="0.17" {% if hours == 0.17 %}selected{% endif %}>Last 10 min</option>
+      {% for h in [6, 12, 24, 48, 72] %}
+      <option value="{{ h }}" {% if h == hours %}selected{% endif %}>Last {{ h }}h</option>
+      {% endfor %}
+    </select>
+  </div>
+</header>
+
+<div class="lang-dropdown" id="lang-dropdown">
+  <div class="lang-dropdown-title">Filter by Language</div>
+  {% set all_langs = [("en","English"),("zh","Chinese"),("es","Spanish"),("fr","French"),("de","German"),("ja","Japanese"),("pt","Portuguese"),("ar","Arabic"),("ko","Korean"),("hi","Hindi")] %}
+  {% for code, name in all_langs %}
+  <label class="lang-option">
+    <input type="checkbox" class="lang-checkbox" value="{{ code }}" /> {{ name }}
+  </label>
+  {% endfor %}
+  <button class="lang-apply-btn" onclick="applyLanguages()">Apply</button>
+</div>
+
+<div class="settings-panel" id="settings-panel" style="display:none">
+  <div class="settings-inner">
+    <h3>Default Topics</h3>
+    <p class="settings-hint">Saved topics are restored on every visit. Clear both fields and save to reset to an empty start.</p>
+    <div class="settings-row">
+      <label>Panel 1</label>
+      <input class="settings-input" id="default-topic1" type="text" />
+    </div>
+    <div class="settings-row">
+      <label>Panel 2</label>
+      <input class="settings-input" id="default-topic2" type="text" />
+    </div>
+    <div class="settings-actions">
+      <button class="settings-save-btn" onclick="saveDefaultTopics()">Save &amp; Apply</button>
+      <button class="settings-cancel-btn" onclick="toggleSettings()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+
+  {% for panel_idx, panel_topic, panel_items, panel_digest, panel_id in [
+      (1, topic1, items1, digest1, 'panel-1'),
+      (2, topic2, items2, digest2, 'panel-2')
+  ] %}
+  <section class="panel" id="{{ panel_id }}">
+    <div class="panel-header">
+      <form class="topic-form" onsubmit="changeTopic(event, {{ panel_idx }})">
+        <input class="topic-input" type="text" value="{{ panel_topic }}" placeholder="Enter topic…" data-panel="{{ panel_idx }}" />
+        <button type="submit" class="topic-go-btn">&#8594;</button>
+      </form>
+      <span class="count">{{ panel_items|length }} items</span>
+      <button class="podcast-btn" onclick="requestPodcast('{{ panel_topic }}', this)" title="Generate podcast">&#127911; Podcast</button>
+    </div>
+    <div class="podcast-player" id="podcast-player-{{ panel_topic }}" style="display:none">
+      <audio controls style="width:100%"></audio>
+    </div>
+
+    {% with digest = panel_digest %}{% include "partials/digest_summary.html" %}{% endwith %}
+
+    <div class="news-list" data-count="{{ panel_items|length }}">
+      {% if not panel_items and not panel_topic %}
+        <div class="empty" style="padding-top:60px">
+          <p style="color:var(--text-muted); font-size:13px">No recent items yet. Fetch will run shortly.</p>
+        </div>
+      {% elif not panel_items %}
+        <div class="empty auto-fetch-empty">
+          <div class="spinner"></div>
+          <p>Fetching latest news…</p>
+        </div>
+      {% else %}
+        {% for item in panel_items %}
+        <article class="news-card{% if item.id in starred_ids %} starred{% endif %}" data-id="{{ item.id }}">
+          <div class="card-header" onclick="toggleExpand(this.parentElement)">
+            <div class="card-meta">
+              <span class="source source-{{ item.source }}">{{ item.source }}</span>
+              {% if item.sentiment %}<span class="sentiment sentiment-{{ item.sentiment }}">{{ item.sentiment }}</span>{% endif %}
+              <span class="pub-time" data-utc="{{ item.published_at.isoformat() if item.published_at else '' }}"></span>
+            </div>
+            <div class="card-title-row">
+              <h3 class="card-title">{{ item.title }}</h3>
+              <button class="star-btn{% if item.id in starred_ids %} on{% endif %}" onclick="toggleStar(event,'{{ item.id }}')">&#9733;</button>
+            </div>
+            <p class="card-summary">{{ (item.summary or item.content[:300])|strip_html }}{% if not item.summary and item.content|length > 300 %}…{% endif %}</p>
+            {% if item.tags %}<div class="tags">{% for tag in item.tags %}<span class="tag">{{ tag }}</span>{% endfor %}</div>{% endif %}
+          </div>
+          <div class="card-expanded" style="display:none">
+            {% if item.key_entities %}<div class="entities"><strong>Key entities:</strong>{% for e in item.key_entities %}<span class="entity">{{ e }}</span>{% endfor %}</div>{% endif %}
+            <div class="full-content">{{ item.content }}</div>
+            <a class="read-more" href="{{ item.url }}" target="_blank" rel="noopener" onclick="logClick('{{ item.id }}')">Read full article &#8599;</a>
+          </div>
+        </article>
+        {% endfor %}
+        {% if panel_items|length < 5 %}
+        <div class="fetch-more auto-fetch-empty">
+          <div class="spinner" style="width:20px;height:20px;border-width:2px"></div>
+          <p style="font-size:13px;color:var(--text-muted)">Fetching more…</p>
+        </div>
+        {% endif %}
+      {% endif %}
+    </div>
+  </section>
+  {% endfor %}
+
+</div>
+
+<script>
+  function getStoredTopics() {
+    try { return JSON.parse(localStorage.getItem('newsTopics') || 'null'); }
+    catch { return null; }
+  }
+
+  function saveTopics(t1, t2) {
+    localStorage.setItem('newsTopics', JSON.stringify([t1, t2]));
+  }
+
+  // On load: restore saved topics only if the user has previously set them
+  (function() {
+    const p = new URLSearchParams(window.location.search);
+    if (!p.get('topic1') && !p.get('topic2')) {
+      const saved = getStoredTopics();
+      if (saved && saved[0]) {
+        p.set('topic1', saved[0]);
+        if (saved[1]) p.set('topic2', saved[1]);
+        window.location.replace('/?' + p.toString());
+      }
+      // No saved topics → stay on / with empty panels
+    }
+  })();
+
+  document.getElementById('hours-select').addEventListener('change', function() {
+    const p = new URLSearchParams(window.location.search);
+    p.set('hours', this.value);
+    window.location = '/?' + p.toString();
+  });
+
+  // ── Language picker ───────────────────────────────────────
+  const LANG_KEY = 'newsLangs';
+
+  function getStoredLangs() {
+    try { return JSON.parse(localStorage.getItem(LANG_KEY) || 'null'); }
+    catch { return null; }
+  }
+
+  function toggleLangDropdown() {
+    const dd = document.getElementById('lang-dropdown');
+    const btn = document.getElementById('lang-btn');
+    const isOpen = dd.classList.toggle('open');
+    btn.classList.toggle('active', isOpen);
+    if (isOpen) {
+      // Populate checkboxes from stored or URL value
+      const current = new URLSearchParams(window.location.search).get('langs') || '';
+      const selected = current ? current.split(',') : (getStoredLangs() || []);
+      document.querySelectorAll('.lang-checkbox').forEach(cb => {
+        cb.checked = selected.length === 0 || selected.includes(cb.value);
+      });
+    }
+  }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#lang-dropdown') && !e.target.closest('#lang-btn')) {
+      document.getElementById('lang-dropdown').classList.remove('open');
+      document.getElementById('lang-btn').classList.remove('active');
+    }
+  });
+
+  function applyLanguages() {
+    const checked = [...document.querySelectorAll('.lang-checkbox:checked')].map(cb => cb.value);
+    const all = document.querySelectorAll('.lang-checkbox').length;
+    const langs = checked.length === all ? '' : checked.join(',');
+    localStorage.setItem(LANG_KEY, JSON.stringify(checked.length === all ? [] : checked));
+    const p = new URLSearchParams(window.location.search);
+    if (langs) p.set('langs', langs); else p.delete('langs');
+    window.location = '/?' + p.toString();
+  }
+
+  // Update button label to show active filter
+  (function() {
+    const langs = new URLSearchParams(window.location.search).get('langs');
+    if (langs) {
+      const count = langs.split(',').length;
+      document.getElementById('lang-btn').textContent = `🌐 ${count} lang${count > 1 ? 's' : ''}`;
+      document.getElementById('lang-btn').classList.add('active');
+    }
+  })();
+
+  function toggleSettings() {
+    const panel = document.getElementById('settings-panel');
+    const visible = panel.style.display !== 'none';
+    if (!visible) {
+      const saved = getStoredTopics() || ['', ''];
+      document.getElementById('default-topic1').value = saved[0] || '';
+      document.getElementById('default-topic2').value = saved[1] || '';
+    }
+    panel.style.display = visible ? 'none' : 'block';
+  }
+
+  function saveDefaultTopics() {
+    const t1 = document.getElementById('default-topic1').value.trim();
+    const t2 = document.getElementById('default-topic2').value.trim();
+    if (!t1 && !t2) {
+      // Clear saved topics — next visit will show empty panels
+      localStorage.removeItem('newsTopics');
+      window.location = '/';
+      return;
+    }
+    saveTopics(t1, t2);
+    const p = new URLSearchParams();
+    if (t1) p.set('topic1', t1);
+    if (t2) p.set('topic2', t2);
+    const hours = new URLSearchParams(window.location.search).get('hours');
+    if (hours) p.set('hours', hours);
+    window.location = '/?' + p.toString();
+  }
+
+  function changeTopic(e, panelIdx) {
+    e.preventDefault();
+    const input = e.target.querySelector('.topic-input');
+    const val = input.value.trim();
+    const p = new URLSearchParams(window.location.search);
+    if (val) {
+      p.set('topic' + panelIdx, val);
+    } else {
+      p.delete('topic' + panelIdx);
+    }
+    // Save updated topics
+    const t1 = panelIdx === 1 ? val : (p.get('topic1') || '');
+    const t2 = panelIdx === 2 ? val : (p.get('topic2') || '');
+    saveTopics(t1, t2);
+    window.location = '/?' + p.toString();
+  }
+</script>
+<script src="/static/app.js"></script>
+</body>
+</html>

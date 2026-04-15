@@ -66,6 +66,9 @@
         <button type="submit" class="topic-go-btn">&#8594;</button>
       </form>
       <span class="count">{{ panel_items|length }} items</span>
+      {% if panel_topic %}
+      <button class="refresh-btn" onclick="refreshPanel({{ panel_idx }}, '{{ panel_topic }}')" title="Fetch latest">&#8635;</button>
+      {% endif %}
       <button class="podcast-btn" onclick="requestPodcast('{{ panel_topic }}', this)" title="Generate podcast">&#127911; Podcast</button>
     </div>
     <div class="podcast-player" id="podcast-player-{{ panel_topic }}" style="display:none">

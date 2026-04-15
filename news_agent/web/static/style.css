@@ -489,6 +489,21 @@ h1 { font-size: 17px; font-weight: 700; color: var(--accent); }
 }
 .topic-form:focus-within .topic-go-btn { opacity: 1; color: var(--accent); }
 
+/* ── Refresh ──────────────────────────────────────────────── */
+.refresh-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+  line-height: 1;
+}
+.refresh-btn:hover { color: var(--accent); border-color: var(--accent); }
+.refresh-btn:disabled { opacity: 0.4; cursor: default; }
+
 /* ── Podcast ──────────────────────────────────────────────── */
 .podcast-btn {
   background: var(--accent-dim);

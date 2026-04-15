@@ -103,7 +103,6 @@ function refreshPanel(panelIdx, topic) {
     newsList.prepend(indicator);
   }
 
-  const hours = new URLSearchParams(window.location.search).get('hours') || '24';
   // force=true bypasses the 5-minute cooldown so explicit refresh always hits the APIs
   fetch(`/api/fetch?keyword=${encodeURIComponent(topic)}&force=true`, { method: 'POST' }).catch(() => {});
 
@@ -112,7 +111,7 @@ function refreshPanel(panelIdx, topic) {
 
   async function poll() {
     await new Promise(r => setTimeout(r, 1500));
-    const res = await fetch(`/api/fetch/status?topic=${encodeURIComponent(topic)}&hours=${hours}`)
+    const res = await fetch(`/api/fetch/status?topic=${encodeURIComponent(topic)}&hours=${_hours}`)
       .then(r => r.json()).catch(() => ({ running: false, count: initial }));
 
     if (res.count > initial) {
@@ -300,50 +299,52 @@ document.addEventListener('visibilitychange', () => {
 // ── Auto-fetch ────────────────────────────────────────────────────────────────
 // Each panel polls independently; when results arrive, only that panel updates.
 
+// Shared helpers — defined at module scope so refreshPanel (global) can reach them
+const _urlParams = new URLSearchParams(window.location.search);
+const _hours = _urlParams.get('hours') || '24';
+
+function _formatPubTime(el) {
+  const iso = el.dataset.utc;
+  if (!iso) return;
+  const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
+  el.textContent = d.toLocaleString(undefined, {
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+async function updatePanel(panelEl, topic) {
+  const langs = _urlParams.get('langs') || '';
+  const langParam = langs ? `&langs=${encodeURIComponent(langs)}` : '';
+  const [panelResp, digestResp] = await Promise.all([
+    fetch(`/api/panel?topic=${encodeURIComponent(topic)}&hours=${_hours}${langParam}`),
+    topic ? fetch(`/api/digest-fragment?topic=${encodeURIComponent(topic)}&hours=${_hours}`) : Promise.resolve(null),
+  ]);
+
+  const html = await panelResp.text();
+  const newsList = panelEl.querySelector('.news-list');
+  if (newsList) {
+    newsList.innerHTML = html;
+    const count = newsList.querySelectorAll('.news-card').length;
+    newsList.dataset.count = count;
+    const countBadge = panelEl.querySelector('.count');
+    if (countBadge) countBadge.textContent = `${count} items`;
+    newsList.querySelectorAll('.pub-time[data-utc]').forEach(_formatPubTime);
+  }
+
+  if (digestResp) {
+    const digestHtml = await digestResp.text();
+    const existing = panelEl.querySelector('.digest-summary');
+    if (existing) {
+      existing.outerHTML = digestHtml || '';
+    } else if (digestHtml.trim() && newsList) {
+      newsList.insertAdjacentHTML('beforebegin', digestHtml);
+    }
+  }
+}
+
 (function () {
-  const urlParams = new URLSearchParams(window.location.search);
-  const hours = urlParams.get('hours') || '24';
-
-  function formatPubTime(el) {
-    const iso = el.dataset.utc;
-    if (!iso) return;
-    const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
-    el.textContent = d.toLocaleString(undefined, {
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-    });
-  }
-
-  async function updatePanel(panelEl, topic) {
-    const langs = urlParams.get('langs') || '';
-    const langParam = langs ? `&langs=${encodeURIComponent(langs)}` : '';
-    const [panelResp, digestResp] = await Promise.all([
-      fetch(`/api/panel?topic=${encodeURIComponent(topic)}&hours=${hours}${langParam}`),
-      topic ? fetch(`/api/digest-fragment?topic=${encodeURIComponent(topic)}&hours=${hours}`) : Promise.resolve(null),
-    ]);
-
-    // Update news list
-    const html = await panelResp.text();
-    const newsList = panelEl.querySelector('.news-list');
-    if (newsList) {
-      newsList.innerHTML = html;
-      const count = newsList.querySelectorAll('.news-card').length;
-      newsList.dataset.count = count;
-      const countBadge = panelEl.querySelector('.count');
-      if (countBadge) countBadge.textContent = `${count} items`;
-      newsList.querySelectorAll('.pub-time[data-utc]').forEach(formatPubTime);
-    }
-
-    // Update digest summary (inject or replace above the news list)
-    if (digestResp) {
-      const digestHtml = await digestResp.text();
-      const existing = panelEl.querySelector('.digest-summary');
-      if (existing) {
-        existing.outerHTML = digestHtml || '';
-      } else if (digestHtml.trim() && newsList) {
-        newsList.insertAdjacentHTML('beforebegin', digestHtml);
-      }
-    }
-  }
+  const urlParams = _urlParams;
+  const hours = _hours;
 
   async function pollTopic(panelEl, topic) {
     const newsList = panelEl.querySelector('.news-list');

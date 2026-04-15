@@ -10,28 +10,28 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from news_agent.collectors.base import BaseCollector
 from news_agent.config import settings
 from news_agent.models import NewsItem
+from news_agent.spam import is_spam_ml
 
 logger = logging.getLogger(__name__)
 
-# Keywords that strongly indicate spam / pump-and-dump / scam content
+# Only the most unambiguous scam phrases — used as a fast pre-filter before
+# the ML model runs.  Keeping this list short avoids false positives on
+# legitimate finance/sports discussion (e.g. "free" in "free agent").
 _SPAM_PHRASES = [
     "guaranteed profit", "guaranteed return", "guaranteed income",
-    "daily profit", "daily income", "daily return",
-    "1,500", "1500+", "$1,500", "per day", "per week",
-    "dm me", "dm for", "message me", "contact me for",
-    "free signal", "free trade", "free tip",
-    "stock picker", "stock alert", "trade alert",
-    "join now", "sign up now", "limited offer",
-    "100% win", "never lose", "risk free", "risk-free",
-    "pump", "moon soon", "going to moon",
-    "get rich", "financial freedom in",
+    "dm me for profit", "dm for signals",
+    "100% win rate", "never lose",
     "copy my trades", "mirror trade",
+    "get rich quick",
 ]
 
 
 def _is_spam(text: str) -> bool:
+    """Two-stage filter: fast keyword check, then ML classifier."""
     t = text.lower()
-    return any(p in t for p in _SPAM_PHRASES)
+    if any(p in t for p in _SPAM_PHRASES):
+        return True
+    return is_spam_ml(text)
 
 
 class TwitterCollector(BaseCollector):

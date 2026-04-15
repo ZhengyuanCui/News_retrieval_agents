@@ -23,17 +23,33 @@ _SPAM_PHRASES = [
     "100% win rate", "never lose",
     "copy my trades", "mirror trade",
     "get rich quick",
-    # influencer / guru promotion patterns
+    # influencer / guru promotion patterns — direct
     "go follow", "check out my", "follow the incredible",
     "stock picks always", "stock market guru",
     "making a fortune", "never down",
     "his picks", "her picks",
+    # influencer / guru promotion patterns — testimonial style
+    "my trading improved", "my returns improved",
+    "started following @", "after following @",
+    "since following @", "since i started following",
+    "his insights", "her insights",
+    "his signals", "her signals",
+    "align with market", "aligns with market",
 ]
+
+# Tweets with many cashtags ($NVDA $AMD …) mixed with unrelated content are
+# almost always spam dumps.  Legitimate discussion rarely exceeds 3 cashtags.
+_CASHTAG_SPAM_THRESHOLD = 4
 
 
 def _keyword_spam(text: str) -> bool:
     t = text.lower()
-    return any(p in t for p in _SPAM_PHRASES)
+    if any(p in t for p in _SPAM_PHRASES):
+        return True
+    # Count $TICKER references — spam tweets pile them on
+    if text.count("$") >= _CASHTAG_SPAM_THRESHOLD:
+        return True
+    return False
 
 
 def _batch_spam_filter(tweets: list, engagements: list[int], engagement_floor: float,

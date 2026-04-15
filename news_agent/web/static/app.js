@@ -104,9 +104,9 @@ function refreshPanel(panelIdx, topic) {
   }
 
   const hours = new URLSearchParams(window.location.search).get('hours') || '24';
-  fetch(`/api/fetch?keyword=${encodeURIComponent(topic)}`, { method: 'POST' }).catch(() => {});
+  // force=true bypasses the 5-minute cooldown so explicit refresh always hits the APIs
+  fetch(`/api/fetch?keyword=${encodeURIComponent(topic)}&force=true`, { method: 'POST' }).catch(() => {});
 
-  // Poll until new items arrive or fetch completes
   const initial = parseInt(newsList?.dataset.count || '0', 10);
   let rounds = 0;
 
@@ -116,6 +116,7 @@ function refreshPanel(panelIdx, topic) {
       .then(r => r.json()).catch(() => ({ running: false, count: initial }));
 
     if (res.count > initial) {
+      // New items arrived — update panel and regenerate digest
       await updatePanel(panelEl, topic);
       const stale = panelEl.querySelector('.digest-summary');
       if (stale) stale.remove();
@@ -124,12 +125,14 @@ function refreshPanel(panelIdx, topic) {
       return;
     }
 
-    rounds++;
-    if (!res.running && rounds >= 2) {
-      // Nothing new — just re-render the panel so fresh API results show
-      await updatePanel(panelEl, topic);
-      if (btn) { btn.disabled = false; btn.textContent = '↻'; }
-      return;
+    if (!res.running) {
+      rounds++;
+      if (rounds >= 2) {
+        // Fetch finished but no new items — still refresh the panel view
+        await updatePanel(panelEl, topic);
+        if (btn) { btn.disabled = false; btn.textContent = '↻'; }
+        return;
+      }
     }
     poll();
   }

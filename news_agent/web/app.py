@@ -252,16 +252,17 @@ _keyword_last_fetch: dict[str, datetime] = {}
 _KEYWORD_COOLDOWN_SECONDS = 300  # don't re-fetch same keyword within 5 minutes
 
 @app.post("/api/fetch")
-async def trigger_fetch(keyword: str = ""):
-    """Fetch news for a keyword."""
+async def trigger_fetch(keyword: str = "", force: bool = False):
+    """Fetch news for a keyword. Pass force=true to bypass the cooldown (e.g. manual refresh)."""
     if not keyword:
         return {"started": False, "reason": "keyword required"}
     if keyword in _keyword_fetching:
         return {"started": False, "reason": "already fetching"}
 
-    last = _keyword_last_fetch.get(keyword.lower())
-    if last and (datetime.utcnow() - last).total_seconds() < _KEYWORD_COOLDOWN_SECONDS:
-        return {"started": False, "reason": "cooldown"}
+    if not force:
+        last = _keyword_last_fetch.get(keyword.lower())
+        if last and (datetime.utcnow() - last).total_seconds() < _KEYWORD_COOLDOWN_SECONDS:
+            return {"started": False, "reason": "cooldown"}
 
     from news_agent.orchestrator import run_keyword_fetch
 

@@ -155,10 +155,18 @@ class TwitterCollector(BaseCollector):
         client = self._build_client()
         items: list[NewsItem] = []
         max_age = datetime.utcnow() - timedelta(days=7)
-        # has:links: news tweets link to articles; spam is usually text-only
-        queries = [f'{keyword} lang:en -is:retweet -is:nullcast has:links']
+        # Two passes:
+        # 1. has:links  — article shares; broader spam tolerance since links are required
+        # 2. no has:links — organic discussion (game reactions, scores); higher engagement
+        #    floor to compensate for the missing link requirement
+        queries = [
+            (f'{keyword} lang:en -is:retweet -is:nullcast has:links', 0.05),
+            (f'{keyword} lang:en -is:retweet -is:nullcast', 0.15),
+        ]
 
-        for query in queries:
+        seen_ids: set = set()
+
+        for query, floor_pct in queries:
             try:
                 await self._rate_limit()
                 tweets = await self._search(client, query, 50)
@@ -169,9 +177,10 @@ class TwitterCollector(BaseCollector):
                 ]
                 max_engagement = max(engagements, default=1)
                 max_likes = max((m.get("like_count", 0) for m in metrics_list), default=1)
-                # Cap floor at 50 so viral outliers don't eliminate the whole batch
-                engagement_floor = min(max(20, max_engagement * 0.05), 100)
+                engagement_floor = min(max(20, max_engagement * floor_pct), 100)
                 for tweet, engagement in zip(tweets, engagements):
+                    if tweet.id in seen_ids:
+                        continue
                     if engagement < engagement_floor:
                         continue
                     if _is_spam(tweet.text):
@@ -192,6 +201,7 @@ class TwitterCollector(BaseCollector):
                         created = created.replace(tzinfo=None)
                     if created and created < max_age:
                         continue
+                    seen_ids.add(tweet.id)
                     items.append(NewsItem(
                         source=source, topic=keyword,
                         title=tweet.text[:280], url=url, content=tweet.text,

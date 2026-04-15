@@ -10,28 +10,94 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from news_agent.collectors.base import BaseCollector
 from news_agent.config import settings
 from news_agent.models import NewsItem
-from news_agent.spam import is_spam_ml
+from news_agent.spam import is_spam_ml_batch
 
 logger = logging.getLogger(__name__)
 
-# Only the most unambiguous scam phrases — used as a fast pre-filter before
-# the ML model runs.  Keeping this list short avoids false positives on
-# legitimate finance/sports discussion (e.g. "free" in "free agent").
+# Fast keyword pre-filter — catches unambiguous scam patterns before the ML
+# model runs.  Keep this list focused; overly broad terms cause false positives
+# on legitimate finance/sports discussion.
 _SPAM_PHRASES = [
     "guaranteed profit", "guaranteed return", "guaranteed income",
     "dm me for profit", "dm for signals",
     "100% win rate", "never lose",
     "copy my trades", "mirror trade",
     "get rich quick",
+    # influencer / guru promotion patterns
+    "go follow", "check out my", "follow the incredible",
+    "stock picks always", "stock market guru",
+    "making a fortune", "never down",
+    "his picks", "her picks",
 ]
 
 
-def _is_spam(text: str) -> bool:
-    """Two-stage filter: fast keyword check, then ML classifier."""
+def _keyword_spam(text: str) -> bool:
     t = text.lower()
-    if any(p in t for p in _SPAM_PHRASES):
-        return True
-    return is_spam_ml(text)
+    return any(p in t for p in _SPAM_PHRASES)
+
+
+def _batch_spam_filter(tweets: list, engagements: list[int], engagement_floor: float,
+                       seen_ids: set, max_age, max_likes: int, keyword: str) -> list[NewsItem]:
+    """
+    Filter engagement floor + dedup, then batch-classify remaining tweets for spam.
+    Returns NewsItem list for tweets that pass all filters.
+    """
+    from urllib.parse import urlparse
+
+    # Phase 1: cheap filters (no ML)
+    candidates = []
+    candidate_engagements = []
+    for tweet, engagement in zip(tweets, engagements):
+        if tweet.id in seen_ids:
+            continue
+        if engagement < engagement_floor:
+            continue
+        created = tweet.created_at
+        if created and created.tzinfo:
+            created = created.replace(tzinfo=None)
+        if created and created < max_age:
+            continue
+        if _keyword_spam(tweet.text):
+            logger.debug("Keyword spam: %s", tweet.text[:80])
+            continue
+        candidates.append((tweet, engagement, created))
+        candidate_engagements.append(engagement)
+
+    if not candidates:
+        return []
+
+    # Phase 2: batch ML spam classification
+    texts = [t.text for t, _, _ in candidates]
+    spam_flags = is_spam_ml_batch(texts)
+
+    items = []
+    for (tweet, engagement, created), is_spam in zip(candidates, spam_flags):
+        if is_spam:
+            logger.debug("ML spam: %s", tweet.text[:80])
+            continue
+        url = f"https://x.com/i/web/status/{tweet.id}"
+        source = "x"
+        if tweet.entities and tweet.entities.get("urls"):
+            expanded = tweet.entities["urls"][0].get("expanded_url", "")
+            if expanded and "twitter.com" not in expanded and "x.com" not in expanded:
+                url = expanded
+                host = urlparse(expanded).hostname or ""
+                parts = host.lstrip("www.").split(".")
+                source = parts[0] if parts else "x"
+        seen_ids.add(tweet.id)
+        items.append(NewsItem(
+            source=source, topic=keyword,
+            title=tweet.text[:280], url=url, content=tweet.text,
+            published_at=created or datetime.utcnow(),
+            raw_score=_normalize(engagement, 0, max_likes * 3),
+        ))
+    return items
+
+
+def _normalize(value: float, min_val: float, max_val: float) -> float:
+    if max_val <= min_val:
+        return 0.5
+    return min(1.0, max(0.0, (value - min_val) / (max_val - min_val)))
 
 
 class TwitterCollector(BaseCollector):
@@ -93,51 +159,12 @@ class TwitterCollector(BaseCollector):
                 # Relative threshold: keep tweets above 5% of batch peak, capped at 50
                 # so a single viral outlier doesn't eliminate the entire batch.
                 engagement_floor = min(max(20, max_engagement * 0.05), 100)
-
-                for tweet in tweets:
-                    metrics = tweet.public_metrics or {}
-                    likes = metrics.get("like_count", 0)
-                    retweets = metrics.get("retweet_count", 0)
-                    engagement = likes + retweets * 2
-
-                    if engagement < engagement_floor:
-                        continue
-                    if _is_spam(tweet.text):
-                        logger.debug("Skipping spam tweet: %s", tweet.text[:80])
-                        continue
-
-                    # Extract URLs from entities if available
-                    url = f"https://x.com/i/web/status/{tweet.id}"
-                    source = "x"
-                    if tweet.entities and tweet.entities.get("urls"):
-                        expanded = tweet.entities["urls"][0].get("expanded_url", "")
-                        if expanded and "twitter.com" not in expanded and "x.com" not in expanded:
-                            url = expanded
-                            # Use the publishing domain as the source label
-                            from urllib.parse import urlparse
-                            host = urlparse(expanded).hostname or ""
-                            # Strip www. and take the second-level domain (e.g. "forbes.com" → "forbes")
-                            parts = host.lstrip("www.").split(".")
-                            source = parts[0] if parts else "x"
-
-                    created = tweet.created_at
-                    if created and created.tzinfo:
-                        created = created.replace(tzinfo=None)
-
-                    if created and created < max_age:
-                        continue
-
-                    items.append(
-                        NewsItem(
-                            source=source,
-                            topic=topic,
-                            title=tweet.text[:280],
-                            url=url,
-                            content=tweet.text,
-                            published_at=created or datetime.utcnow(),
-                            raw_score=self.normalize_score(engagement, 0, max_likes * 3),
-                        )
-                    )
+                seen_ids: set = set()
+                batch = _batch_spam_filter(
+                    tweets, engagements, engagement_floor,
+                    seen_ids, max_age, max_likes, topic,
+                )
+                items.extend(batch)
 
             except tweepy.TweepyException as e:
                 logger.error("Twitter API error (query=%r): %s — check bearer token and API access tier", query[:50], e)
@@ -178,36 +205,11 @@ class TwitterCollector(BaseCollector):
                 max_engagement = max(engagements, default=1)
                 max_likes = max((m.get("like_count", 0) for m in metrics_list), default=1)
                 engagement_floor = min(max(20, max_engagement * floor_pct), 100)
-                for tweet, engagement in zip(tweets, engagements):
-                    if tweet.id in seen_ids:
-                        continue
-                    if engagement < engagement_floor:
-                        continue
-                    if _is_spam(tweet.text):
-                        logger.debug("Skipping spam tweet: %s", tweet.text[:80])
-                        continue
-                    url = f"https://x.com/i/web/status/{tweet.id}"
-                    source = "x"
-                    if tweet.entities and tweet.entities.get("urls"):
-                        expanded = tweet.entities["urls"][0].get("expanded_url", "")
-                        if expanded and "twitter.com" not in expanded and "x.com" not in expanded:
-                            url = expanded
-                            from urllib.parse import urlparse
-                            host = urlparse(expanded).hostname or ""
-                            parts = host.lstrip("www.").split(".")
-                            source = parts[0] if parts else "x"
-                    created = tweet.created_at
-                    if created and created.tzinfo:
-                        created = created.replace(tzinfo=None)
-                    if created and created < max_age:
-                        continue
-                    seen_ids.add(tweet.id)
-                    items.append(NewsItem(
-                        source=source, topic=keyword,
-                        title=tweet.text[:280], url=url, content=tweet.text,
-                        published_at=created or datetime.utcnow(),
-                        raw_score=self.normalize_score(engagement, 0, max_likes * 3),
-                    ))
+                batch = _batch_spam_filter(
+                    tweets, engagements, engagement_floor,
+                    seen_ids, max_age, max_likes, keyword,
+                )
+                items.extend(batch)
             except Exception as e:
                 logger.error("Twitter keyword fetch error (%r): %s", keyword, e, exc_info=True)
         logger.info("TwitterCollector keyword=%r fetched %d items", keyword, len(items))

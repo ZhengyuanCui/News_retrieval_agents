@@ -22,22 +22,34 @@ def _get_pipeline():
         return None
 
 
+def warmup() -> None:
+    """Pre-load the model so the first real request doesn't pay the loading cost."""
+    _get_pipeline()
+
+
 def is_spam_ml(text: str, threshold: float = 0.85) -> bool:
+    """Single-item check. Prefer is_spam_ml_batch() for multiple texts."""
+    results = is_spam_ml_batch([text], threshold=threshold)
+    return results[0]
+
+
+def is_spam_ml_batch(texts: list[str], threshold: float = 0.85) -> list[bool]:
     """
-    Return True if the ML model considers the text spam with confidence >= threshold.
-    Falls back to False (don't block) if the model is unavailable.
+    Classify a batch of texts in one forward pass — much faster than one at a time.
+    Returns a list of booleans (True = spam) in the same order as input.
+    Falls back to all-False if the model is unavailable.
     """
+    if not texts:
+        return []
     clf = _get_pipeline()
     if clf is None:
-        return False
+        return [False] * len(texts)
     try:
-        result = clf(text[:512])[0]
-        label = result["label"].upper()
-        score = result["score"]
-        if label == "SPAM" and score >= threshold:
-            logger.debug("ML spam (%.2f): %s", score, text[:80])
-            return True
-        return False
+        results = clf([t[:512] for t in texts], batch_size=32)
+        return [
+            r["label"].upper() == "SPAM" and r["score"] >= threshold
+            for r in results
+        ]
     except Exception as e:
-        logger.debug("Spam classifier error: %s", e)
-        return False
+        logger.debug("Spam classifier batch error: %s", e)
+        return [False] * len(texts)

@@ -38,9 +38,10 @@ async def run_fetch_cycle(topics: list[str] | None = None) -> dict:
     raw_items = await aggregator.fetch_all()
     logger.info("Aggregated %d raw items from %d collectors", len(raw_items), len(collectors))
 
-    # 2. Deduplicate
+    # 2. Deduplicate (sentence-transformers encode is CPU-bound — run in thread pool)
     deduplicator = Deduplicator()
-    deduped_items = deduplicator.deduplicate(raw_items)
+    loop = asyncio.get_event_loop()
+    deduped_items = await loop.run_in_executor(None, deduplicator.deduplicate, raw_items)
     unique_count = sum(1 for i in deduped_items if not i.is_duplicate)
     logger.info("After dedup: %d unique / %d total", unique_count, len(deduped_items))
 
@@ -161,7 +162,8 @@ async def run_keyword_fetch(keyword: str) -> dict:
         return {"items_stored": 0}
 
     deduplicator = Deduplicator()
-    deduped = deduplicator.deduplicate(raw_items)
+    loop = asyncio.get_event_loop()
+    deduped = await loop.run_in_executor(None, deduplicator.deduplicate, raw_items)
 
     # Clear stale analysis so items are re-scored with the correct topic-specific prompt
     for item in deduped:

@@ -121,6 +121,23 @@ async def startup():
         for f in legacy_dir.glob("*.mp3"):
             f.unlink(missing_ok=True)
 
+    # Pre-warm ML models in a background thread so the first search doesn't
+    # pay the model-loading cost (~5-15s for sentence-transformers + spam classifier)
+    import asyncio as _asyncio
+    def _warmup_models():
+        try:
+            from news_agent.spam import warmup as _spam_warmup
+            _spam_warmup()
+        except Exception:
+            pass
+        try:
+            from news_agent.pipeline.deduplicator import Deduplicator as _Dedup
+            _Dedup()._load_semantic_model()
+        except Exception:
+            pass
+    loop = _asyncio.get_event_loop()
+    loop.run_in_executor(None, _warmup_models)
+
     # Start the background scheduler (fetch every N hours, digest at 08:00, prune at 03:00)
     from news_agent.scheduler import build_scheduler
     _scheduler = build_scheduler()

@@ -203,9 +203,9 @@ class TwitterCollector(BaseCollector):
                     for t in tweets
                 ]
                 max_engagement = max(engagements, default=1)
-                # Relative threshold: keep tweets above 5% of batch peak, capped at 100.
-                # Minimum of 5 so a quiet batch doesn't filter everything.
-                engagement_floor = min(max(5, max_engagement * 0.05), 100)
+                # Fixed floor: just filter zero-engagement noise.
+                # Relative floors caused viral outliers to eliminate entire batches.
+                engagement_floor = 3
                 seen_ids: set = set()
                 batch = _batch_spam_filter(
                     tweets, engagements, engagement_floor,
@@ -234,13 +234,13 @@ class TwitterCollector(BaseCollector):
         # 2. no has:links — organic discussion (game reactions, scores); higher engagement
         #    floor to compensate for the missing link requirement
         queries = [
-            (f'{keyword} lang:en -is:retweet -is:nullcast has:links', 0.05),
-            (f'{keyword} lang:en -is:retweet -is:nullcast', 0.15),
+            f'{keyword} lang:en -is:retweet -is:nullcast has:links',
+            f'{keyword} lang:en -is:retweet -is:nullcast',
         ]
 
         seen_ids: set = set()
 
-        for query, floor_pct in queries:
+        for query in queries:
             try:
                 await self._rate_limit()
                 tweets = await self._search(client, query, 100)
@@ -250,7 +250,9 @@ class TwitterCollector(BaseCollector):
                     for m in metrics_list
                 ]
                 max_engagement = max(engagements, default=1)
-                engagement_floor = min(max(5, max_engagement * floor_pct), 100)
+                # Fixed floor: filter zero-engagement noise only.
+                # has:links gets a slightly lower floor since link-tweets need a click anyway.
+                engagement_floor = 3 if "has:links" in query else 5
                 batch = _batch_spam_filter(
                     tweets, engagements, engagement_floor,
                     seen_ids, max_age, max_engagement, keyword,

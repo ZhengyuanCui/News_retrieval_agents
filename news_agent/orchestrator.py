@@ -85,8 +85,13 @@ async def run_fetch_cycle(topics: list[str] | None = None) -> dict:
 
 
 async def _analyze_and_digest(deduped_items: list[NewsItem], topics: list[str]) -> None:
-    """Run Claude analysis and digest generation after items are already stored."""
+    """Score items with the LLM in the background (summaries, relevance, tags, sentiment).
+    Digest generation is handled on-demand by the /api/digest-stream SSE endpoint so it
+    doesn't compete with batch analysis for the token-rate-limit budget."""
     try:
+        # Brief pause so any in-flight digest stream request gets its LLM call in first,
+        # before the heavier batch analysis starts consuming the token-rate-limit window.
+        await asyncio.sleep(5)
         analyzer = ClaudeAnalyzer()
 
         # Apply preference boosts
@@ -96,7 +101,7 @@ async def _analyze_and_digest(deduped_items: list[NewsItem], topics: list[str]) 
         if prefs:
             deduped_items = apply_preference_boost(deduped_items, prefs)
 
-        # Analyze per topic
+        # Analyze per topic (fills summary, relevance_score, tags, sentiment)
         for topic in topics:
             topic_items = [i for i in deduped_items if i.topic == topic]
             if not topic_items:
@@ -105,34 +110,12 @@ async def _analyze_and_digest(deduped_items: list[NewsItem], topics: list[str]) 
                 analyzed = await analyzer.analyze_batch(topic_items, topic)
                 analyzed_map = {i.id: i for i in analyzed}
                 deduped_items = [analyzed_map.get(i.id, i) for i in deduped_items]
-                # Update stored items with summaries/scores
                 async with get_session() as session:
                     repo = NewsRepository(session)
                     await repo.upsert_many([analyzed_map[i] for i in analyzed_map])
                 logger.info("Analysis complete for topic '%s'", topic)
             except Exception as e:
                 logger.error("Analysis failed for topic '%s': %s", topic, e)
-
-        # Generate digests
-        date_str = datetime.utcnow().strftime("%Y-%m-%d")
-        for topic in topics:
-            try:
-                if not _is_digest_topic(topic, deduped_items):
-                    logger.debug("Skipping digest for source-like topic '%s'", topic)
-                    continue
-                topic_items = [i for i in deduped_items if i.topic == topic and not i.is_duplicate]
-                if topic_items:
-                    digest_text = await analyzer.generate_digest(topic_items, topic)
-                    # Don't cache error messages — let the UI retry on next load
-                    if digest_text and not digest_text.startswith("Digest generation failed"):
-                        async with get_session() as session:
-                            repo = NewsRepository(session)
-                            await repo.upsert_digest(date_str, topic, digest_text, len(topic_items))
-                        logger.info("Digest generated for topic '%s'", topic)
-                    else:
-                        logger.warning("Skipping digest cache for '%s' due to generation error", topic)
-            except Exception as e:
-                logger.error("Digest generation failed for topic '%s': %s", topic, e)
 
     except Exception as e:
         logger.error("Background analysis failed: %s", e)

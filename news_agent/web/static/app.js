@@ -322,11 +322,16 @@ async function updatePanel(panelEl, topic) {
   if (digestResp) {
     const digestHtml = await digestResp.text();
     const existing = panelEl.querySelector('.digest-summary');
-    if (existing) {
-      existing.outerHTML = digestHtml || '';
-    } else if (digestHtml.trim() && newsList) {
-      newsList.insertAdjacentHTML('beforebegin', digestHtml);
+    if (digestHtml.trim()) {
+      // Only update the digest when we have real content — never clear a live
+      // streaming digest by replacing it with an empty fragment response.
+      if (existing) {
+        existing.outerHTML = digestHtml;
+      } else if (newsList) {
+        newsList.insertAdjacentHTML('beforebegin', digestHtml);
+      }
     }
+    // If digestHtml is empty: keep whatever is already shown (may be mid-stream)
   }
 }
 
@@ -391,7 +396,8 @@ async function updatePanel(panelEl, topic) {
     } else {
       // Panel already has items — show digest if missing, then watch for new items
       if (!panelEl.querySelector('.digest-summary')) pollDigest(panelEl, topic);
-      // Light background poll: refresh panel if more items arrive
+      // Light background poll: refresh panel if more items arrive.
+      // Keeps polling while the fetch is running; stops after 3 quiet rounds once done.
       (async () => {
         const initial = parseInt(panelEl.querySelector('.news-list')?.dataset.count || '0', 10);
         let noChange = 0;
@@ -401,6 +407,7 @@ async function updatePanel(panelEl, topic) {
             .then(r => r.json()).catch(() => ({ running: false, count: initial }));
           if (res.count > initial) { await updatePanel(panelEl, topic); return; }
           if (!res.running) noChange++;
+          else noChange = 0; // reset — keep waiting while fetch is still running
         }
       })();
     }

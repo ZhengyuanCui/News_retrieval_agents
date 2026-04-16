@@ -87,7 +87,7 @@ class NewsRepository:
         cutoff = max(since, max_age)
         q = select(NewsItemORM).where(NewsItemORM.published_at >= cutoff)
         if topic:
-            q = q.where(NewsItemORM.topic == topic)
+            q = q.where(NewsItemORM.topic.ilike(topic))
         if source:
             q = q.where(NewsItemORM.source == source)
         if not include_duplicates:

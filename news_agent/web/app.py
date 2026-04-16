@@ -196,36 +196,6 @@ async def digest_page(hours: float = 24, topic1: str = "", topic2: str = "", lan
     )
 
 
-@app.get("/search", response_class=HTMLResponse)
-async def search_page(q: str = "", hours: float = 24):
-    items = []
-    starred = set()
-    if q.strip():
-        async with get_session() as session:
-            repo = NewsRepository(session)
-            items = await repo.search(q.strip(), hours=hours)
-            starred = await repo.get_starred_ids()
-        # Always kick off a background fetch to find more/better results
-        if q.strip() not in _keyword_fetching:
-            from news_agent.orchestrator import run_keyword_fetch
-            async def _bg():
-                _keyword_fetching.add(q.strip())
-                try:
-                    await run_keyword_fetch(q.strip())
-                finally:
-                    _keyword_fetching.discard(q.strip())
-            _track(_bg())
-
-    return render(
-        "search.html",
-        q=q,
-        items=items,
-        starred_ids=starred,
-        hours=hours,
-        date=datetime.utcnow().strftime("%B %d, %Y"),
-    )
-
-
 # ── Interaction API ───────────────────────────────────────────────────────────
 
 class InteractionPayload(BaseModel):

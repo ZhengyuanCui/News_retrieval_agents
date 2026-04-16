@@ -35,7 +35,7 @@ def is_spam_ml(text: str, threshold: float = 0.85) -> bool:
     return results[0]
 
 
-def is_spam_ml_batch(texts: list[str], threshold: float = 0.85) -> list[bool]:
+def is_spam_ml_batch(texts: list[str], threshold: float = 0.80) -> list[bool]:
     """
     Classify a batch of texts in one forward pass — much faster than one at a time.
     Returns a list of booleans (True = spam) in the same order as input.
@@ -48,10 +48,13 @@ def is_spam_ml_batch(texts: list[str], threshold: float = 0.85) -> list[bool]:
         return [False] * len(texts)
     try:
         results = clf([t[:512] for t in texts], batch_size=32)
-        return [
-            r["label"].upper() == "SPAM" and r["score"] >= threshold
-            for r in results
-        ]
+        flags = []
+        for text, r in zip(texts, results):
+            is_spam = r["label"].upper() == "SPAM" and r["score"] >= threshold
+            if is_spam:
+                logger.debug("ML spam (%.2f): %s", r["score"], text[:80])
+            flags.append(is_spam)
+        return flags
     except Exception as e:
         logger.debug("Spam classifier batch error: %s", e)
         return [False] * len(texts)

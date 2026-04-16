@@ -329,29 +329,32 @@ async def digest_stream(topic: str, hours: float = 24):
             items = await repo.get_recent(hours=hours, topic=topic, limit=30)
 
         if existing:
-            # Discard cached error messages — they should never be served as digests.
+            # Delete cached error messages from DB so they can never be re-served.
             cached_content = existing.content or ""
-            if cached_content.startswith("Digest generation failed"):
+            if cached_content.startswith("Digest generation failed") or "[Error:" in cached_content:
+                async with get_session() as session:
+                    repo = NewsRepository(session)
+                    await repo.delete_digest(today, topic.lower())
                 existing = None
+                logger.info("Deleted bad cached digest for '%s'", topic)
 
+        stale_fallback = None  # cached content to fall back to if regeneration fails
         if existing:
-            # Serve cached digest only if item count hasn't changed significantly.
-            # A large jump means items were re-fetched (e.g. after spam-filter changes)
-            # and the cached digest is stale.
             cached_count = existing.item_count or 0
             current_count = len(items)
-            count_diff = abs(current_count - cached_count)
-            is_stale = count_diff > max(5, cached_count * 0.3)
+            # Only regenerate if item count more than doubled — normal fetches bring
+            # incremental updates, not wholesale replacements.
+            is_stale = current_count > cached_count * 2 and current_count - cached_count > 20
             if not is_stale:
                 text = existing.content
                 chunk_size = 8
                 for i in range(0, len(text), chunk_size):
-                    chunk = text[i:i + chunk_size]
-                    yield f"data: {_json.dumps({'t': chunk})}\n\n"
+                    yield f"data: {_json.dumps({'t': text[i:i+chunk_size]})}\n\n"
                 yield f"data: {_json.dumps({'done': True})}\n\n"
                 return
+            stale_fallback = existing.content
             logger.info(
-                "Digest cache stale for '%s': cached=%d items, current=%d items — regenerating",
+                "Digest cache stale for '%s': cached=%d items, current=%d — regenerating",
                 topic, cached_count, current_count,
             )
 
@@ -368,7 +371,12 @@ async def digest_stream(topic: str, hours: float = 24):
                 yield f"data: {_json.dumps({'t': chunk})}\n\n"
         except Exception as e:
             logger.error("Digest stream failed for '%s': %s", topic, e)
-            yield f"data: {_json.dumps({'t': f' [Error: {e}]'})}\n\n"
+            # Fall back to cached digest rather than showing a raw error
+            if stale_fallback:
+                logger.info("Falling back to stale cached digest for '%s'", topic)
+                chunk_size = 8
+                for i in range(0, len(stale_fallback), chunk_size):
+                    yield f"data: {_json.dumps({'t': stale_fallback[i:i+chunk_size]})}\n\n"
 
         yield f"data: {_json.dumps({'done': True})}\n\n"
 

@@ -329,6 +329,12 @@ async def digest_stream(topic: str, hours: float = 24):
             items = await repo.get_recent(hours=hours, topic=topic, limit=30)
 
         if existing:
+            # Discard cached error messages — they should never be served as digests.
+            cached_content = existing.content or ""
+            if cached_content.startswith("Digest generation failed"):
+                existing = None
+
+        if existing:
             # Serve cached digest only if item count hasn't changed significantly.
             # A large jump means items were re-fetched (e.g. after spam-filter changes)
             # and the cached digest is stale.

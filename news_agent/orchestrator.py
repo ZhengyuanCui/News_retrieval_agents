@@ -123,10 +123,14 @@ async def _analyze_and_digest(deduped_items: list[NewsItem], topics: list[str]) 
                 topic_items = [i for i in deduped_items if i.topic == topic and not i.is_duplicate]
                 if topic_items:
                     digest_text = await analyzer.generate_digest(topic_items, topic)
-                    async with get_session() as session:
-                        repo = NewsRepository(session)
-                        await repo.upsert_digest(date_str, topic, digest_text, len(topic_items))
-                    logger.info("Digest generated for topic '%s'", topic)
+                    # Don't cache error messages — let the UI retry on next load
+                    if digest_text and not digest_text.startswith("Digest generation failed"):
+                        async with get_session() as session:
+                            repo = NewsRepository(session)
+                            await repo.upsert_digest(date_str, topic, digest_text, len(topic_items))
+                        logger.info("Digest generated for topic '%s'", topic)
+                    else:
+                        logger.warning("Skipping digest cache for '%s' due to generation error", topic)
             except Exception as e:
                 logger.error("Digest generation failed for topic '%s': %s", topic, e)
 

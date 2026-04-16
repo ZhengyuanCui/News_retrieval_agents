@@ -199,10 +199,20 @@ class ClaudeAnalyzer:
         )
         prompt = DIGEST_PROMPT.format(n=len(top_items), topic_label=topic_label, items_text=items_text)
 
-        async with self.async_client.messages.stream(
-            model=self.model,
-            max_tokens=1500,
-            messages=[{"role": "user", "content": prompt}],
-        ) as stream:
-            async for text in stream.text_stream:
-                yield text
+        for attempt in range(3):
+            try:
+                async with self.async_client.messages.stream(
+                    model=self.model,
+                    max_tokens=1500,
+                    messages=[{"role": "user", "content": prompt}],
+                ) as stream:
+                    async for text in stream.text_stream:
+                        yield text
+                return  # success
+            except anthropic.RateLimitError:
+                wait = 30 * (attempt + 1)
+                logger.warning("Claude rate limit on digest stream '%s' — waiting %ds (attempt %d/3)", topic, wait, attempt + 1)
+                await asyncio.sleep(wait)
+            except Exception as e:
+                logger.error("Digest stream failed for '%s': %s", topic, e)
+                raise

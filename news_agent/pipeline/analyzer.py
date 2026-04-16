@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from datetime import datetime
@@ -77,47 +78,60 @@ class ClaudeAnalyzer:
 
         # Process in batches of BATCH_SIZE
         for i in range(0, len(to_analyze), settings.batch_size):
+            if i > 0:
+                await asyncio.sleep(2)  # avoid bursting through token-per-minute limit
             batch = to_analyze[i: i + settings.batch_size]
-            try:
-                prompt = ITEM_ANALYSIS_PROMPT.format(
-                    n=len(batch),
-                    topic=topic_label,
-                    items_json=self._build_items_json(batch),
-                )
-                response = await self.async_client.messages.create(
-                    model=self.model,
-                    max_tokens=4096,
-                    messages=[{"role": "user", "content": prompt}],
-                )
-                raw = response.content[0].text.strip()
+            for attempt in range(3):
+                try:
+                    prompt = ITEM_ANALYSIS_PROMPT.format(
+                        n=len(batch),
+                        topic=topic_label,
+                        items_json=self._build_items_json(batch),
+                    )
+                    response = await self.async_client.messages.create(
+                        model=self.model,
+                        max_tokens=4096,
+                        messages=[{"role": "user", "content": prompt}],
+                    )
+                    raw = response.content[0].text.strip()
 
-                # Extract JSON array (handle markdown code blocks)
-                if "```" in raw:
-                    raw = raw.split("```")[1]
-                    if raw.startswith("json"):
-                        raw = raw[4:]
+                    # Extract JSON array (handle markdown code blocks)
+                    if "```" in raw:
+                        raw = raw.split("```")[1]
+                        if raw.startswith("json"):
+                            raw = raw[4:]
 
-                analyses = json.loads(raw)
-                if not isinstance(analyses, list):
-                    raise ValueError("Expected JSON array")
+                    analyses = json.loads(raw)
+                    if not isinstance(analyses, list):
+                        raise ValueError("Expected JSON array")
 
-                for item, analysis in zip(batch, analyses):
-                    item.summary = analysis.get("summary")
-                    item.relevance_score = float(analysis.get("relevance_score", 5.0))
-                    item.key_entities = analysis.get("key_entities", [])
-                    item.sentiment = analysis.get("sentiment", "neutral")
-                    item.tags = analysis.get("tags", [])
-                    results.append(item)
+                    for item, analysis in zip(batch, analyses):
+                        item.summary = analysis.get("summary")
+                        item.relevance_score = float(analysis.get("relevance_score", 5.0))
+                        item.key_entities = analysis.get("key_entities", [])
+                        item.sentiment = analysis.get("sentiment", "neutral")
+                        item.tags = analysis.get("tags", [])
+                        results.append(item)
+                    break  # success
 
-            except json.JSONDecodeError as e:
-                logger.error("Claude returned invalid JSON for batch %d: %s", i, e)
-                results.extend(batch)
-            except anthropic.APIError as e:
-                logger.error("Claude API error for batch %d: %s", i, e)
-                results.extend(batch)
-            except Exception as e:
-                logger.error("Unexpected analyzer error for batch %d: %s", i, e)
-                results.extend(batch)
+                except anthropic.RateLimitError:
+                    wait = 30 * (attempt + 1)
+                    logger.warning("Claude rate limit hit on batch %d — waiting %ds", i, wait)
+                    await asyncio.sleep(wait)
+                    if attempt == 2:
+                        results.extend(batch)
+                except json.JSONDecodeError as e:
+                    logger.error("Claude returned invalid JSON for batch %d: %s", i, e)
+                    results.extend(batch)
+                    break
+                except anthropic.APIError as e:
+                    logger.error("Claude API error for batch %d: %s", i, e)
+                    results.extend(batch)
+                    break
+                except Exception as e:
+                    logger.error("Unexpected analyzer error for batch %d: %s", i, e)
+                    results.extend(batch)
+                    break
 
         # Merge back: items that already had summaries stay unchanged
         analyzed_ids = {item.id for item in results}
@@ -147,19 +161,24 @@ class ClaudeAnalyzer:
             for i, item in enumerate(top_items)
         )
 
-        try:
-            response = await self.async_client.messages.create(
-                model=self.model,
-                max_tokens=1500,
-                messages=[{"role": "user", "content": DIGEST_PROMPT.format(
-                    n=len(top_items), topic_label=topic_label, items_text=items_text,
-                )}],
-            )
-            # Store plain text as-is (first line = headline, rest = bullets)
-            return response.content[0].text.strip()
-        except Exception as e:
-            logger.error("Digest generation failed for topic '%s': %s", topic, e)
-            return f"Digest generation failed: {e}"
+        for attempt in range(3):
+            try:
+                response = await self.async_client.messages.create(
+                    model=self.model,
+                    max_tokens=1500,
+                    messages=[{"role": "user", "content": DIGEST_PROMPT.format(
+                        n=len(top_items), topic_label=topic_label, items_text=items_text,
+                    )}],
+                )
+                return response.content[0].text.strip()
+            except anthropic.RateLimitError:
+                wait = 30 * (attempt + 1)
+                logger.warning("Claude rate limit on digest '%s' — waiting %ds", topic, wait)
+                await asyncio.sleep(wait)
+            except Exception as e:
+                logger.error("Digest generation failed for topic '%s': %s", topic, e)
+                return f"Digest generation failed: {e}"
+        return "Digest generation failed: rate limit retries exhausted."
 
     async def generate_digest_stream(self, items: list[NewsItem], topic: str):
         """Stream digest generation, yielding raw text chunks as Claude writes them."""

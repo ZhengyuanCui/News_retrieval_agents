@@ -1,11 +1,11 @@
 # News Retrieval Agent
 
-An AI-powered news aggregator that collects articles, tweets, videos, and posts from multiple sources, deduplicates and ranks them, then generates Claude-powered summaries — all served through a real-time web UI.
+An AI-powered news aggregator that collects articles, tweets, videos, and posts from multiple sources, deduplicates and ranks them, then generates AI-powered summaries — all served through a real-time web UI. Supports any LLM: Anthropic Claude, OpenAI GPT, Groq, Google Gemini, Mistral, and more.
 
 ## Features
 
 - **Multi-source collection** — RSS feeds, X/Twitter, Reddit, YouTube, GitHub, LinkedIn
-- **AI analysis** — Claude scores each item for relevance, sentiment, key entities, and tags
+- **AI analysis** — scores each item for relevance, sentiment, key entities, and tags using any LLM
 - **Real-time digest streaming** — summaries stream token-by-token like a chat response
 - **Keyword search** — search any topic on demand; results appear as they are fetched
 - **Language filtering** — filter news by language; non-English YouTube videos are excluded
@@ -46,7 +46,6 @@ news_agent/
 │   │   └── style.css
 │   └── templates/
 │       ├── digest.html           # Main two-panel page
-│       ├── search.html           # Search landing page
 │       └── partials/             # Jinja2 fragments for AJAX updates
 │
 ├── models.py            # Pydantic NewsItem + SQLAlchemy ORM models
@@ -92,11 +91,31 @@ pip install -e ".[dev]"
 cp .env.example .env
 ```
 
-Edit `.env` and fill in the API keys you want to use. Only `ANTHROPIC_API_KEY` is required for analysis and digests; all source keys are optional — sources without keys are automatically disabled.
+Edit `.env` and fill in the API keys you want to use. One LLM key is required for analysis and digests; all source keys are optional — sources without keys are automatically disabled.
+
+#### LLM provider (pick one)
+
+The app uses [litellm](https://docs.litellm.ai) under the hood, so you can plug in any supported provider by setting two variables:
+
+```env
+LLM_MODEL=anthropic/claude-sonnet-4-6   # model string (see examples below)
+LLM_API_KEY=<your-key>                  # API key for that provider
+```
+
+| Provider | `LLM_MODEL` example | Where to get a key |
+|----------|--------------------|--------------------|
+| Anthropic (default) | `anthropic/claude-sonnet-4-6` | [console.anthropic.com](https://console.anthropic.com) |
+| OpenAI | `openai/gpt-4o` | [platform.openai.com](https://platform.openai.com/api-keys) |
+| Groq (fast, free tier) | `groq/llama-3.3-70b-versatile` | [console.groq.com](https://console.groq.com) |
+| Google Gemini | `gemini/gemini-2.0-flash` | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+| Mistral | `mistral/mistral-large-latest` | [console.mistral.ai](https://console.mistral.ai) |
+
+If you already have `ANTHROPIC_API_KEY` set in your environment and don't set `LLM_MODEL`/`LLM_API_KEY`, it will continue to work without any changes.
+
+#### Other keys
 
 | Key | Required | Where to get it |
 |-----|----------|----------------|
-| `ANTHROPIC_API_KEY` | Yes (for AI features) | [console.anthropic.com](https://console.anthropic.com) |
 | `TWITTER_BEARER_TOKEN` | No | [developer.twitter.com](https://developer.twitter.com) |
 | `REDDIT_CLIENT_ID` / `SECRET` | No | [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps) |
 | `YOUTUBE_API_KEY` | No | [console.cloud.google.com](https://console.cloud.google.com) |
@@ -136,10 +155,10 @@ Open `http://localhost:8000` in your browser.
 
 - **Search bar** — type any keyword (e.g. `NVDA`, `basketball`, `climate`) to fetch and display items on demand
 - **Two-panel layout** — compare two topics side by side via URL params: `?topic1=ai&topic2=stocks`
-- **Streaming summary** — a Claude digest streams in above the news cards as soon as enough items are collected
+- **Streaming summary** — an AI digest streams in above the news cards as soon as enough items are collected
 - **Language filter** — click the globe button to select which languages to display
 - **Podcast** — click the microphone button to generate an audio digest for a topic
-- **Stars** — star items to mark them as interesting; interactions are logged for future ranking
+- **Thumbs up / down** — vote on items to teach the ranking what you want more or less of
 
 ---
 
@@ -169,8 +188,9 @@ All settings are in `.env`. Key options:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CLAUDE_MODEL` | `claude-sonnet-4-6` | Claude model used for analysis and digests |
-| `BATCH_SIZE` | `15` | Items per Claude analysis batch |
+| `LLM_MODEL` | `anthropic/claude-sonnet-4-6` | LLM used for analysis and digests (litellm format) |
+| `LLM_API_KEY` | _(empty)_ | API key for the LLM provider (or set provider env var directly) |
+| `BATCH_SIZE` | `15` | Items per LLM analysis batch |
 | `MAX_ITEMS_PER_SOURCE` | `50` | Items fetched per source per cycle |
 | `DEDUP_SIMILARITY_THRESHOLD` | `0.85` | Cosine similarity threshold for deduplication |
 | `SCHEDULE_INTERVAL_HOURS` | `4` | How often the background scheduler runs |

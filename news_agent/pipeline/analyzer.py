@@ -5,12 +5,15 @@ import json
 import logging
 from datetime import datetime
 
-import anthropic
+import litellm
 
 from news_agent.config import settings
 from news_agent.models import NewsItem
 
 logger = logging.getLogger(__name__)
+
+# Suppress litellm's verbose output
+litellm.suppress_debug_info = True
 
 ITEM_ANALYSIS_PROMPT = """\
 You are a news analyst. Analyze the following {n} news items about "{topic}" and for each one provide:
@@ -50,11 +53,21 @@ News items:
 """
 
 
-class ClaudeAnalyzer:
-    def __init__(self) -> None:
-        self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        self.async_client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-        self.model = settings.claude_model
+def _api_key() -> str | None:
+    """Return the API key to pass to litellm, or None to let litellm read env vars."""
+    return settings.llm_api_key or settings.anthropic_api_key or None
+
+
+def _model() -> str:
+    """Return the litellm model string, falling back to deprecated claude_model if set."""
+    if settings.claude_model:
+        # Backward compat: bare model name like "claude-sonnet-4-6"
+        return f"anthropic/{settings.claude_model}"
+    return settings.llm_model
+
+
+class LLMAnalyzer:
+    """Provider-agnostic news analyzer powered by any LLM via litellm."""
 
     def _build_items_json(self, items: list[NewsItem]) -> str:
         return json.dumps(
@@ -65,7 +78,7 @@ class ClaudeAnalyzer:
 
     async def analyze_batch(self, items: list[NewsItem], topic: str) -> list[NewsItem]:
         """
-        Analyze a batch of NewsItems using Claude.
+        Analyze a batch of NewsItems using the configured LLM.
         Fills in summary, relevance_score, key_entities, sentiment, and tags.
         Skips items that already have a summary (cached).
         """
@@ -75,11 +88,12 @@ class ClaudeAnalyzer:
 
         topic_label = topic.title()
         results = []
+        model = _model()
+        api_key = _api_key()
 
-        # Process in batches of BATCH_SIZE
         for i in range(0, len(to_analyze), settings.batch_size):
             if i > 0:
-                await asyncio.sleep(2)  # avoid bursting through token-per-minute limit
+                await asyncio.sleep(2)
             batch = to_analyze[i: i + settings.batch_size]
             for attempt in range(3):
                 try:
@@ -88,14 +102,14 @@ class ClaudeAnalyzer:
                         topic=topic_label,
                         items_json=self._build_items_json(batch),
                     )
-                    response = await self.async_client.messages.create(
-                        model=self.model,
+                    response = await litellm.acompletion(
+                        model=model,
                         max_tokens=4096,
                         messages=[{"role": "user", "content": prompt}],
+                        **({"api_key": api_key} if api_key else {}),
                     )
-                    raw = response.content[0].text.strip()
+                    raw = response.choices[0].message.content.strip()
 
-                    # Extract JSON array (handle markdown code blocks)
                     if "```" in raw:
                         raw = raw.split("```")[1]
                         if raw.startswith("json"):
@@ -112,20 +126,20 @@ class ClaudeAnalyzer:
                         item.sentiment = analysis.get("sentiment", "neutral")
                         item.tags = analysis.get("tags", [])
                         results.append(item)
-                    break  # success
+                    break
 
-                except anthropic.RateLimitError:
+                except litellm.RateLimitError:
                     wait = 30 * (attempt + 1)
-                    logger.warning("Claude rate limit hit on batch %d — waiting %ds", i, wait)
+                    logger.warning("LLM rate limit hit on batch %d — waiting %ds", i, wait)
                     await asyncio.sleep(wait)
                     if attempt == 2:
                         results.extend(batch)
                 except json.JSONDecodeError as e:
-                    logger.error("Claude returned invalid JSON for batch %d: %s", i, e)
+                    logger.error("LLM returned invalid JSON for batch %d: %s", i, e)
                     results.extend(batch)
                     break
-                except anthropic.APIError as e:
-                    logger.error("Claude API error for batch %d: %s", i, e)
+                except litellm.APIError as e:
+                    logger.error("LLM API error for batch %d: %s", i, e)
                     results.extend(batch)
                     break
                 except Exception as e:
@@ -133,7 +147,6 @@ class ClaudeAnalyzer:
                     results.extend(batch)
                     break
 
-        # Merge back: items that already had summaries stay unchanged
         analyzed_ids = {item.id for item in results}
         final = []
         for item in items:
@@ -146,7 +159,6 @@ class ClaudeAnalyzer:
     async def generate_digest(self, items: list[NewsItem], topic: str) -> str:
         """Generate a prose narrative digest for the given topic."""
         candidates = [i for i in items if i.topic == topic and not i.is_duplicate]
-        # Prefer items that Claude has scored; fall back to raw engagement score
         scored = [i for i in candidates if i.relevance_score and i.relevance_score >= 5]
         pool = scored if scored else candidates
         pool.sort(key=lambda x: x.relevance_score or x.raw_score or 0, reverse=True)
@@ -160,20 +172,23 @@ class ClaudeAnalyzer:
             f"[{i+1}] {item.title}\nSource: {item.source}\n{item.summary or item.content[:300]}"
             for i, item in enumerate(top_items)
         )
+        model = _model()
+        api_key = _api_key()
 
         for attempt in range(3):
             try:
-                response = await self.async_client.messages.create(
-                    model=self.model,
+                response = await litellm.acompletion(
+                    model=model,
                     max_tokens=1500,
                     messages=[{"role": "user", "content": DIGEST_PROMPT.format(
                         n=len(top_items), topic_label=topic_label, items_text=items_text,
                     )}],
+                    **({"api_key": api_key} if api_key else {}),
                 )
-                return response.content[0].text.strip()
-            except anthropic.RateLimitError:
+                return response.choices[0].message.content.strip()
+            except litellm.RateLimitError:
                 wait = 30 * (attempt + 1)
-                logger.warning("Claude rate limit on digest '%s' — waiting %ds", topic, wait)
+                logger.warning("LLM rate limit on digest '%s' — waiting %ds", topic, wait)
                 await asyncio.sleep(wait)
             except Exception as e:
                 logger.error("Digest generation failed for topic '%s': %s", topic, e)
@@ -181,7 +196,7 @@ class ClaudeAnalyzer:
         return "Digest generation failed: rate limit retries exhausted."
 
     async def generate_digest_stream(self, items: list[NewsItem], topic: str):
-        """Stream digest generation, yielding raw text chunks as Claude writes them."""
+        """Stream digest generation, yielding text chunks as the LLM writes them."""
         candidates = [i for i in items if i.topic == topic and not i.is_duplicate]
         scored = [i for i in candidates if i.relevance_score and i.relevance_score >= 5]
         pool = scored if scored else candidates
@@ -198,21 +213,31 @@ class ClaudeAnalyzer:
             for i, item in enumerate(top_items)
         )
         prompt = DIGEST_PROMPT.format(n=len(top_items), topic_label=topic_label, items_text=items_text)
+        model = _model()
+        api_key = _api_key()
 
         for attempt in range(3):
             try:
-                async with self.async_client.messages.stream(
-                    model=self.model,
+                response = await litellm.acompletion(
+                    model=model,
                     max_tokens=1500,
                     messages=[{"role": "user", "content": prompt}],
-                ) as stream:
-                    async for text in stream.text_stream:
-                        yield text
-                return  # success
-            except anthropic.RateLimitError:
+                    stream=True,
+                    **({"api_key": api_key} if api_key else {}),
+                )
+                async for chunk in response:
+                    delta = chunk.choices[0].delta.content
+                    if delta:
+                        yield delta
+                return
+            except litellm.RateLimitError:
                 wait = 30 * (attempt + 1)
-                logger.warning("Claude rate limit on digest stream '%s' — waiting %ds (attempt %d/3)", topic, wait, attempt + 1)
+                logger.warning("LLM rate limit on digest stream '%s' — waiting %ds (attempt %d/3)", topic, wait, attempt + 1)
                 await asyncio.sleep(wait)
             except Exception as e:
                 logger.error("Digest stream failed for '%s': %s", topic, e)
                 raise
+
+
+# Backward-compatible alias
+ClaudeAnalyzer = LLMAnalyzer

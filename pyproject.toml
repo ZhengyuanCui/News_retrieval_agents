@@ -14,6 +14,7 @@ requires-python = ">=3.12"
 dependencies = [
     # Core
     "anthropic>=0.93.0",
+    "litellm>=1.40.0",
     "pydantic>=2.10.0",
     "pydantic-settings>=2.7.0",
     "python-dotenv>=1.0.0",

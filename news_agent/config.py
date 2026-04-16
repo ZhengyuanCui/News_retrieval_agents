@@ -13,9 +13,15 @@ class Settings(BaseSettings):
         env_ignore_empty=True,
     )
 
-    # ── Claude ────────────────────────────────────────────────────────────────
+    # ── LLM (any provider via litellm) ───────────────────────────────────────
+    # Model format: "anthropic/claude-sonnet-4-6", "openai/gpt-4o",
+    #               "groq/llama-3.3-70b-versatile", "gemini/gemini-2.0-flash", etc.
+    llm_model: str = "anthropic/claude-sonnet-4-6"
+    llm_api_key: str = ""   # if set, overrides provider env vars (ANTHROPIC_API_KEY etc.)
+
+    # ── Anthropic (kept for backward compatibility) ───────────────────────────
     anthropic_api_key: str = ""
-    claude_model: str = "claude-sonnet-4-6"
+    claude_model: str = ""  # deprecated — use llm_model
 
     # ── OpenAI TTS ────────────────────────────────────────────────────────────
     openai_api_key: str = ""

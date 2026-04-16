@@ -363,6 +363,11 @@ async def digest_stream(topic: str, hours: float = 24):
             yield f"data: {_json.dumps({'done': True})}\n\n"
             return
 
+        # Wait 60s before generating so analysis batch calls can clear the
+        # Claude output-token-per-minute rate limit window.
+        logger.info("Digest for '%s': waiting 60s for rate limit window to clear", topic)
+        await asyncio.sleep(60)
+
         analyzer = ClaudeAnalyzer()
         full_text = ""
         try:

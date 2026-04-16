@@ -110,12 +110,16 @@ class NewsRepository:
         limit: int = 60,
         strict: bool = False,
         languages: list[str] | None = None,
+        min_relevance: float = 4.0,
     ) -> list[NewsItem]:
         """Search for items matching query.
 
         Priority: items fetched specifically for this topic (topic==query) are returned first.
         If none exist yet, falls back to content search (OR match) as a placeholder while
         a keyword fetch is in progress.
+
+        Items that have been analyzed and scored below min_relevance are excluded.
+        Un-analyzed items (NULL relevance_score) are always included.
         """
         since = datetime.utcnow() - timedelta(hours=hours)
         max_age = datetime.utcnow() - timedelta(days=7)
@@ -123,6 +127,8 @@ class NewsRepository:
         base_where = [
             NewsItemORM.published_at >= cutoff,
             NewsItemORM.is_duplicate == False,  # noqa: E712
+            # Keep un-analyzed items (NULL) but drop confirmed low-relevance ones
+            (NewsItemORM.relevance_score == None) | (NewsItemORM.relevance_score >= min_relevance),  # noqa: E711
         ]
         if languages:
             base_where.append(NewsItemORM.language.in_(languages))

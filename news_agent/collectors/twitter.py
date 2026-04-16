@@ -158,15 +158,32 @@ class TwitterCollector(BaseCollector):
     def _build_client(self) -> tweepy.Client:
         return tweepy.Client(bearer_token=settings.twitter_bearer_token, wait_on_rate_limit=True)
 
-    @retry(wait=wait_exponential(multiplier=2, min=5, max=60), stop=stop_after_attempt(3))
     def _search_sync(self, client: tweepy.Client, query: str, max_results: int) -> list:
-        response = client.search_recent_tweets(
-            query=query,
-            max_results=max_results,
-            tweet_fields=["created_at", "public_metrics", "author_id", "entities"],
-            expansions=["author_id"],
-        )
-        return response.data or []
+        """Fetch up to max_results tweets, paginating in batches of 100."""
+        per_page = 100  # API hard limit per request
+        collected = []
+        next_token = None
+
+        while len(collected) < max_results:
+            want = min(per_page, max_results - len(collected))
+            try:
+                response = client.search_recent_tweets(
+                    query=query,
+                    max_results=want,
+                    tweet_fields=["created_at", "public_metrics", "author_id", "entities"],
+                    expansions=["author_id"],
+                    next_token=next_token,
+                )
+            except Exception as e:
+                logger.warning("Twitter search page failed (collected=%d): %s", len(collected), e)
+                break
+            page = response.data or []
+            collected.extend(page)
+            next_token = response.meta.get("next_token") if response.meta else None
+            if not next_token or not page:
+                break  # no more pages
+
+        return collected
 
     async def _search(self, client: tweepy.Client, query: str, max_results: int) -> list:
         loop = asyncio.get_event_loop()
@@ -188,8 +205,7 @@ class TwitterCollector(BaseCollector):
             (f"{topic} lang:en -is:retweet -is:nullcast", topic) for topic in self.topics
         ]
 
-        max_per_query = max(10, settings.max_items_per_source // max(len(queries), 1))
-        max_per_query = min(max_per_query, 100)  # API max is 100
+        max_per_query = 500
 
         max_age = datetime.utcnow() - timedelta(days=7)
 
@@ -243,7 +259,7 @@ class TwitterCollector(BaseCollector):
         for query in queries:
             try:
                 await self._rate_limit()
-                tweets = await self._search(client, query, 100)
+                tweets = await self._search(client, query, 500)
                 metrics_list = [(t.public_metrics or {}) for t in tweets]
                 engagements = [
                     m.get("like_count", 0) + m.get("retweet_count", 0) * 2

@@ -4,6 +4,10 @@ import logging
 import re
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
+def _title_key(title: str) -> str:
+    """Normalize a title to a compact dedup key: lowercase, alphanumeric only, first 80 chars."""
+    return re.sub(r"[^a-z0-9]", "", title.lower())[:80]
+
 from news_agent.config import settings
 from news_agent.models import NewsItem
 
@@ -69,12 +73,17 @@ class Deduplicator:
         return content_len * 0.001 + has_summary * 2.0 + item.raw_score * 0.5
 
     def _url_dedup(self, items: list[NewsItem]) -> list[NewsItem]:
-        seen_urls: dict[str, str] = {}  # normalized_url -> item_id
+        seen_urls: dict[str, str] = {}    # normalized_url -> item_id
+        seen_titles: dict[str, str] = {}  # normalized_title -> item_id
         result = []
         for item in items:
             norm_url = normalize_url(item.url)
-            if norm_url in seen_urls:
-                existing_id = seen_urls[norm_url]
+            norm_title = _title_key(item.title)
+
+            # Check URL match first, then title match
+            existing_id = seen_urls.get(norm_url) or (seen_titles.get(norm_title) if norm_title else None)
+
+            if existing_id:
                 existing_idx = next((i for i, x in enumerate(result) if x.id == existing_id), None)
                 if existing_idx is not None:
                     existing = result[existing_idx]
@@ -83,6 +92,8 @@ class Deduplicator:
                         existing.is_duplicate = True
                         existing.duplicate_of = item.id
                         seen_urls[norm_url] = item.id
+                        if norm_title:
+                            seen_titles[norm_title] = item.id
                         result[existing_idx] = item
                     else:
                         item.is_duplicate = True
@@ -94,10 +105,12 @@ class Deduplicator:
                     result.append(item)
             else:
                 seen_urls[norm_url] = item.id
+                if norm_title:
+                    seen_titles[norm_title] = item.id
                 result.append(item)
         dupes = sum(1 for i in result if i.is_duplicate)
         if dupes:
-            logger.debug("URL dedup removed %d duplicates", dupes)
+            logger.debug("URL/title dedup removed %d duplicates", dupes)
         return result
 
     def _semantic_dedup(self, items: list[NewsItem]) -> list[NewsItem]:

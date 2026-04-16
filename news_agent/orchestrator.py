@@ -168,11 +168,26 @@ async def run_keyword_fetch(keyword: str) -> dict:
         return {"items_stored": 0}
 
     logger.info("keyword=%r total raw=%d — starting dedup", keyword, len(raw_items))
+
+    # Load existing DB items for this keyword so we don't re-store near-duplicates
+    # that were already fetched in a previous cycle (e.g. same article via new Bing redirect URLs).
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        existing_items = await repo.get_recent(topic=keyword, hours=168, include_duplicates=False, limit=300)
+    existing_ids = {i.id for i in existing_items}
+
+    # Dedup against existing + new combined; existing items come first so they are always
+    # treated as canonical (never marked duplicate in favour of a newly-fetched copy).
     deduplicator = Deduplicator()
     loop = asyncio.get_event_loop()
-    deduped = await loop.run_in_executor(None, deduplicator.deduplicate, raw_items)
+    deduped_all = await loop.run_in_executor(None, deduplicator.deduplicate, existing_items + raw_items)
+
+    # Only persist items that are new to the DB (not previously stored).
+    # Items already in the DB keep their existing is_duplicate flag untouched.
+    deduped = [i for i in deduped_all if i.id not in existing_ids]
     unique = [i for i in deduped if not i.is_duplicate]
-    logger.info("keyword=%r after dedup: %d unique / %d total", keyword, len(unique), len(deduped))
+    logger.info("keyword=%r after dedup: %d new unique / %d new total (vs %d existing)",
+                keyword, len(unique), len(deduped), len(existing_items))
 
     # Clear stale analysis so items are re-scored with the correct topic-specific prompt
     for item in deduped:

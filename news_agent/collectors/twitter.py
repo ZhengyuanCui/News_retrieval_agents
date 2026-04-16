@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 
 import tweepy
@@ -14,19 +15,32 @@ from news_agent.spam import is_spam_ml_batch
 
 logger = logging.getLogger(__name__)
 
-# Only patterns that are unambiguously scam — never appear in legitimate content.
-# Keep this list very short; the ML model handles everything else.
+# Phrases that only appear in scam/shill content — never in legitimate discussion.
 _SPAM_PHRASES = [
     "guaranteed profit", "guaranteed return", "guaranteed income",
     "dm me for signals", "dm for signals", "dm me for profit",
     "100% win rate", "never lose",
     "copy my trades", "mirror my trades",
+    # Influencer-shill testimonials
+    "his picks", "her picks", "their picks",
+    "his calls", "her calls",
+    "his trades", "her trades",
 ]
+
+# 3+ distinct $TICKER cashtags = keyword stuffing to hijack multiple stock searches.
+# Legitimate content almost never promotes 3+ unrelated companies in one tweet.
+_CASHTAG_RE = re.compile(r"\$[A-Z]{1,5}\b")
+_CASHTAG_SPAM_COUNT = 3
 
 
 def _keyword_spam(text: str) -> bool:
     t = text.lower()
-    return any(p in t for p in _SPAM_PHRASES)
+    if any(p in t for p in _SPAM_PHRASES):
+        return True
+    # Multiple unrelated stock tickers stuffed in one tweet
+    if len(set(_CASHTAG_RE.findall(text.upper()))) >= _CASHTAG_SPAM_COUNT:
+        return True
+    return False
 
 
 def _batch_spam_filter(tweets: list, engagements: list[int], engagement_floor: float,

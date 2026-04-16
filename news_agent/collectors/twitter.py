@@ -15,31 +15,54 @@ from news_agent.spam import is_spam_ml_batch
 
 logger = logging.getLogger(__name__)
 
-# Phrases that only appear in scam/shill content — never in legitimate discussion.
-_SPAM_PHRASES = [
+# Absolute red-lines: these phrases never appear in legitimate financial content.
+_HARD_SPAM_PHRASES = [
     "guaranteed profit", "guaranteed return", "guaranteed income",
     "dm me for signals", "dm for signals", "dm me for profit",
     "100% win rate", "never lose",
     "copy my trades", "mirror my trades",
-    # Influencer-shill testimonials
-    "his picks", "her picks", "their picks",
-    "his calls", "her calls",
-    "his trades", "her trades",
+    "go follow @",
+    "stock market guru", "trading guru", "market guru",
 ]
 
-# 3+ distinct $TICKER cashtags = keyword stuffing to hijack multiple stock searches.
-# Legitimate content almost never promotes 3+ unrelated companies in one tweet.
-_CASHTAG_RE = re.compile(r"\$[A-Z]{1,5}\b")
-_CASHTAG_SPAM_COUNT = 3
+# Weak shill signals: each phrase alone is fine; two or more together with a
+# @mention and a cashtag = influencer shill tweet.
+_SHILL_INDICATORS = [
+    "his picks", "her picks", "their picks",
+    "his calls", "her calls", "their calls",
+    "his trades", "her trades", "their trades",
+    "his strategies", "her strategies", "their strategies",
+    "his stock picks", "her stock picks",
+    "always go up", "never go down", "always goes up", "never goes down",
+    "making a fortune", "making money every day",
+    "incredible", "impressive gains", "crushing it",
+    "trade alerts", "trading signals",
+    "quietly following", "been following",
+]
+
+_CASHTAG_RE = re.compile(r"[$][A-Z]{1,5}\b")  # \$ is invalid in Python 3.14+; use char class
+_MENTION_RE = re.compile(r"@\w+")
 
 
 def _keyword_spam(text: str) -> bool:
     t = text.lower()
-    if any(p in t for p in _SPAM_PHRASES):
+
+    # Hard filters — instant reject
+    if any(p in t for p in _HARD_SPAM_PHRASES):
         return True
-    # Multiple unrelated stock tickers stuffed in one tweet
-    if len(set(_CASHTAG_RE.findall(text.upper()))) >= _CASHTAG_SPAM_COUNT:
+
+    # 3+ distinct $TICKER cashtags = keyword stuffing
+    if len(set(_CASHTAG_RE.findall(text.upper()))) >= 3:
         return True
+
+    # Influencer shill: @mention + cashtag + 2 or more soft indicators
+    has_mention = bool(_MENTION_RE.search(text))
+    has_cashtag = bool(_CASHTAG_RE.search(text.upper()))
+    if has_mention and has_cashtag:
+        indicator_count = sum(1 for p in _SHILL_INDICATORS if p in t)
+        if indicator_count >= 2:
+            return True
+
     return False
 
 

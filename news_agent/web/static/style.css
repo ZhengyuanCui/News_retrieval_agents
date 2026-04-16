@@ -11,6 +11,7 @@
   --accent-dim: #3a4a8a;
   --star-on: #f5c518;
   --star-off: #3a3f5c;
+  --dislike-on: #ef4444;
   --positive: #4ade80;
   --negative: #f87171;
   --neutral: #94a3b8;
@@ -321,6 +322,7 @@ h1 { font-size: 17px; font-weight: 700; color: var(--accent); }
 }
 .news-card:hover { background: var(--surface); border-left-color: var(--accent-dim); }
 .news-card.liked { border-left-color: var(--star-on); }
+.news-card.disliked { border-left-color: var(--dislike-on); }
 
 .card-header {
   padding: 14px 16px 12px;
@@ -394,16 +396,28 @@ h1 { font-size: 17px; font-weight: 700; color: var(--accent); }
 }
 .vote-btn {
   background: none;
-  border: none;
+  border: 1.5px solid transparent;
+  border-radius: 6px;
   font-size: 18px;
   cursor: pointer;
-  opacity: 0.5;
-  padding: 2px 3px;
+  opacity: 0.4;
+  padding: 2px 5px;
   line-height: 1;
-  transition: opacity 0.12s, transform 0.1s;
+  transition: opacity 0.12s, transform 0.12s, background 0.12s, border-color 0.12s;
 }
-.vote-btn:hover { transform: scale(1.2); opacity: 1; }
-.vote-btn.on { opacity: 1; }
+.vote-btn:hover { transform: scale(1.15); opacity: 0.85; }
+.vote-up.on {
+  opacity: 1;
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.5);
+  transform: scale(1.1);
+}
+.vote-down.on {
+  opacity: 1;
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.5);
+  transform: scale(1.1);
+}
 
 .card-summary {
   font-size: 13px;

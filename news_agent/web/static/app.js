@@ -36,12 +36,14 @@ function toggleVote(event, itemId, direction) {
     card.querySelectorAll('.vote-btn').forEach(b => b.classList.remove('on'));
     if (!wasOn) btn.classList.add('on');
     card.classList.toggle('liked', !wasOn);
+    card.classList.remove('disliked');
     logInteraction(itemId, wasOn ? 'unstar' : 'star');
   } else {
-    // dislike: clear like, mark disliked
+    // dislike: clear like, toggle disliked
     card.querySelectorAll('.vote-btn').forEach(b => b.classList.remove('on'));
     if (!isActive) btn.classList.add('on');
     card.classList.remove('liked');
+    card.classList.toggle('disliked', !isActive);
     logInteraction(itemId, isActive ? 'undislike' : 'dislike');
   }
 }

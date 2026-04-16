@@ -142,21 +142,43 @@ class YouTubeCollector(BaseCollector):
     async def fetch_keyword(self, keyword: str) -> list[NewsItem]:
         if not self.is_enabled():
             return []
+        from datetime import timedelta
         service = self._build_service()
         items: list[NewsItem] = []
         try:
             await self._rate_limit()
-            # order=relevance surfaces popular/viral videos, not just the newest
-            resp = service.search().list(
+
+            # Search 1: relevance — surfaces popular/evergreen content
+            relevance_resp = service.search().list(
                 part="snippet",
                 q=keyword,
                 type="video",
                 order="relevance",
-                maxResults=20,
+                maxResults=15,
                 relevanceLanguage="en",
             ).execute()
 
-            results = resp.get("items", [])
+            # Search 2: date — surfaces videos posted in the last 7 days that
+            # haven't accumulated enough engagement to rank by relevance yet
+            published_after = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            recent_resp = service.search().list(
+                part="snippet",
+                q=keyword,
+                type="video",
+                order="date",
+                maxResults=10,
+                relevanceLanguage="en",
+                publishedAfter=published_after,
+            ).execute()
+
+            # Merge, dedup by video ID (relevance results kept first)
+            seen_ids: set[str] = set()
+            results = []
+            for r in relevance_resp.get("items", []) + recent_resp.get("items", []):
+                vid = r.get("id", {}).get("videoId")
+                if vid and vid not in seen_ids:
+                    seen_ids.add(vid)
+                    results.append(r)
             video_ids = [r["id"]["videoId"] for r in results if r.get("id", {}).get("videoId")]
 
             # Fetch view/like counts in one batch call

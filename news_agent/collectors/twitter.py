@@ -14,77 +14,62 @@ from news_agent.spam import is_spam_ml_batch
 
 logger = logging.getLogger(__name__)
 
-# Fast keyword pre-filter — catches unambiguous scam patterns before the ML
-# model runs.  Keep this list focused; overly broad terms cause false positives
-# on legitimate finance/sports discussion.
+# Only patterns that are unambiguously scam — never appear in legitimate content.
+# Keep this list very short; the ML model handles everything else.
 _SPAM_PHRASES = [
     "guaranteed profit", "guaranteed return", "guaranteed income",
-    "dm me for profit", "dm for signals",
+    "dm me for signals", "dm for signals", "dm me for profit",
     "100% win rate", "never lose",
-    "copy my trades", "mirror trade",
-    "get rich quick",
-    # influencer / guru promotion patterns — direct
-    "go follow", "check out my", "follow the incredible",
-    "stock picks always", "stock market guru",
-    "making a fortune", "never down",
-    "his picks", "her picks",
-    # influencer / guru promotion patterns — testimonial style
-    "my trading improved", "my returns improved",
-    "started following @", "after following @",
-    "since following @", "since i started following",
-    "his insights", "her insights",
-    "his signals", "her signals",
-    "align with market", "aligns with market",
-    # softer testimonial / recommendation patterns
-    "go-to for stock", "for stock ideas",
-    "becoming my go-to", "is my go-to",
-    "confidence in trading", "confidence in my trading",
-    "accuracy and timing", "accuracy has been",
-    "quickly becoming", "highly recommend follow",
+    "copy my trades", "mirror my trades",
 ]
-
-# Spam tweets dump many $TICKER cashtags. Legitimate financial discussion
-# rarely has more than 3–4 cashtags; spam dumps pile on 5+.
-# Note: # hashtags are NOT counted here — financial news tweets commonly
-# use topic hashtags (#AI, #semiconductors) alongside a cashtag.
-_CASHTAG_SPAM_THRESHOLD = 5
 
 
 def _keyword_spam(text: str) -> bool:
     t = text.lower()
-    if any(p in t for p in _SPAM_PHRASES):
-        return True
-    if text.count("$") >= _CASHTAG_SPAM_THRESHOLD:
-        return True
-    return False
+    return any(p in t for p in _SPAM_PHRASES)
 
 
 def _batch_spam_filter(tweets: list, engagements: list[int], engagement_floor: float,
-                       seen_ids: set, max_age, max_likes: int, keyword: str) -> list[NewsItem]:
+                       seen_ids: set, max_age, max_engagement: int, keyword: str) -> list[NewsItem]:
     """
     Filter engagement floor + dedup, then batch-classify remaining tweets for spam.
     Returns NewsItem list for tweets that pass all filters.
     """
     from urllib.parse import urlparse
 
+    logger.info(
+        "spam_filter[%s]: %d tweets, floor=%.1f, max_eng=%d",
+        keyword, len(tweets), engagement_floor, max(engagements, default=0),
+    )
+
     # Phase 1: cheap filters (no ML)
     candidates = []
     candidate_engagements = []
+    low_eng = dup = old = kw_spam = 0
     for tweet, engagement in zip(tweets, engagements):
         if tweet.id in seen_ids:
+            dup += 1
             continue
         if engagement < engagement_floor:
+            low_eng += 1
             continue
         created = tweet.created_at
         if created and created.tzinfo:
             created = created.replace(tzinfo=None)
         if created and created < max_age:
+            old += 1
             continue
         if _keyword_spam(tweet.text):
+            kw_spam += 1
             logger.debug("Keyword spam: %s", tweet.text[:80])
             continue
         candidates.append((tweet, engagement, created))
         candidate_engagements.append(engagement)
+
+    logger.info(
+        "spam_filter[%s]: dropped low_eng=%d dup=%d old=%d kw_spam=%d → %d candidates",
+        keyword, low_eng, dup, old, kw_spam, len(candidates),
+    )
 
     if not candidates:
         return []
@@ -92,6 +77,9 @@ def _batch_spam_filter(tweets: list, engagements: list[int], engagement_floor: f
     # Phase 2: batch ML spam classification
     texts = [t.text for t, _, _ in candidates]
     spam_flags = is_spam_ml_batch(texts)
+    ml_spam_count = sum(spam_flags)
+    if ml_spam_count:
+        logger.info("spam_filter[%s]: ML flagged %d/%d as spam", keyword, ml_spam_count, len(candidates))
 
     items = []
     for (tweet, engagement, created), is_spam in zip(candidates, spam_flags):
@@ -112,7 +100,7 @@ def _batch_spam_filter(tweets: list, engagements: list[int], engagement_floor: f
             source=source, topic=keyword,
             title=tweet.text[:280], url=url, content=tweet.text,
             published_at=created or datetime.utcnow(),
-            raw_score=_normalize(engagement, 0, max_likes * 3),
+            raw_score=_normalize(engagement, 0, max_engagement),
         ))
     return items
 
@@ -178,14 +166,13 @@ class TwitterCollector(BaseCollector):
                     for t in tweets
                 ]
                 max_engagement = max(engagements, default=1)
-                max_likes = max((t.public_metrics.get("like_count", 0) for t in tweets), default=1)
-                # Relative threshold: keep tweets above 5% of batch peak, capped at 50
-                # so a single viral outlier doesn't eliminate the entire batch.
-                engagement_floor = min(max(20, max_engagement * 0.05), 100)
+                # Relative threshold: keep tweets above 5% of batch peak, capped at 100.
+                # Minimum of 5 so a quiet batch doesn't filter everything.
+                engagement_floor = min(max(5, max_engagement * 0.05), 100)
                 seen_ids: set = set()
                 batch = _batch_spam_filter(
                     tweets, engagements, engagement_floor,
-                    seen_ids, max_age, max_likes, topic,
+                    seen_ids, max_age, max_engagement, topic,
                 )
                 items.extend(batch)
 
@@ -219,18 +206,17 @@ class TwitterCollector(BaseCollector):
         for query, floor_pct in queries:
             try:
                 await self._rate_limit()
-                tweets = await self._search(client, query, 50)
+                tweets = await self._search(client, query, 100)
                 metrics_list = [(t.public_metrics or {}) for t in tweets]
                 engagements = [
                     m.get("like_count", 0) + m.get("retweet_count", 0) * 2
                     for m in metrics_list
                 ]
                 max_engagement = max(engagements, default=1)
-                max_likes = max((m.get("like_count", 0) for m in metrics_list), default=1)
-                engagement_floor = min(max(20, max_engagement * floor_pct), 100)
+                engagement_floor = min(max(5, max_engagement * floor_pct), 100)
                 batch = _batch_spam_filter(
                     tweets, engagements, engagement_floor,
-                    seen_ids, max_age, max_likes, keyword,
+                    seen_ids, max_age, max_engagement, keyword,
                 )
                 items.extend(batch)
             except Exception as e:

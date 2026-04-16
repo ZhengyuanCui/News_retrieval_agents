@@ -41,11 +41,9 @@ class Deduplicator:
 
     def _load_semantic_model(self):
         if self._model is None:
-            try:
-                from sentence_transformers import SentenceTransformer
-                logger.info("Loading sentence-transformers model for deduplication…")
-                self._model = SentenceTransformer("all-MiniLM-L6-v2")
-            except ImportError:
+            from news_agent.pipeline.embeddings import get_model
+            self._model = get_model()
+            if self._model is None:
                 logger.warning("sentence-transformers not installed; falling back to tfidf dedup")
                 self.strategy = "tfidf"
         return self._model

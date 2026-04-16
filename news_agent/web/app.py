@@ -139,8 +139,9 @@ async def startup():
         except Exception:
             pass
         try:
-            from news_agent.pipeline.deduplicator import Deduplicator as _Dedup
-            _Dedup()._load_semantic_model()
+            # Loading the shared model warms up both dedup and semantic ranking
+            from news_agent.pipeline.embeddings import get_model
+            get_model()
         except Exception:
             pass
     loop = _asyncio.get_event_loop()
@@ -178,6 +179,7 @@ def _parse_languages(langs: str) -> list[str] | None:
 
 @app.get("/", response_class=HTMLResponse)
 async def digest_page(hours: float = 24, topic1: str = "", topic2: str = "", langs: str = ""):
+    import asyncio
     today = datetime.utcnow().strftime("%Y-%m-%d")
     languages = _parse_languages(langs)
 
@@ -188,6 +190,13 @@ async def digest_page(hours: float = 24, topic1: str = "", topic2: str = "", lan
         starred = await repo.get_starred_ids()
         digest1 = await repo.get_digest(today, topic1.lower()) if topic1 else None
         digest2 = await repo.get_digest(today, topic2.lower()) if topic2 else None
+
+    from news_agent.pipeline.ranker import rank_by_query
+    loop = asyncio.get_event_loop()
+    if topic1 and items1:
+        items1 = await loop.run_in_executor(None, rank_by_query, topic1, items1)
+    if topic2 and items2:
+        items2 = await loop.run_in_executor(None, rank_by_query, topic2, items2)
 
     return render(
         "digest.html",
@@ -396,6 +405,12 @@ async def panel_fragment(topic: str = "", hours: float = 24, langs: str = ""):
                 for item, real_url in changed:
                     item.url = real_url
                     await repo.update_url(item.id, real_url)
+
+    # Re-rank by semantic similarity to the search query
+    if topic and items:
+        from news_agent.pipeline.ranker import rank_by_query
+        loop = asyncio.get_event_loop()
+        items = await loop.run_in_executor(None, rank_by_query, topic, items)
 
     return render("partials/panel_items.html", topic=topic, items=items, starred_ids=starred)
 

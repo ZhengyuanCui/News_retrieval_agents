@@ -230,7 +230,7 @@ async def search_page(q: str = "", hours: float = 24):
 
 class InteractionPayload(BaseModel):
     item_id: str
-    action: str          # "click" | "read" | "star" | "unstar"
+    action: str          # "click" | "read" | "star" | "unstar" | "dislike" | "undislike"
     read_seconds: float | None = None
 
 
@@ -238,9 +238,12 @@ class InteractionPayload(BaseModel):
 async def log_interaction(payload: InteractionPayload):
     async with get_session() as session:
         await record_interaction(session, payload.item_id, payload.action, payload.read_seconds)
+        repo = NewsRepository(session)
         if payload.action in ("star", "unstar"):
-            repo = NewsRepository(session)
             await repo.set_starred(payload.item_id, payload.action == "star")
+        elif payload.action == "dislike":
+            # Disliked items are unstarred and scored negatively in preferences
+            await repo.set_starred(payload.item_id, False)
         await recompute_preferences(session)
     return {"ok": True}
 

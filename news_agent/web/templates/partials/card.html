@@ -1,5 +1,5 @@
 <article
-  class="news-card {% if item.id in starred_ids %}starred{% endif %}"
+  class="news-card {% if item.id in starred_ids %}liked{% endif %}"
   data-id="{{ item.id }}"
   data-url="{{ item.url }}"
 >
@@ -14,11 +14,18 @@
 
     <div class="card-title-row">
       <h3 class="card-title">{{ item.title }}</h3>
-      <button
-        class="star-btn {% if item.id in starred_ids %}on{% endif %}"
-        title="Star this item"
-        onclick="toggleStar(event, '{{ item.id }}')"
-      >&#9733;</button>
+      <div class="vote-btns">
+        <button
+          class="vote-btn vote-up {% if item.id in starred_ids %}on{% endif %}"
+          title="Like"
+          onclick="toggleVote(event, '{{ item.id }}', 'up')"
+        >&#128077;</button>
+        <button
+          class="vote-btn vote-down"
+          title="Dislike"
+          onclick="toggleVote(event, '{{ item.id }}', 'down')"
+        >&#128078;</button>
+      </div>
     </div>
 
     <p class="card-summary">{{ item.summary or item.content[:250] }}{% if not item.summary and item.content|length > 250 %}…{% endif %}</p>

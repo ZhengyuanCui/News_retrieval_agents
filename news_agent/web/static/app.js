@@ -22,18 +22,28 @@ function toggleExpand(card) {
   }
 }
 
-// ── Star ─────────────────────────────────────────────────────────────────────
+// ── Vote (thumbs up / down) ───────────────────────────────────────────────────
 
-function toggleStar(event, itemId) {
+function toggleVote(event, itemId, direction) {
   event.stopPropagation(); // don't expand card
   const btn = event.currentTarget;
   const card = btn.closest('.news-card');
-  const isStarred = btn.classList.contains('on');
+  const isActive = btn.classList.contains('on');
 
-  btn.classList.toggle('on', !isStarred);
-  card.classList.toggle('starred', !isStarred);
-
-  logInteraction(itemId, isStarred ? 'unstar' : 'star');
+  if (direction === 'up') {
+    const wasOn = isActive;
+    // toggle this button; clear the down button
+    card.querySelectorAll('.vote-btn').forEach(b => b.classList.remove('on'));
+    if (!wasOn) btn.classList.add('on');
+    card.classList.toggle('liked', !wasOn);
+    logInteraction(itemId, wasOn ? 'unstar' : 'star');
+  } else {
+    // dislike: clear like, mark disliked
+    card.querySelectorAll('.vote-btn').forEach(b => b.classList.remove('on'));
+    if (!isActive) btn.classList.add('on');
+    card.classList.remove('liked');
+    logInteraction(itemId, isActive ? 'undislike' : 'dislike');
+  }
 }
 
 // ── Click on external link ────────────────────────────────────────────────────

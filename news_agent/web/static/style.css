@@ -320,7 +320,7 @@ h1 { font-size: 17px; font-weight: 700; color: var(--accent); }
   word-break: break-word;
 }
 .news-card:hover { background: var(--surface); border-left-color: var(--accent-dim); }
-.news-card.starred { border-left-color: var(--star-on); }
+.news-card.liked { border-left-color: var(--star-on); }
 
 .card-header {
   padding: 14px 16px 12px;
@@ -386,19 +386,23 @@ h1 { font-size: 17px; font-weight: 700; color: var(--accent); }
   flex: 1;
 }
 
-.star-btn {
+.vote-btns {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.vote-btn {
   background: none;
   border: none;
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
-  color: var(--star-off);
-  flex-shrink: 0;
-  padding: 0;
+  opacity: 0.35;
+  padding: 0 2px;
   line-height: 1;
-  transition: color 0.12s, transform 0.1s;
+  transition: opacity 0.12s, transform 0.1s;
 }
-.star-btn:hover { transform: scale(1.2); }
-.star-btn.on { color: var(--star-on); }
+.vote-btn:hover { transform: scale(1.2); opacity: 0.7; }
+.vote-btn.on { opacity: 1; }
 
 .card-summary {
   font-size: 13px;

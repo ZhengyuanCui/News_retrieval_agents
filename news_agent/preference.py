@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 WEIGHTS = {
     "star": 5.0,
     "unstar": -5.0,
+    "dislike": -8.0,     # stronger signal: suppress this type of content
+    "undislike": 8.0,
     "click": 1.5,
     "read_short": 0.5,   # 15–60s
     "read_medium": 1.5,  # 60–180s
@@ -100,6 +102,10 @@ def _interaction_weight(interaction: UserInteractionORM) -> float:
         return WEIGHTS["star"]
     if interaction.action == "unstar":
         return WEIGHTS["unstar"]
+    if interaction.action == "dislike":
+        return WEIGHTS["dislike"]
+    if interaction.action == "undislike":
+        return WEIGHTS["undislike"]
     if interaction.action == "click":
         return WEIGHTS["click"]
     if interaction.action == "read" and interaction.read_seconds:

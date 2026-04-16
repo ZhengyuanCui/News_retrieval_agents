@@ -348,11 +348,12 @@ async function updatePanel(panelEl, topic) {
 
       if (res.count > initial) {
         await updatePanel(panelEl, topic);
-        // Remove any digest that was shown before the fetch completed — it was
-        // built from the old item set and won't match the new results.
-        const staleDigest = panelEl.querySelector('.digest-summary');
-        if (staleDigest) staleDigest.remove();
-        pollDigest(panelEl, topic);
+        // Only regenerate the digest if there isn't one already. Removing and
+        // regenerating on every incremental item increase causes left-panel
+        // digest churn when only the right panel topic changed.
+        if (!panelEl.querySelector('.digest-summary')) {
+          pollDigest(panelEl, topic);
+        }
         return;
       }
 
@@ -363,7 +364,6 @@ async function updatePanel(panelEl, topic) {
             if (emptyEl.classList.contains('fetch-more')) emptyEl.remove();
             else emptyEl.innerHTML = '<p style="color:var(--text-muted)">No new items found. Try a wider time range.</p>';
           }
-          // No new items — show digest for whatever is already in the panel
           if (!panelEl.querySelector('.digest-summary')) pollDigest(panelEl, topic);
           return;
         }
@@ -375,18 +375,34 @@ async function updatePanel(panelEl, topic) {
     const panelEl = document.getElementById(`panel-${idx}`);
     if (!panelEl) return;
     const topic = urlParams.get(`topic${idx}`) || '';
-    if (topic && panelEl.querySelector('.auto-fetch-empty')) {
-      // Specific topic — kick off a keyword fetch and poll for new results.
-      // Digest is triggered by pollTopic once fetch completes, so we don't
-      // start it here — that would show a stale digest from the previous fetch.
-      fetch(`/api/fetch?keyword=${encodeURIComponent(topic)}`, { method: 'POST' }).catch(() => {});
+
+    if (!topic) {
+      if (panelEl.querySelector('.auto-fetch-empty')) updatePanel(panelEl, '');
+      return;
+    }
+
+    // Always kick off a background fetch so the panel gets fresh results,
+    // even if items are already shown from a previous fetch cycle.
+    fetch(`/api/fetch?keyword=${encodeURIComponent(topic)}`, { method: 'POST' }).catch(() => {});
+
+    if (panelEl.querySelector('.auto-fetch-empty')) {
+      // No items yet — poll until they arrive (also starts digest when done)
       pollTopic(panelEl, topic);
-    } else if (!topic && panelEl.querySelector('.auto-fetch-empty')) {
-      // General news — items come from the scheduled fetch; just update the panel once
-      updatePanel(panelEl, '');
-    } else if (topic && !panelEl.querySelector('.digest-summary')) {
-      // Panel has items but no digest yet — analysis still running in background
-      pollDigest(panelEl, topic);
+    } else {
+      // Panel already has items — show digest if missing, then watch for new items
+      if (!panelEl.querySelector('.digest-summary')) pollDigest(panelEl, topic);
+      // Light background poll: refresh panel if more items arrive
+      (async () => {
+        const initial = parseInt(panelEl.querySelector('.news-list')?.dataset.count || '0', 10);
+        let noChange = 0;
+        while (noChange < 3) {
+          await new Promise(r => setTimeout(r, 2000));
+          const res = await fetch(`/api/fetch/status?topic=${encodeURIComponent(topic)}&hours=${hours}`)
+            .then(r => r.json()).catch(() => ({ running: false, count: initial }));
+          if (res.count > initial) { await updatePanel(panelEl, topic); return; }
+          if (!res.running) noChange++;
+        }
+      })();
     }
   });
 })();

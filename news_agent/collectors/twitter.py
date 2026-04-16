@@ -15,6 +15,13 @@ from news_agent.spam import is_spam_ml_batch
 
 logger = logging.getLogger(__name__)
 
+# URL shortener hostnames — links through these are not real article URLs
+_URL_SHORTENERS = frozenset({
+    "tinyurl.com", "bit.ly", "ow.ly", "goo.gl", "buff.ly",
+    "dlvr.it", "ift.tt", "rebrand.ly", "short.io", "tiny.cc",
+    "t.co", "lnkd.in", "fb.me", "is.gd", "v.gd",
+})
+
 # Absolute red-lines: these phrases never appear in legitimate financial content.
 _HARD_SPAM_PHRASES = [
     "guaranteed profit", "guaranteed return", "guaranteed income",
@@ -127,11 +134,11 @@ def _batch_spam_filter(tweets: list, engagements: list[int], engagement_floor: f
         source = "x"
         if tweet.entities and tweet.entities.get("urls"):
             expanded = tweet.entities["urls"][0].get("expanded_url", "")
-            if expanded and "twitter.com" not in expanded and "x.com" not in expanded:
+            host = urlparse(expanded).hostname or "" if expanded else ""
+            clean_host = host.lstrip("www.")
+            is_shortener = clean_host in _URL_SHORTENERS
+            if expanded and not is_shortener and "twitter.com" not in expanded and "x.com" not in expanded:
                 url = expanded
-                host = urlparse(expanded).hostname or ""
-                parts = host.lstrip("www.").split(".")
-                source = parts[0] if parts else "x"
         seen_ids.add(tweet.id)
         items.append(NewsItem(
             source=source, topic=keyword,

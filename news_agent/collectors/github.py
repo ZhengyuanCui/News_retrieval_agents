@@ -147,3 +147,28 @@ class GitHubCollector(BaseCollector):
 
         logger.info("GitHubCollector fetched %d items", len(items))
         return items[: settings.max_items_per_source * 2]
+
+    async def fetch_keyword(self, keyword: str) -> list[NewsItem]:
+        if not self.is_enabled():
+            return []
+        g = Github(settings.github_token) if settings.github_token else Github()
+        items = []
+        try:
+            results = g.search_repositories(query=keyword, sort="stars", order="desc")
+            for repo in results[:20]:
+                pushed = repo.pushed_at
+                if pushed and pushed.tzinfo:
+                    pushed = pushed.replace(tzinfo=None)
+                items.append(NewsItem(
+                    source="github",
+                    topic=keyword,
+                    title=repo.full_name,
+                    url=repo.html_url,
+                    content=repo.description or f"GitHub repository: {repo.full_name}",
+                    published_at=pushed or datetime.utcnow(),
+                    raw_score=self.normalize_score(repo.stargazers_count, 0, 100000),
+                ))
+        except Exception as e:
+            logger.error("GitHubCollector keyword fetch error (%r): %s", keyword, e)
+        logger.info("GitHubCollector keyword=%r fetched %d items", keyword, len(items))
+        return items

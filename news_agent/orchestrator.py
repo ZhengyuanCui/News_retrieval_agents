@@ -151,19 +151,24 @@ async def run_keyword_fetch(keyword: str) -> dict:
     )
     from news_agent.collectors.base import BaseCollector as _BC
     raw_items: list[NewsItem] = []
-    for r in results:
+    for collector, r in zip(collectors, results):
         if isinstance(r, Exception):
-            logger.error("Keyword collector error: %s", r)
+            logger.error("Keyword collector error (%s): %s", collector.source_name, r)
         else:
-            raw_items.extend(_BC.tag_languages(r))
+            tagged = _BC.tag_languages(r)
+            logger.info("keyword=%r source=%s raw=%d", keyword, collector.source_name, len(tagged))
+            raw_items.extend(tagged)
 
     if not raw_items:
-        logger.info("Keyword fetch for %r returned no items", keyword)
+        logger.warning("Keyword fetch for %r: all sources returned 0 items", keyword)
         return {"items_stored": 0}
 
+    logger.info("keyword=%r total raw=%d — starting dedup", keyword, len(raw_items))
     deduplicator = Deduplicator()
     loop = asyncio.get_event_loop()
     deduped = await loop.run_in_executor(None, deduplicator.deduplicate, raw_items)
+    unique = [i for i in deduped if not i.is_duplicate]
+    logger.info("keyword=%r after dedup: %d unique / %d total", keyword, len(unique), len(deduped))
 
     # Clear stale analysis so items are re-scored with the correct topic-specific prompt
     for item in deduped:
@@ -179,8 +184,8 @@ async def run_keyword_fetch(keyword: str) -> dict:
     if settings.anthropic_api_key:
         asyncio.create_task(_analyze_and_digest(deduped, [keyword]))
 
-    logger.info("Keyword fetch for %r stored %d items", keyword, len(deduped))
-    return {"items_stored": len(deduped)}
+    logger.info("Keyword fetch for %r stored %d items (%d unique)", keyword, len(deduped), len(unique))
+    return {"items_stored": len(unique)}
 
 
 async def generate_digest(topic: str, hours: int = 24) -> tuple[str, list[NewsItem]]:

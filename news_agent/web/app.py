@@ -58,6 +58,11 @@ import json as _json
 _jinja_env.filters["tojson"] = lambda v: _json.dumps(v)
 
 
+def _has_llm_key() -> bool:
+    from news_agent.config import settings as _s
+    return bool(_s.llm_api_key or _s.anthropic_api_key)
+
+
 def _parse_digest(raw: str | None) -> dict | None:
     """Parse stored digest string into {headline, bullets}."""
     if not raw:
@@ -290,10 +295,9 @@ async def digest_stream(topic: str, hours: float = 24):
             existing = await repo.get_digest(today, topic.lower())
 
         from news_agent.pipeline.analyzer import ClaudeAnalyzer
-        from news_agent.config import settings as _cfg
 
-        if not _cfg.anthropic_api_key:
-            yield f"data: {_json.dumps({'t': 'ANTHROPIC_API_KEY not set.'})}\n\n"
+        if not _has_llm_key():
+            yield f"data: {_json.dumps({'t': 'No LLM API key configured. Set LLM_API_KEY or ANTHROPIC_API_KEY in .env.'})}\n\n"
             yield f"data: {_json.dumps({'done': True})}\n\n"
             return
 
@@ -335,11 +339,6 @@ async def digest_stream(topic: str, hours: float = 24):
             yield f"data: {_json.dumps({'t': f'No recent {topic} news found.'})}\n\n"
             yield f"data: {_json.dumps({'done': True})}\n\n"
             return
-
-        # Wait 60s before generating so analysis batch calls can clear the
-        # Claude output-token-per-minute rate limit window.
-        logger.info("Digest for '%s': waiting 60s for rate limit window to clear", topic)
-        await asyncio.sleep(60)
 
         analyzer = ClaudeAnalyzer()
         full_text = ""

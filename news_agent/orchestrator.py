@@ -66,11 +66,11 @@ async def run_fetch_cycle(topics: list[str] | None = None) -> dict:
         # Digests are regenerated after analysis — no pre-emptive deletion needed
     logger.info("Items stored — UI will show results now")
 
-    # 4. Claude analysis + digest in background (non-blocking)
-    if settings.anthropic_api_key:
+    # 4. LLM analysis + digest in background (non-blocking)
+    if settings.llm_api_key or settings.anthropic_api_key:
         asyncio.create_task(_analyze_and_digest(deduped_items, fetched_topics))
     else:
-        logger.warning("ANTHROPIC_API_KEY not set — skipping Claude analysis")
+        logger.warning("No LLM API key set — skipping analysis (set LLM_API_KEY or ANTHROPIC_API_KEY)")
 
     duration = (datetime.utcnow() - start).total_seconds()
     summary = {
@@ -200,7 +200,7 @@ async def run_keyword_fetch(keyword: str) -> dict:
         await repo.upsert_many(deduped)
 
     # Analyze in background
-    if settings.anthropic_api_key:
+    if settings.llm_api_key or settings.anthropic_api_key:
         asyncio.create_task(_analyze_and_digest(deduped, [keyword]))
 
     logger.info("Keyword fetch for %r stored %d items (%d unique)", keyword, len(deduped), len(unique))
@@ -213,8 +213,8 @@ async def generate_digest(topic: str, hours: int = 24) -> tuple[str, list[NewsIt
         repo = NewsRepository(session)
         items = await repo.get_recent(hours=hours, topic=topic)
 
-    if not settings.anthropic_api_key:
-        return "ANTHROPIC_API_KEY not set — cannot generate digest.", items
+    if not (settings.llm_api_key or settings.anthropic_api_key):
+        return "No LLM API key configured — cannot generate digest.", items
 
     analyzer = ClaudeAnalyzer()
     digest_text = await analyzer.generate_digest(items, topic)

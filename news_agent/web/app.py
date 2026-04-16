@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from pathlib import Path
 
 import re
 
 import jinja2
+
+logger = logging.getLogger(__name__)
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -294,7 +297,7 @@ async def digest_stream(topic: str, hours: float = 24):
             repo = NewsRepository(session)
             existing = await repo.get_digest(today, topic.lower())
 
-        from news_agent.pipeline.analyzer import ClaudeAnalyzer
+        from news_agent.pipeline.analyzer import LLMAnalyzer
 
         if not _has_llm_key():
             yield f"data: {_json.dumps({'t': 'No LLM API key configured. Set LLM_API_KEY or ANTHROPIC_API_KEY in .env.'})}\n\n"
@@ -340,7 +343,7 @@ async def digest_stream(topic: str, hours: float = 24):
             yield f"data: {_json.dumps({'done': True})}\n\n"
             return
 
-        analyzer = ClaudeAnalyzer()
+        analyzer = LLMAnalyzer()
         full_text = ""
         try:
             async for chunk in analyzer.generate_digest_stream(items, topic):
@@ -406,8 +409,8 @@ async def generate_podcast(topic: str, hours: float = 24):
     if topic in _podcast_generating:
         return {"started": False, "reason": "already generating"}
 
-    if not _settings.anthropic_api_key:
-        return {"started": False, "reason": "ANTHROPIC_API_KEY not set in .env"}
+    if not _has_llm_key():
+        return {"started": False, "reason": "No LLM API key set in .env (LLM_API_KEY or ANTHROPIC_API_KEY)"}
 
     # If cached podcast was for a different hours window, invalidate it
     cached = _podcast_cache.get(topic)

@@ -45,7 +45,7 @@ class NewsRepository:
                 "duplicate_of": stmt.excluded.duplicate_of,
                 # Analysis-owned fields (summary, relevance_score, sentiment, tags,
                 # key_entities) are intentionally excluded here — they are only written
-                # by ClaudeAnalyzer, never overwritten by a plain re-fetch.
+                # by LLMAnalyzer, never overwritten by a plain re-fetch.
                 # is_starred is also excluded — preserve user stars.
             },
         )

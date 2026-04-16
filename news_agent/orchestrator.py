@@ -7,7 +7,7 @@ from datetime import datetime
 from news_agent.collectors import get_enabled_collectors
 from news_agent.config import settings
 from news_agent.models import NewsItem
-from news_agent.pipeline import Aggregator, ClaudeAnalyzer, Deduplicator
+from news_agent.pipeline import Aggregator, LLMAnalyzer, Deduplicator
 from news_agent.storage import NewsRepository, get_session
 
 logger = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ async def _analyze_and_digest(deduped_items: list[NewsItem], topics: list[str]) 
         # Brief pause so any in-flight digest stream request gets its LLM call in first,
         # before the heavier batch analysis starts consuming the token-rate-limit window.
         await asyncio.sleep(5)
-        analyzer = ClaudeAnalyzer()
+        analyzer = LLMAnalyzer()
 
         # Apply preference boosts
         from news_agent.preference import get_preference_scores, apply_preference_boost
@@ -199,7 +199,7 @@ async def generate_digest(topic: str, hours: int = 24) -> tuple[str, list[NewsIt
     if not (settings.llm_api_key or settings.anthropic_api_key):
         return "No LLM API key configured — cannot generate digest.", items
 
-    analyzer = ClaudeAnalyzer()
+    analyzer = LLMAnalyzer()
     digest_text = await analyzer.generate_digest(items, topic)
 
     date_str = datetime.utcnow().strftime("%Y-%m-%d")

@@ -237,7 +237,3 @@ class LLMAnalyzer:
             except Exception as e:
                 logger.error("Digest stream failed for '%s': %s", topic, e)
                 raise
-
-
-# Backward-compatible alias
-ClaudeAnalyzer = LLMAnalyzer

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import anthropic
+import litellm
 
 from news_agent.config import settings
 from news_agent.models import NewsItem
@@ -28,10 +28,17 @@ News items:
 """
 
 
-class PodcastGenerator:
-    def __init__(self) -> None:
-        self._claude = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+def _llm_model() -> str:
+    if settings.claude_model:
+        return f"anthropic/{settings.claude_model}"
+    return settings.llm_model
 
+
+def _api_key() -> str | None:
+    return settings.llm_api_key or settings.anthropic_api_key or None
+
+
+class PodcastGenerator:
     def _write_script(self, items: list[NewsItem], topic: str) -> str:
         topic_label = topic.title()
         relevant = sorted(
@@ -45,15 +52,17 @@ class PodcastGenerator:
             for i, item in enumerate(relevant)
         )
 
-        response = self._claude.messages.create(
-            model=settings.claude_model,
+        api_key = _api_key()
+        response = litellm.completion(
+            model=_llm_model(),
             max_tokens=1500,
             messages=[{"role": "user", "content": SCRIPT_PROMPT.format(
                 topic_label=topic_label,
                 items_text=items_text,
             )}],
+            **({"api_key": api_key} if api_key else {}),
         )
-        return response.content[0].text.strip()
+        return response.choices[0].message.content.strip()
 
     def _tts_openai(self, script: str, output_path: Path) -> None:
         """Primary TTS via OpenAI."""
@@ -73,9 +82,9 @@ class PodcastGenerator:
         gTTS(text=script, lang="en").save(str(output_path))
 
     def generate(self, items: list[NewsItem], topic: str, output_path: Path) -> Path:
-        """Generate a podcast MP3. Uses OpenAI TTS if available, falls back to edge-tts."""
-        if not settings.anthropic_api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY not set")
+        """Generate a podcast MP3. Uses OpenAI TTS if available, falls back to gTTS."""
+        if not (settings.llm_api_key or settings.anthropic_api_key):
+            raise RuntimeError("No LLM API key configured (set LLM_API_KEY or ANTHROPIC_API_KEY)")
 
         script = self._write_script(items, topic)
         logger.info("Podcast script written (%d chars)", len(script))
@@ -89,7 +98,7 @@ class PodcastGenerator:
                 logger.info("Podcast generated via OpenAI TTS → %s", output_path)
                 return output_path
             except Exception as e:
-                logger.warning("OpenAI TTS failed (%s), falling back to edge-tts", e)
+                logger.warning("OpenAI TTS failed (%s), falling back to gTTS", e)
 
         # Fallback: gTTS (Google, free)
         logger.info("Using gTTS fallback")

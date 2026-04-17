@@ -231,6 +231,10 @@ class YouTubeCollector(BaseCollector):
                 video_stats = stats.get(video_id, {})
                 view_count = int(video_stats.get("viewCount", 0))
                 like_count = int(video_stats.get("likeCount", 0))
+                # Skip zero-engagement videos — brand-new or obscure content that
+                # hasn't been validated by any audience yet.
+                if like_count == 0 and view_count < 500:
+                    continue
                 # Score by combined engagement; views weighted less than likes
                 engagement = view_count * 0.001 + like_count
                 raw_score = min(1.0, engagement / (max_views * 0.001 + 1))

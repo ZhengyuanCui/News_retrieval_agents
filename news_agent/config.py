@@ -82,7 +82,7 @@ class Settings(BaseSettings):
 
     # ── Pipeline ──────────────────────────────────────────────────────────────
     dedup_strategy: str = "semantic"  # "semantic" | "tfidf" | "url_only"
-    dedup_similarity_threshold: float = 0.85
+    dedup_similarity_threshold: float = 0.82
     batch_size: int = 15
     max_items_per_source: int = 50
 

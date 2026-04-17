@@ -5,9 +5,7 @@ from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
-# distilroberta-spam is trained on diverse web/social content and catches
-# promotional language better than the SMS-focused bert-tiny model.
-_MODEL = "valurank/distilroberta-spam"
+_MODEL = "mrm8488/bert-tiny-finetuned-sms-spam-detection"
 
 
 @lru_cache(maxsize=1)

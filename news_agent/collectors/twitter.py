@@ -262,11 +262,11 @@ class TwitterCollector(BaseCollector):
         client = self._build_client()
         items: list[NewsItem] = []
         max_age = datetime.utcnow() - timedelta(days=7)
-        # Single pass: links-only with server-side engagement filter.
-        # min_faves:10 cuts low-traction promotional tweets before they arrive;
+        # Single pass: links-only. The engagement floor (10) is applied client-side
+        # since min_faves requires a premium API tier.
         # has:links ensures there is a real article to read.
         queries = [
-            f'{keyword} min_faves:10 lang:en -is:retweet -is:nullcast has:links',
+            f'{keyword} lang:en -is:retweet -is:nullcast has:links',
         ]
 
         seen_ids: set = set()

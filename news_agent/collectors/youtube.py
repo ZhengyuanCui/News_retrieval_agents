@@ -14,6 +14,8 @@ from news_agent.spam import is_spam_ml
 
 logger = logging.getLogger(__name__)
 
+import re as _re
+
 # YouTube-specific spam patterns not well covered by the SMS spam model
 _YT_SPAM_PHRASES = [
     "deleted in 24 hours", "will be deleted", "remove this video",
@@ -23,11 +25,23 @@ _YT_SPAM_PHRASES = [
     "100% win", "never lose",
     "get rich", "financial freedom in",
     "copy my trades",
+    # Live-stream spam
+    "live trading", "live crypto", "live gold", "live forex",
+    # Clickbait urgency
+    "urgent:", "🔴 urgent", "🚨 urgent",
+    "must watch", "watch before",
+    "prediction!", "friday prediction", "monday prediction",
 ]
 
 # Titles crammed with stock tickers / hashtags are almost always spam.
 # Count '#' or '$' symbols; if there are 4+, it's a spam dump.
 _HASHTAG_SPAM_THRESHOLD = 4
+
+# Slash/comma-separated ticker lists: "SPY / QQQ / NVDA / TSLA / AMD / PLTR"
+# Matches 4+ tickers in sequence — unambiguous spam pattern, won't match normal prose.
+_TICKER_LIST_RE = _re.compile(
+    r"[A-Z]{1,5}(?:\s*[/|,]\s*[A-Z]{1,5}){3,}"
+)
 
 
 def _is_yt_spam(title: str, description: str = "") -> bool:
@@ -35,6 +49,9 @@ def _is_yt_spam(title: str, description: str = "") -> bool:
     if any(p in text for p in _YT_SPAM_PHRASES):
         return True
     if title.count("#") + title.count("$") >= _HASHTAG_SPAM_THRESHOLD:
+        return True
+    # Ticker-stuffed titles: "SPY / QQQ / NVDA / TSLA / AMD / PLTR / MSTR / META"
+    if _TICKER_LIST_RE.search(title):
         return True
     return is_spam_ml(title)
 

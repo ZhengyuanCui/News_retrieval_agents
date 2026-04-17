@@ -3,13 +3,21 @@
   data-id="{{ item.id }}"
   data-url="{{ item.url }}"
 >
+  {# Strip HTML and decide whether content adds anything beyond the title #}
+  {% set content_text = (item.content or '') | strip_html %}
+  {% set show_content = content_text | length > 50
+                        and not content_text.strip().startswith('http')
+                        and content_text.lower().strip()[:80] != item.title.lower().strip()[:80] %}
+
   <div class="card-header" onclick="toggleExpand(this.parentElement)">
     <div class="card-meta">
       <span class="source source-{{ item.source }}">{{ item.source }}</span>
       {% if item.sentiment %}
       <span class="sentiment sentiment-{{ item.sentiment }}">{{ item.sentiment }}</span>
       {% endif %}
-      <span class="pub-time">{{ item.published_at.strftime('%b %d %H:%M') if item.published_at else '' }}</span>
+      <span class="pub-time" data-utc="{{ item.published_at.isoformat() if item.published_at else '' }}">
+        {{ item.published_at.strftime('%b %d %H:%M') if item.published_at else '' }}
+      </span>
     </div>
 
     <div class="card-title-row">
@@ -28,7 +36,11 @@
       </div>
     </div>
 
-    <p class="card-summary">{{ item.summary or item.content[:250] }}{% if not item.summary and item.content|length > 250 %}…{% endif %}</p>
+    {% if item.summary %}
+    <p class="card-summary">{{ item.summary }}</p>
+    {% elif show_content %}
+    <p class="card-summary">{{ content_text[:250] }}{% if content_text | length > 250 %}…{% endif %}</p>
+    {% endif %}
 
     {% if item.tags %}
     <div class="tags">
@@ -44,7 +56,9 @@
       {% for e in item.key_entities %}<span class="entity">{{ e }}</span>{% endfor %}
     </div>
     {% endif %}
-    <div class="full-content">{{ item.content }}</div>
+    {% if show_content and not item.summary %}
+    <div class="full-content">{{ content_text }}</div>
+    {% endif %}
     <a class="read-more" href="{{ item.url }}" target="_blank" rel="noopener"
        onclick="logClick('{{ item.id }}')">
       Read full article &#8599;

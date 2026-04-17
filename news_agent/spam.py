@@ -5,7 +5,11 @@ from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
-_MODEL = "mrm8488/bert-tiny-finetuned-sms-spam-detection"
+# RoBERTa-base fine-tuned on a broad spam corpus — 125M params, LABEL_1 = spam.
+# Significantly better than bert-tiny (SMS-only) at catching social media
+# promotional content while keeping false-positive rate near zero.
+_MODEL = "mshenoda/roberta-spam"
+_SPAM_LABEL = "LABEL_1"
 
 
 @lru_cache(maxsize=1)
@@ -48,7 +52,7 @@ def is_spam_ml_batch(texts: list[str], threshold: float = 0.80) -> list[bool]:
         results = clf([t[:512] for t in texts], batch_size=32)
         flags = []
         for text, r in zip(texts, results):
-            is_spam = r["label"].upper() == "SPAM" and r["score"] >= threshold
+            is_spam = r["label"] == _SPAM_LABEL and r["score"] >= threshold
             if is_spam:
                 logger.debug("ML spam (%.2f): %s", r["score"], text[:80])
             flags.append(is_spam)

@@ -3,9 +3,11 @@
   data-id="{{ item.id }}"
   data-url="{{ item.url }}"
 >
-  {# Strip HTML and decide whether content adds anything beyond the title #}
+  {# Strip HTML and decide whether content adds anything beyond the title.
+     Require content to be at least 60 chars longer than the title so that
+     "Title Publisher" (Google/Bing RSS filler) is never shown as a summary. #}
   {% set content_text = (item.content or '') | strip_html %}
-  {% set show_content = content_text | length > 50
+  {% set show_content = content_text | length > (item.title | length + 60)
                         and not content_text.strip().startswith('http')
                         and content_text.lower().strip()[:80] != item.title.lower().strip()[:80] %}
 

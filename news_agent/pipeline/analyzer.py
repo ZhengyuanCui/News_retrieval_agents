@@ -34,6 +34,41 @@ News items:
 {items_json}
 """
 
+_QUESTION_STARTERS = (
+    "what", "why", "how", "will", "would", "could", "should",
+    "do ", "does", "did", "is ", "are ", "can ", "which", "who ",
+    "when", "where", "might", "shall",
+)
+
+def is_question(query: str) -> bool:
+    """Return True if the query looks like a natural-language question."""
+    q = query.strip().lower()
+    return (
+        q.endswith("?")
+        or any(q.startswith(s) for s in _QUESTION_STARTERS)
+        or len(q.split()) >= 7        # long free-text → treat as question
+    )
+
+
+QA_PROMPT = """\
+You are a knowledgeable analyst. A user has asked the following question:
+
+"{question}"
+
+Use ONLY the news articles below to answer. Do not invent facts.
+
+Write ONLY:
+Line 1: A direct one-sentence answer to the question (max 25 words).
+Lines 2 onward: 3–5 bullet points, each on its own line, starting with a bold source label like \
+"**Reuters:**" followed by 1–2 sentences from that article that support or nuance the answer.
+End with one sentence summarising the overall picture if the evidence is mixed.
+
+If the articles do not contain enough information to answer, say so plainly in line 1.
+
+News articles ({n} total):
+{items_text}
+"""
+
 DIGEST_PROMPT = """\
 You are an expert analyst writing a concise daily briefing for a professional audience.
 
@@ -236,4 +271,46 @@ class LLMAnalyzer:
                 await asyncio.sleep(wait)
             except Exception as e:
                 logger.error("Digest stream failed for '%s': %s", topic, e)
+                raise
+
+    async def answer_question_stream(self, question: str, items: list[NewsItem]):
+        """Stream an LLM answer to a natural-language question grounded in news articles."""
+        pool = [i for i in items if not i.is_duplicate]
+        pool.sort(key=lambda x: x.relevance_score or x.raw_score or 0, reverse=True)
+        top_items = pool[:20]
+
+        if not top_items:
+            yield "No relevant news articles found to answer this question."
+            return
+
+        items_text = "\n\n".join(
+            f"[{i+1}] {item.title}\nSource: {item.source} | {item.published_at.strftime('%b %d') if item.published_at else ''}\n"
+            f"{item.summary or item.content[:300]}"
+            for i, item in enumerate(top_items)
+        )
+        prompt = QA_PROMPT.format(question=question, n=len(top_items), items_text=items_text)
+        model = _model()
+        api_key = _api_key()
+
+        for attempt in range(3):
+            try:
+                response = await litellm.acompletion(
+                    model=model,
+                    max_tokens=800,
+                    messages=[{"role": "user", "content": prompt}],
+                    stream=True,
+                    **({"api_key": api_key} if api_key else {}),
+                )
+                async for chunk in response:
+                    delta = chunk.choices[0].delta
+                    text = getattr(delta, "content", None) or ""
+                    if text:
+                        yield text
+                return
+            except litellm.RateLimitError:
+                wait = 30 * (attempt + 1)
+                logger.warning("LLM rate limit on Q&A — waiting %ds", wait)
+                await asyncio.sleep(wait)
+            except Exception as e:
+                logger.error("Q&A stream failed: %s", e)
                 raise

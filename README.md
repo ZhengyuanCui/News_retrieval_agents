@@ -4,12 +4,15 @@ An AI-powered news aggregator that collects articles, tweets, videos, and posts 
 
 ## Features
 
-- **Multi-source collection** — RSS feeds, X/Twitter, Reddit, YouTube, GitHub, LinkedIn
-- **AI analysis** — scores each item for relevance, sentiment, key entities, and tags using any LLM
+- **Multi-source collection** — RSS/Google News/Bing News, X/Twitter, Reddit, YouTube, GitHub, LinkedIn
+- **AI analysis** — scores each item for relevance (0–10), sentiment, key entities, and tags using any LLM
+- **Semantic search** — natural-language queries (e.g. "will the market rise due to the Iran war?") are answered via vector similarity search over all stored articles
+- **Semantic re-ranking** — search results are blended: 50 % embedding similarity to query + 40 % LLM relevance score + 10 % raw engagement score
 - **Real-time digest streaming** — summaries stream token-by-token like a chat response
-- **Keyword search** — search any topic on demand; results appear as they are fetched
+- **Keyword search** — fetch any topic on demand; results appear as they are collected
 - **Language filtering** — filter news by language; non-English YouTube videos are excluded
-- **Spam filtering** — engagement floors, content-based spam detection, and `-is:nullcast has:links` on Twitter queries
+- **Spam filtering** — engagement floors, ML spam classifier (`mshenoda/roberta-spam`, 125 M RoBERTa), keyword hard-blocks, and influencer-shill pattern detection
+- **Deduplication** — semantic cosine-similarity dedup (threshold 0.82) plus title-normalisation to catch cross-publisher duplicates
 - **Podcast generation** — convert any topic digest into an audio podcast via OpenAI TTS
 - **Scheduled background fetch** — automatic fetch every N hours (configurable)
 - **Export** — dump items to JSON or Markdown
@@ -22,7 +25,7 @@ An AI-powered news aggregator that collects articles, tweets, videos, and posts 
 news_agent/
 ├── collectors/          # One collector per source
 │   ├── base.py          # BaseCollector: rate limiting, language tagging, score normalization
-│   ├── rss.py           # RSS/Atom feeds (ESPN NBA, tech blogs, finance sites, …)
+│   ├── rss.py           # RSS/Atom + Google News + Bing News search feeds
 │   ├── twitter.py       # X/Twitter API v2 via tweepy
 │   ├── reddit.py        # Reddit via praw
 │   ├── youtube.py       # YouTube Data API v3
@@ -31,8 +34,12 @@ news_agent/
 │
 ├── pipeline/
 │   ├── aggregator.py    # Fan-out: runs all collectors in parallel
-│   ├── analyzer.py      # Claude batch analysis + digest generation (streaming)
-│   └── deduplicator.py  # Semantic dedup via sentence-transformers + cosine similarity
+│   ├── analyzer.py      # LLM batch analysis + digest generation (streaming)
+│   ├── deduplicator.py  # Semantic dedup via sentence-transformers + cosine similarity
+│   ├── embeddings.py    # Shared all-MiniLM-L6-v2 singleton (thread-safe)
+│   ├── ranker.py        # Blended semantic + LLM + engagement re-ranking
+│   ├── vector_search.py # In-memory vector index for semantic fallback search
+│   └── spam.py          # ML spam classifier (mshenoda/roberta-spam)
 │
 ├── storage/
 │   ├── database.py      # SQLAlchemy async engine + session factory (SQLite WAL)
@@ -50,6 +57,7 @@ news_agent/
 │
 ├── models.py            # Pydantic NewsItem + SQLAlchemy ORM models
 ├── config.py            # Pydantic-settings config (reads .env)
+├── spam.py              # ML spam classifier wrapper
 ├── lang.py              # Language detection via langdetect
 ├── orchestrator.py      # Top-level: fetch cycle, keyword fetch, digest generation
 ├── scheduler.py         # APScheduler background loop
@@ -153,12 +161,74 @@ news-agent schedule
 
 Open `http://localhost:8000` in your browser.
 
-- **Search bar** — type any keyword (e.g. `NVDA`, `basketball`, `climate`) to fetch and display items on demand
+- **Search bar** — type any keyword *or* natural-language question (e.g. `will markets rise if Iran war ends?`) to fetch and display items on demand
 - **Two-panel layout** — compare two topics side by side via URL params: `?topic1=ai&topic2=stocks`
 - **Streaming summary** — an AI digest streams in above the news cards as soon as enough items are collected
 - **Language filter** — click the globe button to select which languages to display
 - **Podcast** — click the microphone button to generate an audio digest for a topic
 - **Thumbs up / down** — vote on items to teach the ranking what you want more or less of
+
+---
+
+## Search & Q&A
+
+### Keyword search
+
+Type a short keyword (`AI`, `NVDA`, `Fed rates`) to fetch and display a curated list of articles plus an AI-generated digest at the top.
+
+### Question answering
+
+Type a natural-language question (`Will the stock market rise if the Iran war ends?`, `Which AI company has the best model right now?`) and the system:
+
+1. Detects it is a question (starts with a question word, ends with `?`, or is 7+ words long).
+2. Retrieves the most semantically relevant articles from the last 7 days using vector similarity search.
+3. Streams a grounded LLM answer — a direct one-sentence response followed by bullet points citing specific articles by source.
+
+The answer is honest about gaps: if the retrieved articles don't contain enough information, it says so rather than hallucinating.
+
+### How retrieval works
+
+1. **Topic-exact match** (fast DB query) — if items have been fetched specifically for this keyword, they are returned immediately within the selected time window.
+2. **Semantic vector search** (fallback) — if no exact match, the query is encoded with `all-MiniLM-L6-v2` and compared against an in-memory index of all articles from the last 7 days via cosine similarity. This handles natural-language questions and paraphrased queries with no keyword overlap.
+
+The vector index holds embeddings for all non-duplicate articles from the last 7 days (~4 k items, 5–6 MB). It is built lazily on first use (~2–3 s once the model is warm) and refreshed every 10 minutes or after each pipeline ingest.
+
+### How results are ranked
+
+Retrieved articles are re-ranked using a blended score:
+
+```
+score = 0.5 × semantic_similarity   (embedding cosine sim to query)
+      + 0.4 × llm_relevance          (LLM 0–10 score normalised to 0–1)
+      + 0.1 × raw_engagement         (likes/retweets/views, normalised)
+```
+
+Items LLM-scored below 4.0/10 are excluded. Un-scored items (NULL) are always included so fresh articles appear before analysis completes.
+
+---
+
+## Spam Filtering
+
+Spam is caught in layers, applied in order of cost:
+
+| Layer | Method | Applies to |
+|-------|--------|-----------|
+| Engagement floor | Like+retweet count < threshold | Twitter, YouTube |
+| Hard keyword blocks | Exact phrase match (e.g. "guaranteed profit", "copy my trades") | Twitter |
+| Shill-combo detection | @mention + $cashtag + ≥ 2 soft indicators | Twitter |
+| Ticker stuffing | ≥ 3 distinct `$TICKER` cashtags, or 4+ slash-separated tickers | Twitter, YouTube |
+| ML classifier | `mshenoda/roberta-spam` (125 M RoBERTa, threshold 0.80) | Twitter |
+| YouTube-specific | Spam phrase list + `#/$` symbol count + ticker-list regex | YouTube |
+
+The ML model is loaded once at startup and shared across all requests. Batch inference is used for Twitter (one forward pass per query batch).
+
+---
+
+## Deduplication
+
+- **URL dedup** — items with identical URLs are dropped before storage.
+- **Semantic dedup** — article embeddings are compared pairwise; items with cosine similarity ≥ 0.82 are marked as duplicates.
+- **Title normalisation** — trailing ` - Publication Name` suffixes are stripped before hashing so "Article Title - Reuters" and "Article Title" are recognised as the same story.
 
 ---
 
@@ -188,11 +258,11 @@ All settings are in `.env`. Key options:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LLM_MODEL` | `anthropic/claude-sonnet-4-6` | LLM used for analysis and digests (litellm format) |
+| `LLM_MODEL` | `anthropic/claude-sonnet-4-6` | LLM for analysis and digests (litellm format) |
 | `LLM_API_KEY` | _(empty)_ | API key for the LLM provider (or set provider env var directly) |
 | `BATCH_SIZE` | `15` | Items per LLM analysis batch |
 | `MAX_ITEMS_PER_SOURCE` | `50` | Items fetched per source per cycle |
-| `DEDUP_SIMILARITY_THRESHOLD` | `0.85` | Cosine similarity threshold for deduplication |
+| `DEDUP_SIMILARITY_THRESHOLD` | `0.82` | Cosine similarity threshold for deduplication |
 | `SCHEDULE_INTERVAL_HOURS` | `4` | How often the background scheduler runs |
 | `RETENTION_DAYS` | `30` | Days before items are pruned from the database |
 | `DATABASE_URL` | `sqlite+aiosqlite:///data/news.db` | SQLAlchemy DB URL |

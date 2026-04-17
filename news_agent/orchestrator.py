@@ -64,6 +64,8 @@ async def run_fetch_cycle(topics: list[str] | None = None) -> dict:
                 items_fetched=count,
             )
         # Digests are regenerated after analysis — no pre-emptive deletion needed
+    from news_agent.pipeline.vector_search import invalidate_index
+    invalidate_index()
     logger.info("Items stored — UI will show results now")
 
     # 4. LLM analysis + digest in background (non-blocking)
@@ -186,6 +188,8 @@ async def run_keyword_fetch(keyword: str) -> dict:
     if settings.llm_api_key or settings.anthropic_api_key:
         asyncio.create_task(_analyze_and_digest(deduped, [keyword]))
 
+    from news_agent.pipeline.vector_search import invalidate_index
+    invalidate_index()
     logger.info("Keyword fetch for %r stored %d items (%d unique)", keyword, len(deduped), len(unique))
     return {"items_stored": len(unique)}
 

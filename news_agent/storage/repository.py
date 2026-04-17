@@ -149,11 +149,43 @@ class NewsRepository:
         if rows:
             return [r.to_pydantic() for r in rows]
 
-        # No topic-specific items yet — return empty so the spinner stays visible
-        # while the background keyword fetch runs. A content-search fallback
-        # surfaces unrelated items (AI, stocks) that happen to mention the keyword,
-        # producing misleading results with wrong topic tags.
-        return []
+        # No topic-specific items yet — fall back to semantic vector search.
+        # This handles natural-language queries ("will the market rise because of X?")
+        # by finding articles whose embeddings are closest to the query embedding.
+        # Use the full 7-day window here — the hours filter is for topic feeds
+        # (where freshness matters most), but for open-ended queries the most
+        # relevant article from 3 days ago is better than nothing.
+        from news_agent.pipeline.vector_search import semantic_search
+
+        candidate_ids = await semantic_search(query, top_k=limit * 2)
+        if not candidate_ids:
+            return []
+
+        fallback_where = [
+            NewsItemORM.published_at >= datetime.utcnow() - timedelta(days=7),
+            NewsItemORM.is_duplicate == False,  # noqa: E712
+            (NewsItemORM.relevance_score == None) | (NewsItemORM.relevance_score >= min_relevance),  # noqa: E711
+        ]
+        if languages:
+            fallback_where.append(NewsItemORM.language.in_(languages))
+
+        # Fetch the matched items, preserving semantic rank via Python sort
+        id_rank = {id_: rank for rank, id_ in enumerate(candidate_ids)}
+        result = await self.session.execute(
+            select(NewsItemORM)
+            .where(*fallback_where, NewsItemORM.id.in_(candidate_ids))
+        )
+        rows = result.scalars().all()
+        # Sort by semantic rank (closest match first), then deduplicate by title
+        rows.sort(key=lambda r: id_rank.get(r.id, 9999))
+        seen_titles: set[str] = set()
+        deduped = []
+        for r in rows:
+            title_key = r.title.lower().strip()[:80]
+            if title_key not in seen_titles:
+                seen_titles.add(title_key)
+                deduped.append(r)
+        return [r.to_pydantic() for r in deduped[:limit]]
 
     async def mark_duplicate(self, item_id: str, duplicate_of: str) -> None:
         await self.session.execute(

@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+import html
 import re
 
 import jinja2
@@ -34,8 +35,12 @@ app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 
 # Use jinja2 directly to avoid Python 3.14 cache-key bug in starlette's wrapper
 def _strip_html(text: str) -> str:
-    """Remove HTML tags from text (for RSS content that contains markup)."""
-    return re.sub(r"<[^>]+>", " ", text or "").strip()
+    """Remove HTML tags from text (for RSS content that contains markup).
+    Unescapes HTML entities first so &lt;a href="..."&gt; is also stripped.
+    """
+    text = html.unescape(text or "")
+    text = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 _jinja_env = jinja2.Environment(
@@ -302,16 +307,39 @@ async def digest_stream(topic: str, hours: float = 24):
     today = datetime.utcnow().strftime("%Y-%m-%d")
 
     async def event_stream():
-        async with get_session() as session:
-            repo = NewsRepository(session)
-            existing = await repo.get_digest(today, topic.lower())
-
-        from news_agent.pipeline.analyzer import LLMAnalyzer
+        from news_agent.pipeline.analyzer import LLMAnalyzer, is_question
 
         if not _has_llm_key():
             yield f"data: {_json.dumps({'t': 'No LLM API key configured. Set LLM_API_KEY or ANTHROPIC_API_KEY in .env.'})}\n\n"
             yield f"data: {_json.dumps({'done': True})}\n\n"
             return
+
+        # ── Question mode ────────────────────────────────────────────────────
+        # If the topic looks like a natural-language question, retrieve
+        # semantically relevant articles and answer the question directly.
+        # Q&A responses are not cached — they're always generated fresh.
+        if is_question(topic):
+            async with get_session() as session:
+                repo = NewsRepository(session)
+                items = await repo.search(topic, hours=168, limit=20)
+            if not items:
+                yield f"data: {_json.dumps({'t': 'No relevant news found to answer this question.'})}\n\n"
+                yield f"data: {_json.dumps({'done': True})}\n\n"
+                return
+            analyzer = LLMAnalyzer()
+            try:
+                async for chunk in analyzer.answer_question_stream(topic, items):
+                    yield f"data: {_json.dumps({'t': chunk})}\n\n"
+            except Exception as e:
+                logger.error("Q&A stream failed for %r: %s", topic, e)
+                yield f"data: {_json.dumps({'t': f'Answer generation failed: {e}'})}\n\n"
+            yield f"data: {_json.dumps({'done': True})}\n\n"
+            return
+
+        # ── Standard digest mode ─────────────────────────────────────────────
+        async with get_session() as session:
+            repo = NewsRepository(session)
+            existing = await repo.get_digest(today, topic.lower())
 
         async with get_session() as session:
             repo = NewsRepository(session)

@@ -15,7 +15,21 @@ logger = logging.getLogger(__name__)
 
 
 import base64 as _base64
+import html as _html
 import re as _re
+
+
+def _clean_summary(text: str) -> str:
+    """Strip HTML tags and entities from RSS summary/description fields.
+
+    Google News RSS wraps summaries in <a href="...">title</a> HTML.
+    Store only the human-readable text.
+    """
+    text = _html.unescape(text or "")
+    text = _re.sub(r"<[^>]+>", " ", text)
+    return _re.sub(r"\s+", " ", text).strip()
+
+
 
 
 def _decode_google_news_url(url: str) -> str:
@@ -113,7 +127,7 @@ class RSSCollector(BaseCollector):
         for entry in feed.entries[:15]:
             title = entry.get("title", "").strip()
             link = entry.get("link", "")
-            summary = entry.get("summary", entry.get("description", ""))[:2000]
+            summary = _clean_summary(entry.get("summary", entry.get("description", ""))[:2000])
             published = entry.get("published_parsed") or entry.get("updated_parsed")
 
             if not title or not link:
@@ -194,7 +208,7 @@ class RSSCollector(BaseCollector):
         for entry in feed.entries[:20]:
             title = entry.get("title", "").strip()
             link = entry.get("link", "")
-            summary = entry.get("summary", entry.get("description", ""))[:2000]
+            summary = _clean_summary(entry.get("summary", entry.get("description", ""))[:2000])
             published = entry.get("published_parsed") or entry.get("updated_parsed")
             if not title or not link:
                 continue

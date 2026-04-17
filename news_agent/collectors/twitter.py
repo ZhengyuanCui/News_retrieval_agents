@@ -262,13 +262,11 @@ class TwitterCollector(BaseCollector):
         client = self._build_client()
         items: list[NewsItem] = []
         max_age = datetime.utcnow() - timedelta(days=7)
-        # Two passes:
-        # 1. has:links  — article shares; broader spam tolerance since links are required
-        # 2. no has:links — organic discussion (game reactions, scores); higher engagement
-        #    floor to compensate for the missing link requirement
+        # Single pass: links-only with server-side engagement filter.
+        # min_faves:10 cuts low-traction promotional tweets before they arrive;
+        # has:links ensures there is a real article to read.
         queries = [
-            f'{keyword} lang:en -is:retweet -is:nullcast has:links',
-            f'{keyword} lang:en -is:retweet -is:nullcast',
+            f'{keyword} min_faves:10 lang:en -is:retweet -is:nullcast has:links',
         ]
 
         seen_ids: set = set()
@@ -276,16 +274,14 @@ class TwitterCollector(BaseCollector):
         for query in queries:
             try:
                 await self._rate_limit()
-                tweets = await self._search(client, query, 500)
+                tweets = await self._search(client, query, 200)
                 metrics_list = [(t.public_metrics or {}) for t in tweets]
                 engagements = [
                     m.get("like_count", 0) + m.get("retweet_count", 0) * 2
                     for m in metrics_list
                 ]
                 max_engagement = max(engagements, default=1)
-                # Fixed floor: filter zero-engagement noise only.
-                # has:links gets a slightly lower floor since link-tweets need a click anyway.
-                engagement_floor = 3 if "has:links" in query else 5
+                engagement_floor = 10
                 batch = _batch_spam_filter(
                     tweets, engagements, engagement_floor,
                     seen_ids, max_age, max_engagement, keyword,

@@ -29,7 +29,9 @@ _HARD_SPAM_PHRASES = [
     "100% win rate", "never lose",
     "copy my trades", "mirror my trades",
     "go follow @",
-    "stock market guru", "trading guru", "market guru",
+    "stock market guru", "trading guru", "market guru", "investing guru",
+    "start earning",
+    "boost your income",
 ]
 
 # Weak shill signals: each phrase alone is fine; two or more together with a
@@ -41,10 +43,18 @@ _SHILL_INDICATORS = [
     "his strategies", "her strategies", "their strategies",
     "his stock picks", "her stock picks",
     "always go up", "never go down", "always goes up", "never goes down",
+    "always surge", "always surges",
     "making a fortune", "making money every day",
     "incredible", "impressive gains", "crushing it",
     "trade alerts", "trading signals",
     "quietly following", "been following",
+    # Promotion-directed phrases — weak alone, strong with @mention + cashtag
+    "follow @",               # "Follow @user for tips"
+    "stock picks",            # "expert stock picks", "free stock picks"
+    "worth following",        # "worth following for picks"
+    "recommending this",      # "recommending this blogger/trader"
+    "profiting me",           # "profiting me daily"
+    "earn over", "earning over",  # "earning over $1,500 a day"
 ]
 
 _CASHTAG_RE = re.compile(r"[$][A-Z]{1,5}\b")  # \$ is invalid in Python 3.14+; use char class

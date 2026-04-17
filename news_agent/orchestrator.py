@@ -64,8 +64,9 @@ async def run_fetch_cycle(topics: list[str] | None = None) -> dict:
                 items_fetched=count,
             )
         # Digests are regenerated after analysis — no pre-emptive deletion needed
-    from news_agent.pipeline.vector_search import invalidate_index
+    from news_agent.pipeline.vector_search import invalidate_index, _index
     invalidate_index()
+    asyncio.create_task(_index.ensure_fresh())  # pre-warm in background, don't block UI
     logger.info("Items stored — UI will show results now")
 
     # 4. LLM analysis + digest in background (non-blocking)
@@ -103,21 +104,23 @@ async def _analyze_and_digest(deduped_items: list[NewsItem], topics: list[str]) 
         if prefs:
             deduped_items = apply_preference_boost(deduped_items, prefs)
 
-        # Analyze per topic (fills summary, relevance_score, tags, sentiment)
-        for topic in topics:
+        # Analyze all topics concurrently (each topic's batches are already parallel
+        # internally via the semaphore in analyze_batch)
+        async def _analyze_topic(topic: str) -> None:
             topic_items = [i for i in deduped_items if i.topic == topic]
             if not topic_items:
-                continue
+                return
             try:
                 analyzed = await analyzer.analyze_batch(topic_items, topic)
                 analyzed_map = {i.id: i for i in analyzed}
-                deduped_items = [analyzed_map.get(i.id, i) for i in deduped_items]
                 async with get_session() as session:
                     repo = NewsRepository(session)
-                    await repo.upsert_many([analyzed_map[i] for i in analyzed_map])
-                logger.info("Analysis complete for topic '%s'", topic)
+                    await repo.upsert_many(list(analyzed_map.values()))
+                logger.info("Analysis complete for topic '%s' (%d items)", topic, len(analyzed_map))
             except Exception as e:
                 logger.error("Analysis failed for topic '%s': %s", topic, e)
+
+        await asyncio.gather(*[_analyze_topic(t) for t in topics])
 
     except Exception as e:
         logger.error("Background analysis failed: %s", e)
@@ -188,8 +191,9 @@ async def run_keyword_fetch(keyword: str) -> dict:
     if settings.llm_api_key or settings.anthropic_api_key:
         asyncio.create_task(_analyze_and_digest(deduped, [keyword]))
 
-    from news_agent.pipeline.vector_search import invalidate_index
+    from news_agent.pipeline.vector_search import invalidate_index, _index
     invalidate_index()
+    asyncio.create_task(_index.ensure_fresh())  # pre-warm in background
     logger.info("Keyword fetch for %r stored %d items (%d unique)", keyword, len(deduped), len(unique))
     return {"items_stored": len(unique)}
 

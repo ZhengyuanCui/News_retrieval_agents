@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     llm_model: str = "anthropic/claude-sonnet-4-6"
     llm_api_key: str = ""   # if set, overrides provider env vars (ANTHROPIC_API_KEY etc.)
 
+    # Faster/cheaper model used for bulk item scoring (relevance, tags, sentiment).
+    # Defaults to Haiku — 5-10× faster than Sonnet with negligible quality loss for
+    # structured classification. Set to llm_model to use the same model for everything.
+    analysis_model: str = "anthropic/claude-haiku-4-5-20251001"
+
+    # Max concurrent LLM calls during batch analysis (semaphore limit).
+    analysis_concurrency: int = 5
+
     # ── Anthropic (kept for backward compatibility) ───────────────────────────
     anthropic_api_key: str = ""
     claude_model: str = ""  # deprecated — use llm_model

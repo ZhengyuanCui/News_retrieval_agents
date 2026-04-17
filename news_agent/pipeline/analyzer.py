@@ -116,80 +116,80 @@ class LLMAnalyzer:
         Analyze a batch of NewsItems using the configured LLM.
         Fills in summary, relevance_score, key_entities, sentiment, and tags.
         Skips items that already have a summary (cached).
+
+        Batches are processed concurrently (up to analysis_concurrency at a time)
+        rather than sequentially, cutting wall-clock time by ~5×.
         """
         to_analyze = [item for item in items if not item.summary]
         if not to_analyze:
             return items
 
         topic_label = topic.title()
-        results = []
-        model = _model()
+        model = settings.analysis_model
         api_key = _api_key()
+        sem = asyncio.Semaphore(settings.analysis_concurrency)
 
-        for i in range(0, len(to_analyze), settings.batch_size):
-            if i > 0:
-                await asyncio.sleep(2)
-            batch = to_analyze[i: i + settings.batch_size]
-            for attempt in range(3):
-                try:
-                    prompt = ITEM_ANALYSIS_PROMPT.format(
-                        n=len(batch),
-                        topic=topic_label,
-                        items_json=self._build_items_json(batch),
-                    )
-                    response = await litellm.acompletion(
-                        model=model,
-                        max_tokens=4096,
-                        messages=[{"role": "user", "content": prompt}],
-                        **({"api_key": api_key} if api_key else {}),
-                    )
-                    raw = response.choices[0].message.content.strip()
+        batches = [
+            to_analyze[i: i + settings.batch_size]
+            for i in range(0, len(to_analyze), settings.batch_size)
+        ]
 
-                    if "```" in raw:
-                        raw = raw.split("```")[1]
-                        if raw.startswith("json"):
-                            raw = raw[4:]
+        async def _process_batch(batch: list[NewsItem]) -> list[NewsItem]:
+            async with sem:
+                for attempt in range(3):
+                    try:
+                        prompt = ITEM_ANALYSIS_PROMPT.format(
+                            n=len(batch),
+                            topic=topic_label,
+                            items_json=self._build_items_json(batch),
+                        )
+                        response = await litellm.acompletion(
+                            model=model,
+                            max_tokens=4096,
+                            messages=[{"role": "user", "content": prompt}],
+                            **({"api_key": api_key} if api_key else {}),
+                        )
+                        raw = response.choices[0].message.content.strip()
 
-                    analyses = json.loads(raw)
-                    if not isinstance(analyses, list):
-                        raise ValueError("Expected JSON array")
+                        if "```" in raw:
+                            raw = raw.split("```")[1]
+                            if raw.startswith("json"):
+                                raw = raw[4:]
 
-                    for item, analysis in zip(batch, analyses):
-                        item.summary = analysis.get("summary")
-                        item.relevance_score = float(analysis.get("relevance_score", 5.0))
-                        item.key_entities = analysis.get("key_entities", [])
-                        item.sentiment = analysis.get("sentiment", "neutral")
-                        item.tags = analysis.get("tags", [])
-                        results.append(item)
-                    break
+                        analyses = json.loads(raw)
+                        if not isinstance(analyses, list):
+                            raise ValueError("Expected JSON array")
 
-                except litellm.RateLimitError:
-                    wait = 30 * (attempt + 1)
-                    logger.warning("LLM rate limit hit on batch %d — waiting %ds", i, wait)
-                    await asyncio.sleep(wait)
-                    if attempt == 2:
-                        results.extend(batch)
-                except json.JSONDecodeError as e:
-                    logger.error("LLM returned invalid JSON for batch %d: %s", i, e)
-                    results.extend(batch)
-                    break
-                except litellm.APIError as e:
-                    logger.error("LLM API error for batch %d: %s", i, e)
-                    results.extend(batch)
-                    break
-                except Exception as e:
-                    logger.error("Unexpected analyzer error for batch %d: %s", i, e)
-                    results.extend(batch)
-                    break
+                        for item, analysis in zip(batch, analyses):
+                            item.summary = analysis.get("summary")
+                            item.relevance_score = float(analysis.get("relevance_score", 5.0))
+                            item.key_entities = analysis.get("key_entities", [])
+                            item.sentiment = analysis.get("sentiment", "neutral")
+                            item.tags = analysis.get("tags", [])
+                        return batch
 
-        analyzed_ids = {item.id for item in results}
-        final = []
-        for item in items:
-            if item.id in analyzed_ids:
-                final.append(next(r for r in results if r.id == item.id))
-            else:
-                final.append(item)
-        return final
+                    except litellm.RateLimitError:
+                        wait = 30 * (attempt + 1)
+                        logger.warning("LLM rate limit — waiting %ds (attempt %d)", wait, attempt + 1)
+                        await asyncio.sleep(wait)
+                        if attempt == 2:
+                            return batch
+                    except json.JSONDecodeError as e:
+                        logger.error("LLM returned invalid JSON: %s", e)
+                        return batch
+                    except litellm.APIError as e:
+                        logger.error("LLM API error: %s", e)
+                        return batch
+                    except Exception as e:
+                        logger.error("Unexpected analyzer error: %s", e)
+                        return batch
+            return batch  # unreachable but satisfies type checker
+
+        batch_results = await asyncio.gather(*[_process_batch(b) for b in batches])
+        results = [item for batch in batch_results for item in batch]
+
+        result_map = {item.id: item for item in results}
+        return [result_map.get(item.id, item) for item in items]
 
     async def generate_digest(self, items: list[NewsItem], topic: str) -> str:
         """Generate a prose narrative digest for the given topic."""

@@ -258,8 +258,10 @@ All settings are in `.env`. Key options:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LLM_MODEL` | `anthropic/claude-sonnet-4-6` | LLM for analysis and digests (litellm format) |
+| `LLM_MODEL` | `anthropic/claude-sonnet-4-6` | LLM for digests, Q&A, and streaming (litellm format) |
 | `LLM_API_KEY` | _(empty)_ | API key for the LLM provider (or set provider env var directly) |
+| `ANALYSIS_MODEL` | `anthropic/claude-haiku-4-5-20251001` | Faster model used for bulk item scoring (relevance, tags, sentiment). Set to `LLM_MODEL` to use one model for everything. |
+| `ANALYSIS_CONCURRENCY` | `5` | Max concurrent LLM calls during batch analysis |
 | `BATCH_SIZE` | `15` | Items per LLM analysis batch |
 | `MAX_ITEMS_PER_SOURCE` | `50` | Items fetched per source per cycle |
 | `DEDUP_SIMILARITY_THRESHOLD` | `0.82` | Cosine similarity threshold for deduplication |

@@ -5,8 +5,17 @@ import re
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 def _title_key(title: str) -> str:
-    """Normalize a title to a compact dedup key: lowercase, alphanumeric only, first 80 chars."""
-    return re.sub(r"[^a-z0-9]", "", title.lower())[:80]
+    """Normalize a title to a compact dedup key.
+
+    Strips trailing ' - Publication Name' suffixes that news aggregators
+    (Google News, Bing News) append, so 'Article Title - Reuters' and
+    'Article Title' hash to the same key.
+    """
+    clean = title.strip()
+    # Strip trailing " - Source" (up to ~40 chars after the dash) — publication names
+    # are short; a long suffix is part of the actual title and should be kept.
+    clean = re.sub(r"\s+-\s+\w[^-]{0,40}$", "", clean)
+    return re.sub(r"[^a-z0-9]", "", clean.lower())[:80]
 
 from news_agent.config import settings
 from news_agent.models import NewsItem

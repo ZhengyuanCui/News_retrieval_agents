@@ -1,3 +1,9 @@
+{% if widened_hours %}
+<p style="color:var(--text-muted);font-size:0.8rem;margin:0 0 8px">
+  Fewer than 5 results in the selected window &mdash; showing results from the past
+  <strong>{{ widened_hours|int }}h</strong> instead of {{ hours|int }}h.
+</p>
+{% endif %}
 {% if not items %}
 <p style="color:var(--text-muted)">No new items found. Try a wider time range.</p>
 {% else %}

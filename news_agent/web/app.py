@@ -424,10 +424,23 @@ async def panel_fragment(topic: str = "", hours: float = 24, langs: str = ""):
     # For question queries match the same window used by the Q&A digest stream
     # so the news list and the summary always draw from the same article set.
     effective_hours = max(hours, 168) if topic and _is_question(topic) else hours
+    widened_hours: float | None = None  # set when the window was auto-expanded
+
     async with get_session() as session:
         repo = NewsRepository(session)
         items = await repo.search(topic, hours=effective_hours, languages=languages) if topic else await repo.get_recent(hours=hours, limit=60, languages=languages)
         starred = await repo.get_starred_ids()
+
+    # For sparse keyword results (<5 hits), automatically widen to 72h so that
+    # tickers and niche terms with few recent articles still return useful results.
+    if topic and not _is_question(topic) and len(items) < 5:
+        wider = max(effective_hours * 3, 72)
+        async with get_session() as session:
+            repo = NewsRepository(session)
+            wider_items = await repo.search(topic, hours=wider, languages=languages)
+        if len(wider_items) > len(items):
+            items = wider_items
+            widened_hours = wider
 
     # Resolve any stale Google News redirect URLs and persist the real URL
     google_items = [i for i in items if "news.google.com" in i.url]
@@ -447,7 +460,8 @@ async def panel_fragment(topic: str = "", hours: float = 24, langs: str = ""):
         loop = asyncio.get_event_loop()
         items = await loop.run_in_executor(None, rank_by_query, topic, items)
 
-    return render("partials/panel_items.html", topic=topic, items=items, starred_ids=starred)
+    return render("partials/panel_items.html", topic=topic, items=items,
+                  starred_ids=starred, hours=hours, widened_hours=widened_hours)
 
 
 @app.post("/api/podcast/{topic}")

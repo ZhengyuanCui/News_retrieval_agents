@@ -319,9 +319,12 @@ async def digest_stream(topic: str, hours: float = 24):
         # semantically relevant articles and answer the question directly.
         # Q&A responses are not cached — they're always generated fresh.
         if is_question(topic):
+            # Use at least 168h so Q&A has enough context, but respect longer
+            # ranges chosen by the user (e.g. 30-day slider).
+            qa_hours = max(hours, 168)
             async with get_session() as session:
                 repo = NewsRepository(session)
-                items = await repo.search(topic, hours=168, limit=20)
+                items = await repo.search(topic, hours=qa_hours, limit=20)
             if not items:
                 yield f"data: {_json.dumps({'t': 'No relevant news found to answer this question.'})}\n\n"
                 yield f"data: {_json.dumps({'done': True})}\n\n"
@@ -417,9 +420,13 @@ async def panel_fragment(topic: str = "", hours: float = 24, langs: str = ""):
     from news_agent.collectors.rss import _resolve_url
 
     languages = _parse_languages(langs)
+    from news_agent.pipeline.analyzer import is_question as _is_question
+    # For question queries match the same window used by the Q&A digest stream
+    # so the news list and the summary always draw from the same article set.
+    effective_hours = max(hours, 168) if topic and _is_question(topic) else hours
     async with get_session() as session:
         repo = NewsRepository(session)
-        items = await repo.search(topic, hours=hours, languages=languages) if topic else await repo.get_recent(hours=hours, limit=60, languages=languages)
+        items = await repo.search(topic, hours=effective_hours, languages=languages) if topic else await repo.get_recent(hours=hours, limit=60, languages=languages)
         starred = await repo.get_starred_ids()
 
     # Resolve any stale Google News redirect URLs and persist the real URL

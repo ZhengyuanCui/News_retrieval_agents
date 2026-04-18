@@ -90,11 +90,12 @@ async def run_fetch_cycle(topics: list[str] | None = None) -> dict:
 async def _analyze_and_digest(deduped_items: list[NewsItem], topics: list[str]) -> None:
     """Score items with the LLM in the background (summaries, relevance, tags, sentiment).
     Digest generation is handled on-demand by the /api/digest-stream SSE endpoint so it
-    doesn't compete with batch analysis for the token-rate-limit budget."""
+    doesn't compete with batch analysis for the token-rate-limit budget.
+    After scoring the current fetch batch, kicks off a backfill pass for any older
+    DB items that still have no summary."""
     try:
-        # Brief pause so any in-flight digest stream request gets its LLM call in first,
-        # before the heavier batch analysis starts consuming the token-rate-limit window.
-        await asyncio.sleep(5)
+        # Brief pause so any in-flight digest stream request gets its LLM call in first.
+        await asyncio.sleep(2)
         analyzer = LLMAnalyzer()
 
         # Apply preference boosts
@@ -104,26 +105,100 @@ async def _analyze_and_digest(deduped_items: list[NewsItem], topics: list[str]) 
         if prefs:
             deduped_items = apply_preference_boost(deduped_items, prefs)
 
-        # Analyze all topics concurrently (each topic's batches are already parallel
-        # internally via the semaphore in analyze_batch)
+        # Analyze new items with full concurrency — these are highest priority.
+        # Each topic's batches run in parallel internally via the semaphore in analyze_batch.
         async def _analyze_topic(topic: str) -> None:
-            topic_items = [i for i in deduped_items if i.topic == topic]
+            topic_items = [i for i in deduped_items if i.topic == topic and not i.is_duplicate]
             if not topic_items:
                 return
             try:
                 analyzed = await analyzer.analyze_batch(topic_items, topic)
-                analyzed_map = {i.id: i for i in analyzed}
                 async with get_session() as session:
                     repo = NewsRepository(session)
-                    await repo.upsert_many(list(analyzed_map.values()))
-                logger.info("Analysis complete for topic '%s' (%d items)", topic, len(analyzed_map))
+                    await repo.update_analysis_many(analyzed)
+                saved = sum(1 for i in analyzed if i.summary)
+                logger.info("Analysis complete for topic '%s': %d/%d items summarized",
+                            topic, saved, len(topic_items))
             except Exception as e:
                 logger.error("Analysis failed for topic '%s': %s", topic, e)
 
         await asyncio.gather(*[_analyze_topic(t) for t in topics])
 
+        # After the current batch is done, backfill any older items without summaries
+        asyncio.create_task(_backfill_unanalyzed())
+
     except Exception as e:
         logger.error("Background analysis failed: %s", e)
+
+
+# Guard to prevent multiple concurrent backfill loops
+_backfill_running = False
+
+
+async def _backfill_unanalyzed(batch_size: int = 200) -> None:
+    """Continuously analyze DB items that have no summary, newest-fetched first.
+
+    Runs in the background after each fetch cycle. Items are processed in order
+    of `fetched_at DESC` so the most recently retrieved articles get summaries
+    before older ones. Uses half the normal analysis concurrency to leave room
+    for higher-priority current-batch analysis or digest streams.
+    """
+    global _backfill_running
+    if _backfill_running:
+        return
+    _backfill_running = True
+    try:
+        from news_agent.config import settings as _s
+        # Use half the configured concurrency so backfill doesn't starve digest/Q&A
+        backfill_concurrency = max(1, _s.analysis_concurrency // 2)
+        analyzer = LLMAnalyzer()
+
+        while True:
+            async with get_session() as session:
+                repo = NewsRepository(session)
+                items = await repo.get_unanalyzed(limit=batch_size)
+
+            if not items:
+                logger.info("Backfill complete — all items have summaries")
+                break
+
+            logger.info("Backfill: processing %d items (ordered by fetch recency)", len(items))
+
+            from collections import defaultdict
+            by_topic: dict[str, list[NewsItem]] = defaultdict(list)
+            for item in items:
+                by_topic[item.topic].append(item)
+
+            # Patch the concurrency on the shared analyzer for backfill turns
+            original_concurrency = _s.analysis_concurrency
+            _s.analysis_concurrency = backfill_concurrency
+
+            async def _backfill_topic(topic: str, topic_items: list[NewsItem]) -> None:
+                try:
+                    analyzed = await analyzer.analyze_batch(topic_items, topic)
+                    async with get_session() as session:
+                        repo = NewsRepository(session)
+                        await repo.update_analysis_many(analyzed)
+                    saved = sum(1 for i in analyzed if i.summary)
+                    logger.info("Backfill: '%s' — %d/%d summarized", topic, saved, len(topic_items))
+                except Exception as e:
+                    logger.error("Backfill failed for topic '%s': %s", topic, e)
+
+            try:
+                await asyncio.gather(*[_backfill_topic(t, t_items) for t, t_items in by_topic.items()])
+            finally:
+                _s.analysis_concurrency = original_concurrency
+
+            if len(items) < batch_size:
+                break
+
+            # Brief pause between rounds to avoid sustained API pressure
+            await asyncio.sleep(2)
+
+    except Exception as e:
+        logger.error("Backfill loop failed: %s", e)
+    finally:
+        _backfill_running = False
 
 
 async def run_keyword_fetch(keyword: str) -> dict:
@@ -187,7 +262,7 @@ async def run_keyword_fetch(keyword: str) -> dict:
         repo = NewsRepository(session)
         await repo.upsert_many(deduped)
 
-    # Analyze in background
+    # Analyze in background (also triggers a backfill pass for older unanalyzed items)
     if settings.llm_api_key or settings.anthropic_api_key:
         asyncio.create_task(_analyze_and_digest(deduped, [keyword]))
 

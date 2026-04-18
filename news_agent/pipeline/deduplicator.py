@@ -82,16 +82,17 @@ class Deduplicator:
     def _url_dedup(self, items: list[NewsItem]) -> list[NewsItem]:
         seen_urls: dict[str, str] = {}    # normalized_url -> item_id
         seen_titles: dict[str, str] = {}  # normalized_title -> item_id
-        result = []
+        id_to_idx: dict[str, int] = {}    # item_id -> index in result (O(1) lookup)
+        result: list[NewsItem] = []
+
         for item in items:
             norm_url = normalize_url(item.url)
             norm_title = _title_key(item.title)
 
-            # Check URL match first, then title match
             existing_id = seen_urls.get(norm_url) or (seen_titles.get(norm_title) if norm_title else None)
 
             if existing_id:
-                existing_idx = next((i for i, x in enumerate(result) if x.id == existing_id), None)
+                existing_idx = id_to_idx.get(existing_id)
                 if existing_idx is not None:
                     existing = result[existing_idx]
                     # Keep the more detailed version
@@ -101,20 +102,26 @@ class Deduplicator:
                         seen_urls[norm_url] = item.id
                         if norm_title:
                             seen_titles[norm_title] = item.id
+                        id_to_idx[item.id] = existing_idx
+                        del id_to_idx[existing_id]
                         result[existing_idx] = item
                     else:
                         item.is_duplicate = True
                         item.duplicate_of = existing_id
+                        id_to_idx[item.id] = len(result)
                         result.append(item)
                 else:
                     item.is_duplicate = True
                     item.duplicate_of = existing_id
+                    id_to_idx[item.id] = len(result)
                     result.append(item)
             else:
                 seen_urls[norm_url] = item.id
                 if norm_title:
                     seen_titles[norm_title] = item.id
+                id_to_idx[item.id] = len(result)
                 result.append(item)
+
         dupes = sum(1 for i in result if i.is_duplicate)
         if dupes:
             logger.debug("URL/title dedup removed %d duplicates", dupes)
@@ -133,28 +140,27 @@ class Deduplicator:
 
         texts = [f"{item.title} {item.content[:200]}" for item in non_dupes]
         try:
-            embeddings = model.encode(texts, batch_size=32, show_progress_bar=False, normalize_embeddings=True)
-            # Cosine similarity matrix (embeddings are normalized, so dot product = cosine sim)
+            embeddings = model.encode(texts, batch_size=64, show_progress_bar=False, normalize_embeddings=True)
+            # Cosine similarity matrix (normalized embeddings → dot product = cosine sim)
             sim_matrix = np.dot(embeddings, embeddings.T)
 
-            marked_duplicate = set()
-            for i in range(len(non_dupes)):
-                if i in marked_duplicate:
+            # Find all pairs above threshold using numpy (vectorized, no Python loop over pairs)
+            # Zero out the lower triangle + diagonal to avoid processing each pair twice
+            rows, cols = np.where(np.triu(sim_matrix >= self.threshold, k=1))
+
+            marked_duplicate: set[int] = set()
+            for i, j in zip(rows.tolist(), cols.tolist()):
+                if i in marked_duplicate or j in marked_duplicate:
                     continue
-                for j in range(i + 1, len(non_dupes)):
-                    if j in marked_duplicate:
-                        continue
-                    if sim_matrix[i, j] >= self.threshold:
-                        # Keep the more detailed version
-                        if self._detail_score(non_dupes[i]) >= self._detail_score(non_dupes[j]):
-                            non_dupes[j].is_duplicate = True
-                            non_dupes[j].duplicate_of = non_dupes[i].id
-                            marked_duplicate.add(j)
-                        else:
-                            non_dupes[i].is_duplicate = True
-                            non_dupes[i].duplicate_of = non_dupes[j].id
-                            marked_duplicate.add(i)
-                            break
+                # Keep the more detailed version
+                if self._detail_score(non_dupes[i]) >= self._detail_score(non_dupes[j]):
+                    non_dupes[j].is_duplicate = True
+                    non_dupes[j].duplicate_of = non_dupes[i].id
+                    marked_duplicate.add(j)
+                else:
+                    non_dupes[i].is_duplicate = True
+                    non_dupes[i].duplicate_of = non_dupes[j].id
+                    marked_duplicate.add(i)
 
             if marked_duplicate:
                 logger.debug("Semantic dedup removed %d near-duplicates", len(marked_duplicate))

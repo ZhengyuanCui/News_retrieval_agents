@@ -24,12 +24,32 @@ class Settings(BaseSettings):
     # structured classification. Set to llm_model to use the same model for everything.
     analysis_model: str = "anthropic/claude-haiku-4-5-20251001"
 
-    # Max concurrent LLM calls during batch analysis (semaphore limit).
+    # API key for the analysis model. Required when analysis_model uses a different
+    # provider than the main LLM (e.g. Gemini for analysis, Anthropic for digest/Q&A).
+    # Leave empty to auto-select based on analysis_model provider prefix.
+    analysis_api_key: str = ""
+
+    # Multi-model rotation: comma-separated list of models to distribute batches across.
+    # Each model uses the corresponding entry in ANALYSIS_API_KEYS.
+    # Leave empty to use only analysis_model above.
+    # Example: ANALYSIS_MODELS=gemini/gemini-2.5-flash,gemini/gemini-2.5-flash
+    analysis_models: list[str] = []
+    analysis_api_keys: list[str] = []   # parallel to analysis_models
+    # RPM limit for each model in ANALYSIS_MODELS (parallel list).
+    # Controls weighted batch assignment and per-model rate limiting.
+    # Leave empty to default all models to 10 RPM.
+    # Example: ANALYSIS_RPMS=10,50,500
+    analysis_rpms: list[int] = []
+
+    # Max concurrent LLM calls across all models combined (safety cap).
     analysis_concurrency: int = 5
 
     # ── Anthropic (kept for backward compatibility) ───────────────────────────
     anthropic_api_key: str = ""
     claude_model: str = ""  # deprecated — use llm_model
+
+    # ── Google / Gemini ───────────────────────────────────────────────────────
+    gemini_api_key: str = ""
 
     # ── OpenAI TTS ────────────────────────────────────────────────────────────
     openai_api_key: str = ""
@@ -101,7 +121,8 @@ class Settings(BaseSettings):
     # ── Scheduler ─────────────────────────────────────────────────────────────
     schedule_interval_hours: int = 4
 
-    @field_validator("youtube_channel_ids", "github_watch_repos", "linkedin_rss_feeds", mode="before")
+    @field_validator("youtube_channel_ids", "github_watch_repos", "linkedin_rss_feeds",
+                     "analysis_models", "analysis_api_keys", "analysis_rpms", mode="before")
     @classmethod
     def split_comma_list(cls, v: str | list) -> list[str]:
         if isinstance(v, str):

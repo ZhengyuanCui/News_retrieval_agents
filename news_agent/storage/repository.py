@@ -95,6 +95,9 @@ class NewsRepository:
         if languages:
             q = q.where(NewsItemORM.language.in_(languages))
         q = q.order_by(
+            # Most recently fetched batch first — newly retrieved items appear at top
+            # before analysis fills in their relevance scores.
+            NewsItemORM.fetched_at.desc(),
             NewsItemORM.relevance_score.desc().nullslast(),
             NewsItemORM.raw_score.desc(),
             NewsItemORM.published_at.desc(),
@@ -133,54 +136,72 @@ class NewsRepository:
         if languages:
             base_where.append(NewsItemORM.language.in_(languages))
 
-        # 1. Try topic-exact match first (items fetched specifically for this keyword)
-        topic_q = (
-            select(NewsItemORM)
-            .where(*base_where, NewsItemORM.topic.ilike(query))
-            .order_by(
-                NewsItemORM.relevance_score.desc().nullslast(),
-                NewsItemORM.raw_score.desc(),
-                NewsItemORM.published_at.desc(),
-            )
-            .limit(limit)
-        )
-        result = await self.session.execute(topic_q)
-        rows = result.scalars().all()
-        if rows:
-            return [r.to_pydantic() for r in rows]
-
-        # No topic-specific items yet — fall back to semantic vector search.
-        # This handles natural-language queries ("will the market rise because of X?")
-        # by finding articles whose embeddings are closest to the query embedding.
-        # Use the full 7-day window here — the hours filter is for topic feeds
-        # (where freshness matters most), but for open-ended queries the most
-        # relevant article from 3 days ago is better than nothing.
         from news_agent.pipeline.vector_search import semantic_search
 
+        def _topic_query(window_cutoff):
+            tw = [
+                NewsItemORM.published_at >= window_cutoff,
+                NewsItemORM.is_duplicate == False,  # noqa: E712
+                (NewsItemORM.relevance_score == None) | (NewsItemORM.relevance_score >= min_relevance),  # noqa: E711
+            ]
+            if languages:
+                tw.append(NewsItemORM.language.in_(languages))
+            return (
+                select(NewsItemORM)
+                .where(*tw, NewsItemORM.topic.ilike(query))
+                .order_by(
+                    NewsItemORM.fetched_at.desc(),
+                    NewsItemORM.relevance_score.desc().nullslast(),
+                    NewsItemORM.raw_score.desc(),
+                    NewsItemORM.published_at.desc(),
+                )
+                .limit(limit)
+            )
+
+        # 1. Topic-exact match respecting the requested hours window.
+        result = await self.session.execute(_topic_query(cutoff))
+        topic_rows = result.scalars().all()
+
+        # For long natural-language queries (≥ 6 words) that are stored as a
+        # topic from a previous keyword fetch, widen to the full 7-day window
+        # when results are sparse — these are long-tail lookups that may have
+        # been fetched a few days ago (e.g. "will stock market rise if Iran war ends").
+        # Short queries (keywords, tickers) always respect the hours filter.
+        is_long_query = len(query.split()) >= 6
+        if is_long_query and len(topic_rows) < 5:
+            result = await self.session.execute(_topic_query(max_age))
+            topic_rows = result.scalars().all()
+
+        topic_ids = {r.id for r in topic_rows}
+
+        # 2. Semantic vector search — always run to supplement topic-exact results.
+        #    Respects the hours/cutoff so the time-range selector works.
         candidate_ids = await semantic_search(query, top_k=limit * 2)
-        if not candidate_ids:
-            return []
 
-        fallback_where = [
-            NewsItemORM.published_at >= datetime.utcnow() - timedelta(days=7),
-            NewsItemORM.is_duplicate == False,  # noqa: E712
-            (NewsItemORM.relevance_score == None) | (NewsItemORM.relevance_score >= min_relevance),  # noqa: E711
-        ]
-        if languages:
-            fallback_where.append(NewsItemORM.language.in_(languages))
+        semantic_rows = []
+        if candidate_ids:
+            sem_where = [
+                NewsItemORM.published_at >= cutoff,  # respect hours param
+                NewsItemORM.is_duplicate == False,  # noqa: E712
+                (NewsItemORM.relevance_score == None) | (NewsItemORM.relevance_score >= min_relevance),  # noqa: E711
+                NewsItemORM.id.notin_(topic_ids),  # don't double-count topic-exact hits
+            ]
+            if languages:
+                sem_where.append(NewsItemORM.language.in_(languages))
+            result = await self.session.execute(
+                select(NewsItemORM).where(*sem_where, NewsItemORM.id.in_(candidate_ids))
+            )
+            semantic_rows = result.scalars().all()
 
-        # Fetch the matched items, preserving semantic rank via Python sort
+        # Merge: topic-exact rows first (highest confidence), then semantic by rank
         id_rank = {id_: rank for rank, id_ in enumerate(candidate_ids)}
-        result = await self.session.execute(
-            select(NewsItemORM)
-            .where(*fallback_where, NewsItemORM.id.in_(candidate_ids))
-        )
-        rows = result.scalars().all()
-        # Sort by semantic rank (closest match first), then deduplicate by title
-        rows.sort(key=lambda r: id_rank.get(r.id, 9999))
+        semantic_rows.sort(key=lambda r: id_rank.get(r.id, 9999))
+        all_rows = list(topic_rows) + semantic_rows
+
+        # Deduplicate by title across both sets
         seen_titles: set[str] = set()
         deduped = []
-        for r in rows:
+        for r in all_rows:
             title_key = r.title.lower().strip()[:80]
             if title_key not in seen_titles:
                 seen_titles.add(title_key)
@@ -284,6 +305,56 @@ class NewsRepository:
     async def get_all_collector_states(self) -> list[CollectorStateORM]:
         result = await self.session.execute(select(CollectorStateORM))
         return list(result.scalars())
+
+    async def update_analysis_many(self, items: list[NewsItem]) -> None:
+        """Persist LLM analysis fields for existing items.
+
+        Uses direct UPDATE instead of upsert so analysis results are never
+        silently dropped by the on_conflict_do_update that guards fetch-owned fields.
+        Only writes items where analyze_batch actually filled in a summary.
+        """
+        from sqlalchemy import update
+        for item in items:
+            if item.summary is not None:
+                await self.session.execute(
+                    update(NewsItemORM)
+                    .where(NewsItemORM.id == item.id)
+                    .values(
+                        summary=item.summary,
+                        relevance_score=item.relevance_score,
+                        key_entities=item.key_entities,
+                        sentiment=item.sentiment,
+                        tags=item.tags,
+                    )
+                )
+
+    async def get_unanalyzed(self, limit: int = 500) -> list[NewsItem]:
+        """Return items that have no LLM-generated summary yet, most recently fetched first.
+
+        Ordering by fetched_at ensures the backfill worker prioritizes newly retrieved
+        items over old ones that were never analyzed.
+        """
+        q = (
+            select(NewsItemORM)
+            .where(
+                NewsItemORM.summary == None,  # noqa: E711
+                NewsItemORM.is_duplicate == False,  # noqa: E712
+            )
+            .order_by(NewsItemORM.fetched_at.desc(), NewsItemORM.published_at.desc())
+            .limit(limit)
+        )
+        result = await self.session.execute(q)
+        return [row.to_pydantic() for row in result.scalars()]
+
+    async def count_unanalyzed(self) -> int:
+        from sqlalchemy import func
+        result = await self.session.execute(
+            select(func.count()).select_from(NewsItemORM).where(
+                NewsItemORM.summary == None,  # noqa: E711
+                NewsItemORM.is_duplicate == False,  # noqa: E712
+            )
+        )
+        return result.scalar() or 0
 
     async def get_stats(self) -> dict:
         from sqlalchemy import func

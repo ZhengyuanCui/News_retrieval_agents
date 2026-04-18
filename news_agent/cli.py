@@ -110,6 +110,91 @@ def export(fmt: str, date: str | None, hours: int):
     asyncio.run(_run())
 
 
+# ── analyze ───────────────────────────────────────────────────────────────────
+
+@main.command()
+@click.option("--batch", default=500, show_default=True, help="Max items to analyze per run")
+@click.option("--topic", default=None, help="Only analyze items for this topic")
+def analyze(batch: int, topic: str | None):
+    """Run LLM analysis on existing DB items that have no summary yet.
+
+    Useful for backfilling summaries after a large fetch, or after the
+    server was restarted before background analysis could complete.
+    """
+    from news_agent.storage import init_db, get_session
+    from news_agent.storage.repository import NewsRepository
+    from news_agent.pipeline.analyzer import LLMAnalyzer
+    from news_agent.config import settings
+    from collections import defaultdict
+
+    async def _run():
+        await init_db()
+        async with get_session() as session:
+            repo = NewsRepository(session)
+            total_pending = await repo.count_unanalyzed()
+
+        if total_pending == 0:
+            console.print("[green]All items already have summaries — nothing to do.[/]")
+            return
+
+        console.print(f"[bold]{total_pending}[/] items pending analysis (processing up to {batch})")
+
+        if not (settings.llm_api_key or settings.anthropic_api_key):
+            console.print("[red]No LLM API key configured — set LLM_API_KEY or ANTHROPIC_API_KEY in .env[/]")
+            return
+
+        async with get_session() as session:
+            repo = NewsRepository(session)
+            items = await repo.get_unanalyzed(limit=batch)
+
+        if topic:
+            items = [i for i in items if i.topic.lower() == topic.lower()]
+            console.print(f"Filtered to {len(items)} items for topic '{topic}'")
+
+        # Group by topic so LLM analysis prompt uses the correct topic label
+        by_topic: dict[str, list] = defaultdict(list)
+        for item in items:
+            by_topic[item.topic].append(item)
+
+        analyzer = LLMAnalyzer()
+        total_done = 0
+
+        for t, t_items in by_topic.items():
+            with console.status(f"[cyan]Analyzing {len(t_items)} items for topic '{t}'…"):
+                analyzed = await analyzer.analyze_batch(t_items, t)
+                analyzed_map = {i.id: i for i in analyzed if i.summary}
+
+            if analyzed_map:
+                async with get_session() as session:
+                    repo = NewsRepository(session)
+                    # Write analysis fields directly (upsert won't overwrite analysis fields,
+                    # so update rows individually)
+                    from sqlalchemy import update
+                    from news_agent.models import NewsItemORM
+                    for item in analyzed_map.values():
+                        await session.execute(
+                            update(NewsItemORM)
+                            .where(NewsItemORM.id == item.id)
+                            .values(
+                                summary=item.summary,
+                                relevance_score=item.relevance_score,
+                                key_entities=item.key_entities,
+                                sentiment=item.sentiment,
+                                tags=item.tags,
+                            )
+                        )
+            total_done += len(analyzed_map)
+            console.print(f"  [green]✓[/] '{t}': {len(analyzed_map)}/{len(t_items)} analyzed")
+
+        remaining = total_pending - total_done
+        console.print(
+            f"\n[bold green]Done![/] Analyzed {total_done} items. "
+            + (f"{remaining} still pending (run again to continue)." if remaining > batch else "")
+        )
+
+    asyncio.run(_run())
+
+
 # ── refetch ───────────────────────────────────────────────────────────────────
 
 @main.command()

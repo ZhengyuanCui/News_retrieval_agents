@@ -159,35 +159,36 @@ class RSSCollector(BaseCollector):
         if not self.is_enabled():
             return []
 
-        items: list[NewsItem] = []
+        import asyncio as _asyncio
+
+        tasks: list[tuple[str, str, str, bool]] = []  # (url, topic, source_id, use_search_method)
 
         # When unrestricted, also pull Google News top stories (no query = general trending)
         if not self.topics:
-            import asyncio as _asyncio
-            general_urls = [
-                ("https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en", "news", "google-news"),
-                ("https://feeds.bbci.co.uk/news/rss.xml", "news", "bbc"),
+            tasks += [
+                ("https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en", "news", "google-news", True),
+                ("https://feeds.bbci.co.uk/news/rss.xml", "news", "bbc", True),
             ]
-            for url, topic, source_id in general_urls:
-                try:
-                    feed_items = await self._search_news_rss(url, topic, source_id)
-                    items += feed_items
-                except Exception as e:
-                    logger.warning("General RSS '%s' failed: %s", source_id, e)
 
         for url, feed_topic, source_id in DEFAULT_RSS_FEEDS:
             if self.topics and feed_topic not in self.topics:
                 continue
+            tasks.append((url, feed_topic, source_id, False))
+
+        async def _fetch_one(url: str, topic: str, source_id: str, use_search: bool) -> list[NewsItem]:
             try:
-                await self._rate_limit()
-                # Keep topic semantic (ai/stocks) even during broad fetches.
-                # The publication belongs in source, not topic; otherwise digest
-                # generation treats source IDs like "techmeme" as digest topics.
-                feed_items = await self._fetch_feed(url, feed_topic, source_id)
-                logger.debug("RSS '%s' → %d items", source_id, len(feed_items))
-                items += feed_items
+                if use_search:
+                    return await self._search_news_rss(url, topic, source_id)
+                else:
+                    return await self._fetch_feed(url, topic, source_id)
             except Exception as e:
                 logger.warning("RSS '%s' failed: %s", source_id, e)
+                return []
+
+        results = await _asyncio.gather(*[_fetch_one(u, t, s, m) for u, t, s, m in tasks])
+        items: list[NewsItem] = []
+        for source_items in results:
+            items += source_items
 
         logger.info("RSSCollector fetched %d items", len(items))
         return items[: settings.max_items_per_source * 2]

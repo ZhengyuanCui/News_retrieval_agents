@@ -89,8 +89,107 @@ News items:
 
 
 def _api_key() -> str | None:
-    """Return the API key to pass to litellm, or None to let litellm read env vars."""
+    """Return the API key for the main digest/Q&A model."""
     return settings.llm_api_key or settings.anthropic_api_key or None
+
+
+def _key_for_model(model: str, explicit_key: str = "") -> str | None:
+    """Return the API key to use for a given model string."""
+    if explicit_key:
+        return explicit_key
+    m = model.lower()
+    if m.startswith("anthropic/"):
+        return settings.anthropic_api_key or settings.llm_api_key or None
+    if m.startswith("gemini/") or m.startswith("google/"):
+        return settings.gemini_api_key or None
+    if m.startswith("openai/"):
+        return settings.openai_api_key or None
+    return settings.llm_api_key or None
+
+
+def _analysis_api_key() -> str | None:
+    """Return the API key for the primary analysis model."""
+    return _key_for_model(settings.analysis_model, settings.analysis_api_key)
+
+
+class _ModelSlot:
+    """One model endpoint with its own RPM-based rate limiter.
+
+    Multiple batches assigned to the same slot queue through its lock,
+    each waiting the minimum interval before making an API call.
+    This enforces the model's RPM cap regardless of how many batches
+    are running concurrently.
+    """
+    def __init__(self, model: str, api_key: str | None, rpm: int) -> None:
+        self.model = model
+        self.api_key = api_key
+        self.rpm = rpm
+        self._interval = 60.0 / max(1, rpm)   # min seconds between calls
+        self._last: float = 0.0
+        self._lock = asyncio.Lock()
+
+    async def acquire(self) -> None:
+        """Wait until this slot can accept another request within its RPM limit."""
+        async with self._lock:
+            loop = asyncio.get_event_loop()
+            now = loop.time()
+            wait = self._last + self._interval - now
+            if wait > 0:
+                await asyncio.sleep(wait)
+            self._last = loop.time()
+
+    def __repr__(self) -> str:
+        return f"<ModelSlot {self.model} {self.rpm}RPM>"
+
+
+def _build_weighted_pool() -> list[_ModelSlot]:
+    """Build a weighted list of _ModelSlot objects for batch assignment.
+
+    Each model appears proportionally to its RPM relative to the lowest-RPM model,
+    so that faster/higher-capacity models receive more batches per round.
+
+    Example — RPMs [10, 50]:
+      min=10 → model_A gets weight 1, model_B gets weight 5
+      pool = [A, B, B, B, B, B]
+      batch_i → pool[i % 6]: every 6 batches, A gets 1 and B gets 5.
+
+    All slots for the same (model, key) share a single _ModelSlot instance so their
+    rate-limiter lock is shared — preventing bursts even when many batches pile up.
+    """
+    # Collect (model, key, rpm) triples
+    if settings.analysis_models:
+        entries = []
+        for i, model in enumerate(settings.analysis_models):
+            key = settings.analysis_api_keys[i] if i < len(settings.analysis_api_keys) else ""
+            rpm = settings.analysis_rpms[i] if i < len(settings.analysis_rpms) else 10
+            entries.append((model, _key_for_model(model, key), rpm))
+    else:
+        rpm = settings.analysis_rpms[0] if settings.analysis_rpms else 10
+        entries = [(settings.analysis_model, _analysis_api_key(), rpm)]
+
+    if not entries:
+        return []
+
+    # One shared slot per unique (model, key) combination
+    slot_map: dict[tuple[str, str], _ModelSlot] = {}
+    for model, key, rpm in entries:
+        k = (model, key or "")
+        if k not in slot_map:
+            slot_map[k] = _ModelSlot(model, key, rpm)
+
+    # Weighted list: each model repeated proportionally to its RPM
+    min_rpm = min(rpm for _, _, rpm in entries)
+    weighted: list[_ModelSlot] = []
+    for model, key, rpm in entries:
+        slot = slot_map[(model, key or "")]
+        count = max(1, round(rpm / min_rpm))
+        weighted.extend([slot] * count)
+
+    logger.info(
+        "Analysis model pool: %s",
+        ", ".join(f"{s.model}({s.rpm}RPM)" for s in dict.fromkeys(weighted)),
+    )
+    return weighted
 
 
 def _model() -> str:
@@ -125,8 +224,7 @@ class LLMAnalyzer:
             return items
 
         topic_label = topic.title()
-        model = settings.analysis_model
-        api_key = _api_key()
+        pool = _build_weighted_pool()
         sem = asyncio.Semaphore(settings.analysis_concurrency)
 
         batches = [
@@ -134,7 +232,11 @@ class LLMAnalyzer:
             for i in range(0, len(to_analyze), settings.batch_size)
         ]
 
-        async def _process_batch(batch: list[NewsItem]) -> list[NewsItem]:
+        async def _process_batch(batch: list[NewsItem], batch_idx: int) -> list[NewsItem]:
+            # Pick the slot for this batch (weighted round-robin)
+            slot = pool[batch_idx % len(pool)]
+            await slot.acquire()  # enforce per-model RPM limit
+            model, api_key = slot.model, slot.api_key
             async with sem:
                 for attempt in range(3):
                     try:
@@ -185,7 +287,7 @@ class LLMAnalyzer:
                         return batch
             return batch  # unreachable but satisfies type checker
 
-        batch_results = await asyncio.gather(*[_process_batch(b) for b in batches])
+        batch_results = await asyncio.gather(*[_process_batch(b, i) for i, b in enumerate(batches)])
         results = [item for batch in batch_results for item in batch]
 
         result_map = {item.id: item for item in results}

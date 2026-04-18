@@ -233,23 +233,25 @@ class LLMAnalyzer:
         ]
 
         async def _process_batch(batch: list[NewsItem], batch_idx: int) -> list[NewsItem]:
-            # Pick the slot for this batch (weighted round-robin)
-            slot = pool[batch_idx % len(pool)]
-            await slot.acquire()  # enforce per-model RPM limit
-            model, api_key = slot.model, slot.api_key
+            prompt = ITEM_ANALYSIS_PROMPT.format(
+                n=len(batch),
+                topic=topic_label,
+                items_json=self._build_items_json(batch),
+            )
+            messages = [{"role": "user", "content": prompt}]
+
             async with sem:
-                for attempt in range(3):
+                # On rate-limit, rotate to the next model rather than retrying
+                # the same exhausted quota.  Try every slot in the pool once.
+                for attempt in range(len(pool)):
+                    slot = pool[(batch_idx + attempt) % len(pool)]
+                    await slot.acquire()  # enforce per-model RPM interval
                     try:
-                        prompt = ITEM_ANALYSIS_PROMPT.format(
-                            n=len(batch),
-                            topic=topic_label,
-                            items_json=self._build_items_json(batch),
-                        )
                         response = await litellm.acompletion(
-                            model=model,
+                            model=slot.model,
                             max_tokens=4096,
-                            messages=[{"role": "user", "content": prompt}],
-                            **({"api_key": api_key} if api_key else {}),
+                            messages=messages,
+                            **({"api_key": slot.api_key} if slot.api_key else {}),
                         )
                         raw = response.choices[0].message.content.strip()
 
@@ -271,11 +273,11 @@ class LLMAnalyzer:
                         return batch
 
                     except litellm.RateLimitError:
-                        wait = 30 * (attempt + 1)
-                        logger.warning("LLM rate limit — waiting %ds (attempt %d)", wait, attempt + 1)
-                        await asyncio.sleep(wait)
-                        if attempt == 2:
-                            return batch
+                        logger.warning(
+                            "Rate limit on %s (attempt %d/%d) — trying next model",
+                            slot.model, attempt + 1, len(pool),
+                        )
+                        continue
                     except json.JSONDecodeError as e:
                         logger.error("LLM returned invalid JSON: %s", e)
                         return batch
@@ -285,7 +287,9 @@ class LLMAnalyzer:
                     except Exception as e:
                         logger.error("Unexpected analyzer error: %s", e)
                         return batch
-            return batch  # unreachable but satisfies type checker
+
+                logger.error("All %d models rate-limited for batch %d — skipping", len(pool), batch_idx)
+                return batch
 
         batch_results = await asyncio.gather(*[_process_batch(b, i) for i, b in enumerate(batches)])
         results = [item for batch in batch_results for item in batch]

@@ -1,7 +1,23 @@
 from __future__ import annotations
 
+import json
+
 from pydantic import field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource
+
+
+def _csv_decode_complex(self, field_name, field_info, value):
+    """Decode complex env values: try JSON first, fall back to raw string.
+
+    pydantic_settings v2 normally raises SettingsError when a list[str] field
+    contains a comma-separated string (not valid JSON).  By returning the raw
+    string on failure we let the field_validator(mode="before") handle CSV
+    parsing instead of blowing up at source-load time.
+    """
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, ValueError):
+        return value  # field_validator will split on ","
 
 
 class Settings(BaseSettings):
@@ -128,6 +144,17 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return [x.strip() for x in v.split(",") if x.strip()]
         return v
+
+    @classmethod
+    def settings_customise_sources(cls, settings_cls: type[BaseSettings], **kwargs) -> tuple[PydanticBaseSettingsSource, ...]:
+        # Patch env/dotenv sources so comma-separated list values don't crash
+        # with JSONDecodeError before field_validators run.
+        import types
+        sources = tuple(kwargs.values())
+        for source in sources:
+            if source is not None and hasattr(source, "decode_complex_value"):
+                source.decode_complex_value = types.MethodType(_csv_decode_complex, source)
+        return sources
 
 
 settings = Settings()

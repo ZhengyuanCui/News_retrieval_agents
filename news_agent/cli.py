@@ -184,7 +184,7 @@ def analyze(batch: int, topic: str | None):
                             )
                         )
             total_done += len(analyzed_map)
-            console.print(f"  [green]✓[/] '{t}': {len(analyzed_map)}/{len(t_items)} analyzed")
+            console.print(f"  [green]OK[/] '{t}': {len(analyzed_map)}/{len(t_items)} analyzed")
 
         remaining = total_pending - total_done
         console.print(

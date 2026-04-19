@@ -162,102 +162,55 @@ class NewsRepository:
         languages: list[str] | None = None,
         min_relevance: float = 4.0,
     ) -> list[NewsItem]:
-        """Search for items matching query.
+        """Content-based search using BM25 + semantic (RRF merge).
 
-        Priority: items fetched specifically for this topic (topic==query) are returned first.
-        If none exist yet, falls back to content search (OR match) as a placeholder while
-        a keyword fetch is in progress.
+        Topic labels are ignored — any article relevant to the query is returned
+        regardless of how it was filed. This means 'machine learning' and 'AI'
+        surface the same articles, and a stocks article about AI chip demand shows
+        up in both AI and NVDA searches.
 
-        Items that have been analyzed and scored below min_relevance are excluded.
-        Un-analyzed items (NULL relevance_score) are always included.
+        Items scored below min_relevance by the LLM are excluded; un-analyzed
+        items (NULL relevance_score) are always included.
         """
         since = datetime.utcnow() - timedelta(hours=hours)
         max_age = datetime.utcnow() - timedelta(days=7)
         cutoff = max(since, max_age)
+
+        from news_agent.pipeline.analyzer import is_question
+        from news_agent.pipeline.vector_search import semantic_search
+
         base_where = [
             NewsItemORM.published_at >= cutoff,
             NewsItemORM.is_duplicate == False,  # noqa: E712
-            # Keep un-analyzed items (NULL) but drop confirmed low-relevance ones
             (NewsItemORM.relevance_score == None) | (NewsItemORM.relevance_score >= min_relevance),  # noqa: E711
         ]
         if languages:
             base_where.append(NewsItemORM.language.in_(languages))
 
-        from news_agent.pipeline.analyzer import is_question
-        from news_agent.pipeline.vector_search import semantic_search
-
-        def _topic_query(window_cutoff):
-            tw = [
-                NewsItemORM.published_at >= window_cutoff,
-                NewsItemORM.is_duplicate == False,  # noqa: E712
-                (NewsItemORM.relevance_score == None) | (NewsItemORM.relevance_score >= min_relevance),  # noqa: E711
-            ]
-            if languages:
-                tw.append(NewsItemORM.language.in_(languages))
-            return (
-                select(NewsItemORM)
-                .where(*tw, NewsItemORM.topic.ilike(query))
-                .order_by(
-                    NewsItemORM.fetched_at.desc(),
-                    NewsItemORM.relevance_score.desc().nullslast(),
-                    NewsItemORM.raw_score.desc(),
-                    NewsItemORM.published_at.desc(),
-                )
-                .limit(limit)
-            )
-
-        # 1. Topic-exact match respecting the requested hours window.
-        result = await self.session.execute(_topic_query(cutoff))
-        topic_rows = result.scalars().all()
-
-        # For long natural-language queries (≥ 6 words) that are stored as a
-        # topic from a previous keyword fetch, widen to the full 7-day window
-        # when results are sparse — these are long-tail lookups that may have
-        # been fetched a few days ago (e.g. "will stock market rise if Iran war ends").
-        # Short queries (keywords, tickers) always respect the hours filter.
-        is_long_query = len(query.split()) >= 6
-        if is_long_query and len(topic_rows) < 5:
-            result = await self.session.execute(_topic_query(max_age))
-            topic_rows = result.scalars().all()
-
-        topic_ids = {r.id for r in topic_rows}
-
-        # 2. Hybrid BM25 + semantic search with RRF merge.
-        #    BM25 catches exact keyword/ticker matches; semantic search catches
-        #    paraphrases and related concepts. RRF rewards IDs that rank well in both.
-        #    Query expansion is enabled for natural-language questions where paraphrase
-        #    coverage matters most.
+        # Hybrid BM25 + semantic with RRF merge. BM25 catches exact keyword/ticker
+        # matches; semantic catches paraphrases and related concepts.
         expand = is_question(query) or len(query.split()) >= 3
         bm25_ids, vector_ids = await asyncio.gather(
-            self.bm25_search(query, limit=limit),
-            semantic_search(query, top_k=limit * 2, expand=expand),
+            self.bm25_search(query, limit=limit * 2),
+            semantic_search(query, top_k=limit * 3, expand=expand),
         )
         candidate_ids = _rrf_merge([bm25_ids, vector_ids])
 
-        semantic_rows = []
+        rows = []
         if candidate_ids:
-            sem_where = [
-                NewsItemORM.published_at >= cutoff,  # respect hours param
-                NewsItemORM.is_duplicate == False,  # noqa: E712
-                (NewsItemORM.relevance_score == None) | (NewsItemORM.relevance_score >= min_relevance),  # noqa: E711
-                NewsItemORM.id.notin_(topic_ids),  # don't double-count topic-exact hits
-            ]
-            if languages:
-                sem_where.append(NewsItemORM.language.in_(languages))
             result = await self.session.execute(
-                select(NewsItemORM).where(*sem_where, NewsItemORM.id.in_(candidate_ids))
+                select(NewsItemORM).where(*base_where, NewsItemORM.id.in_(candidate_ids))
             )
-            semantic_rows = result.scalars().all()
+            rows = result.scalars().all()
 
-        # Merge: topic-exact rows first (highest confidence), then semantic by rank
+        # Sort by RRF rank (content relevance), then recency as tiebreaker
         id_rank = {id_: rank for rank, id_ in enumerate(candidate_ids)}
-        semantic_rows.sort(key=lambda r: id_rank.get(r.id, 9999))
-        all_rows = list(topic_rows) + semantic_rows
+        rows.sort(key=lambda r: (id_rank.get(r.id, 9999), -r.published_at.timestamp()))
 
-        # Deduplicate by title across both sets
+        # Deduplicate by title
         seen_titles: set[str] = set()
         deduped = []
-        for r in all_rows:
+        for r in rows:
             title_key = r.title.lower().strip()[:80]
             if title_key not in seen_titles:
                 seen_titles.add(title_key)

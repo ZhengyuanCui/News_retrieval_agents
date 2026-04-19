@@ -41,6 +41,17 @@ async def init_db() -> None:
     """Create all tables if they don't exist."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        if _is_sqlite:
+            await conn.execute(text(
+                "CREATE VIRTUAL TABLE IF NOT EXISTS news_items_fts "
+                "USING fts5(id UNINDEXED, title, content, tokenize='porter unicode61')"
+            ))
+            # Backfill any rows that pre-date the FTS table
+            await conn.execute(text(
+                "INSERT INTO news_items_fts(id, title, content) "
+                "SELECT id, title, coalesce(content,'') FROM news_items "
+                "WHERE id NOT IN (SELECT id FROM news_items_fts)"
+            ))
 
 
 @asynccontextmanager

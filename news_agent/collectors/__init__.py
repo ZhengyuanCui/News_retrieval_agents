@@ -38,6 +38,5 @@ __all__ = [
     "GitHubCollector",
     "YouTubeCollector",
     "TwitterCollector",
-    "LinkedInCollector",
     "get_enabled_collectors",
 ]

@@ -32,6 +32,7 @@ class NewsItem(BaseModel):
     key_entities: list[str] = Field(default_factory=list)
     is_duplicate: bool = False
     duplicate_of: str | None = None
+    cluster_id: str | None = None  # story cluster; set on semantic near-dupes
     is_starred: bool = False
     language: str = "en"  # ISO 639-1 code, e.g. "en", "zh", "es"
 
@@ -75,6 +76,7 @@ class NewsItemORM(Base):
     key_entities: Mapped[list] = mapped_column(JSON, default=list)
     is_duplicate: Mapped[bool] = mapped_column(Boolean, default=False)
     duplicate_of: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    cluster_id: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
     is_starred: Mapped[bool] = mapped_column(Boolean, default=False)
     language: Mapped[str] = mapped_column(String(8), default="en", index=True)
 
@@ -96,6 +98,7 @@ class NewsItemORM(Base):
             key_entities=self.key_entities or [],
             is_duplicate=self.is_duplicate,
             duplicate_of=self.duplicate_of,
+            cluster_id=self.cluster_id,
             language=self.language or "en",
         )
 

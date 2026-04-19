@@ -154,7 +154,7 @@ class YouTubeCollector(BaseCollector):
                 logger.error("Unexpected YouTube error for channel %s: %s", channel_id, e)
 
         logger.info("YouTubeCollector fetched %d items", len(items))
-        return items[: settings.max_items_per_source]
+        return items[: settings.max_items_per_source * 2]
 
     async def fetch_keyword(self, keyword: str) -> list[NewsItem]:
         if not self.is_enabled():

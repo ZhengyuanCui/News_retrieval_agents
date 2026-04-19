@@ -66,7 +66,6 @@ class LinkedInCollector(BaseCollector):
                 continue
 
             if published:
-                import time
                 published_at = datetime(*published[:6])
             else:
                 published_at = datetime.utcnow()
@@ -93,7 +92,7 @@ class LinkedInCollector(BaseCollector):
         items: list[NewsItem] = []
 
         for url, topic, label in DEFAULT_RSS_FEEDS:
-            if topic not in self.topics:
+            if self.topics and topic not in self.topics:
                 continue
             try:
                 await self._rate_limit()

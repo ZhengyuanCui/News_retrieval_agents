@@ -152,15 +152,17 @@ class Deduplicator:
             for i, j in zip(rows.tolist(), cols.tolist()):
                 if i in marked_duplicate or j in marked_duplicate:
                     continue
-                # Keep the more detailed version
+                # Keep the more detailed version; assign both to the same cluster
                 if self._detail_score(non_dupes[i]) >= self._detail_score(non_dupes[j]):
-                    non_dupes[j].is_duplicate = True
-                    non_dupes[j].duplicate_of = non_dupes[i].id
-                    marked_duplicate.add(j)
+                    winner, loser = i, j
                 else:
-                    non_dupes[i].is_duplicate = True
-                    non_dupes[i].duplicate_of = non_dupes[j].id
-                    marked_duplicate.add(i)
+                    winner, loser = j, i
+                cluster = non_dupes[winner].id
+                non_dupes[winner].cluster_id = non_dupes[winner].cluster_id or cluster
+                non_dupes[loser].cluster_id = cluster
+                non_dupes[loser].is_duplicate = True
+                non_dupes[loser].duplicate_of = non_dupes[winner].id
+                marked_duplicate.add(loser)
 
             if marked_duplicate:
                 logger.debug("Semantic dedup removed %d near-duplicates", len(marked_duplicate))

@@ -1,12 +1,33 @@
 from __future__ import annotations
 
+import asyncio
+import logging
+import re
 from datetime import datetime, timedelta
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from news_agent.models import CollectorStateORM, DigestORM, NewsItem, NewsItemORM
+
+logger = logging.getLogger(__name__)
+
+
+def _fts_escape(query: str) -> str:
+    """Convert a search query to a safe FTS5 match expression (AND of quoted tokens)."""
+    words = re.findall(r"\w+", query)
+    return " ".join(f'"{w}"' for w in words) if words else '""'
+
+
+def _rrf_merge(ranked_lists: list[list[str]], k: int = 60) -> list[str]:
+    """Reciprocal Rank Fusion: merge ranked ID lists, rewarding IDs that rank
+    highly in multiple lists. k=60 is the standard RRF constant."""
+    scores: dict[str, float] = {}
+    for ranked in ranked_lists:
+        for rank, id_ in enumerate(ranked):
+            scores[id_] = scores.get(id_, 0.0) + 1.0 / (k + rank + 1)
+    return sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
 
 
 class NewsRepository:
@@ -50,6 +71,14 @@ class NewsRepository:
             },
         )
         await self.session.execute(stmt)
+        # Keep FTS5 index in sync (DELETE + INSERT because FTS5 has no ON CONFLICT)
+        await self.session.execute(
+            text("DELETE FROM news_items_fts WHERE id = :id"), {"id": item.id}
+        )
+        await self.session.execute(
+            text("INSERT INTO news_items_fts(id, title, content) VALUES (:id, :title, :content)"),
+            {"id": item.id, "title": item.title, "content": item.content or ""},
+        )
 
     async def upsert_many(self, items: list[NewsItem]) -> None:
         for item in items:
@@ -106,6 +135,23 @@ class NewsRepository:
         result = await self.session.execute(q)
         return [row.to_pydantic() for row in result.scalars()]
 
+    async def bm25_search(self, query: str, limit: int = 60) -> list[str]:
+        """BM25 keyword search via SQLite FTS5. Returns article IDs in relevance order."""
+        try:
+            result = await self.session.execute(
+                text(
+                    "SELECT id FROM news_items_fts "
+                    "WHERE news_items_fts MATCH :q "
+                    "ORDER BY bm25(news_items_fts) "
+                    "LIMIT :lim"
+                ),
+                {"q": _fts_escape(query), "lim": limit},
+            )
+            return [row[0] for row in result]
+        except Exception as e:
+            logger.warning("BM25 search failed for %r: %s", query, e)
+            return []
+
     async def search(
         self,
         query: str,
@@ -136,6 +182,7 @@ class NewsRepository:
         if languages:
             base_where.append(NewsItemORM.language.in_(languages))
 
+        from news_agent.pipeline.analyzer import is_question
         from news_agent.pipeline.vector_search import semantic_search
 
         def _topic_query(window_cutoff):
@@ -174,9 +221,17 @@ class NewsRepository:
 
         topic_ids = {r.id for r in topic_rows}
 
-        # 2. Semantic vector search — always run to supplement topic-exact results.
-        #    Respects the hours/cutoff so the time-range selector works.
-        candidate_ids = await semantic_search(query, top_k=limit * 2)
+        # 2. Hybrid BM25 + semantic search with RRF merge.
+        #    BM25 catches exact keyword/ticker matches; semantic search catches
+        #    paraphrases and related concepts. RRF rewards IDs that rank well in both.
+        #    Query expansion is enabled for natural-language questions where paraphrase
+        #    coverage matters most.
+        expand = is_question(query) or len(query.split()) >= 3
+        bm25_ids, vector_ids = await asyncio.gather(
+            self.bm25_search(query, limit=limit),
+            semantic_search(query, top_k=limit * 2, expand=expand),
+        )
+        candidate_ids = _rrf_merge([bm25_ids, vector_ids])
 
         semantic_rows = []
         if candidate_ids:

@@ -15,7 +15,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from news_agent.preference import record_interaction, recompute_preferences
+from news_agent.preference import apply_preference_boost, get_preference_scores, record_interaction, recompute_preferences
 from news_agent.storage import get_session, init_db
 from news_agent.storage.repository import NewsRepository
 
@@ -119,15 +119,17 @@ async def startup():
         )
         await session.commit()
 
-    # Add language column if it doesn't exist yet (one-time migration)
+    # One-time column migrations
     from news_agent.storage.database import engine as _engine
     async with _engine.begin() as conn:
-        try:
-            await conn.execute(_text(
-                "ALTER TABLE news_items ADD COLUMN language TEXT NOT NULL DEFAULT 'en'"
-            ))
-        except Exception:
-            pass  # column already exists
+        for ddl in (
+            "ALTER TABLE news_items ADD COLUMN language TEXT NOT NULL DEFAULT 'en'",
+            "ALTER TABLE news_items ADD COLUMN cluster_id TEXT",
+        ):
+            try:
+                await conn.execute(_text(ddl))
+            except Exception:
+                pass  # column already exists
     # Remove any leftover podcast files from previous disk-based implementation
     legacy_dir = BASE.parent.parent / "data" / "podcasts"
     if legacy_dir.exists():
@@ -195,6 +197,10 @@ async def digest_page(hours: float = 24, topic1: str = "", topic2: str = "", lan
         starred = await repo.get_starred_ids()
         digest1 = await repo.get_digest(today, topic1.lower()) if topic1 else None
         digest2 = await repo.get_digest(today, topic2.lower()) if topic2 else None
+        prefs = await get_preference_scores(session)
+
+    items1 = apply_preference_boost(items1, prefs)
+    items2 = apply_preference_boost(items2, prefs)
 
     from news_agent.pipeline.ranker import rank_by_query
     loop = asyncio.get_event_loop()
@@ -430,6 +436,9 @@ async def panel_fragment(topic: str = "", hours: float = 24, langs: str = ""):
         repo = NewsRepository(session)
         items = await repo.search(topic, hours=effective_hours, languages=languages) if topic else await repo.get_recent(hours=hours, limit=60, languages=languages)
         starred = await repo.get_starred_ids()
+        prefs = await get_preference_scores(session)
+
+    items = apply_preference_boost(items, prefs)
 
     # For sparse keyword results (<5 hits), automatically widen to 72h so that
     # tickers and niche terms with few recent articles still return useful results.

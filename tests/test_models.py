@@ -42,7 +42,7 @@ def test_url_dedup_exact():
     items = [
         make_item(url="https://example.com/a", raw_score=0.3),
         make_item(url="https://example.com/a?utm_source=x", raw_score=0.8),  # same after normalization
-        make_item(url="https://example.com/b", raw_score=0.5),
+        make_item(url="https://example.com/b", raw_score=0.5, title="Distinct title for item b"),
     ]
     result = dedup.deduplicate(items)
     non_dupes = [i for i in result if not i.is_duplicate]

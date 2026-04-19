@@ -54,13 +54,14 @@ class NewsRepository:
             key_entities=item.key_entities,
             is_duplicate=item.is_duplicate,
             duplicate_of=item.duplicate_of,
-            is_starred=item.is_starred,
             language=item.language,
         )
         stmt = stmt.on_conflict_do_update(
             index_elements=["id"],
             set_={
                 # Fetch-owned fields — updated every time the item is re-collected
+                "source": stmt.excluded.source,
+                "topic": stmt.excluded.topic,
                 "raw_score": stmt.excluded.raw_score,
                 "is_duplicate": stmt.excluded.is_duplicate,
                 "duplicate_of": stmt.excluded.duplicate_of,
@@ -269,17 +270,6 @@ class NewsRepository:
             .where(NewsItemORM.id == item_id)
             .values(is_duplicate=True, duplicate_of=duplicate_of)
         )
-
-    async def set_starred(self, item_id: str, starred: bool) -> None:
-        await self.session.execute(
-            update(NewsItemORM).where(NewsItemORM.id == item_id).values(is_starred=starred)
-        )
-
-    async def get_starred_ids(self) -> set[str]:
-        result = await self.session.execute(
-            select(NewsItemORM.id).where(NewsItemORM.is_starred == True)  # noqa: E712
-        )
-        return set(result.scalars())
 
     async def clear_all(self) -> dict[str, int]:
         """Delete every row from news_items and digests. Returns row counts deleted."""

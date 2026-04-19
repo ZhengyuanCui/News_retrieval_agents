@@ -58,11 +58,26 @@ def _is_yt_spam(title: str, description: str = "") -> bool:
 # Channel-to-topic mapping: add entries here when you add new channels.
 # Topic is just a label — it does not restrict what gets fetched.
 CHANNEL_TOPICS: dict[str, str] = {
-    "UCbmNph6atAoGfqLoCL_duAg": "ai",       # Two Minute Papers
-    "UCWX3yGbODI3HLa-7k-4FNHA": "ai",       # Yannic Kilcher
-    "UCZHmQk67mSJgfCCTn7xBfew": "ai",       # Andrej Karpathy
-    "UCtYLUTtgS3k1Fg4y5tAhLbw": "ai",       # Lex Fridman
+    # Frontier Labs
+    "UCXZCJLdBC09xxGZ6gcdrc6A": "ai",       # OpenAI
+    "UCrDwWp7EBBv4NwvScIpBDOA": "ai",       # Anthropic
     "UCnUYZLuoy1rq1aVMwx4aTzw": "ai",       # Google DeepMind
+    "UCCb9_Kn8F_Opb3UCGm-lILQ": "ai",       # Microsoft Research
+    "UCbmNph6atAoGfqLoCL_duAg": "ai",       # Two Minute Papers
+    # Top AI Researchers
+    "UCPk8m_r6fkUSYmvgCBwq-sw": "ai",       # Andrej Karpathy (active)
+    "UCZHmQk67mSJgfCCTn7xBfew": "ai",       # Andrej Karpathy (old)
+    "UCWX3yGbODI3HLa-7k-4FNHA": "ai",       # Yannic Kilcher
+    "UCtYLUTtgS3k1Fg4y5tAhLbw": "ai",       # Lex Fridman
+    "UCMU7l2bIv6MXlgJR3-E33Dw": "ai",       # Yann LeCun
+    "UCX7Y2qWriXpqocG97SFW2OQ": "ai",       # Jeremy Howard (fast.ai)
+    "UCMLtBahI5DMrt0NPvDSoIRQ": "ai",       # ML Street Talk
+    "UCNJ1Ymd5yFuUPtn21xtRbbw": "ai",       # AI Explained
+    "UCYO_jab_esuFRV4b17AJtAw": "ai",       # 3Blue1Brown
+    # AI Education & Commentary
+    "UCsBjURrPoezykLs9EqgamOA": "ai",       # Fireship
+    "UChugFTK0KyrES9terTid8vA": "ai",       # Stanford HAI
+    # Finance / Markets
     "UCrM7B7SL_g1edFOnmj-SDKg": "stocks",   # Bloomberg Markets
     "UCrp_UI8XtuYfpiqluWLD7Lw": "stocks",   # CNBC Television
 }
@@ -117,8 +132,7 @@ class YouTubeCollector(BaseCollector):
                     continue
 
                 videos = self._get_recent_videos(service, playlist_id, max_results=5)
-                # During broad fetch (no topic filter), label by source not by category
-                topic = self._classify_topic(channel_id) if self.topics else "youtube"
+                topic = self._classify_topic(channel_id)
 
                 for video in videos:
                     snippet = video.get("snippet", {})

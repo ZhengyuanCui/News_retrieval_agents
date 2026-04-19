@@ -284,10 +284,11 @@ class RSSCollector(BaseCollector):
         results = await _asyncio.gather(*[_fetch_one(u, t, s, m) for u, t, s, m in tasks])
         items: list[NewsItem] = []
         for source_items in results:
-            items += source_items
+            # Cap per feed so no single high-volume source (e.g. arXiv) crowds out others
+            items += source_items[:8]
 
-        logger.info("RSSCollector fetched %d items", len(items))
-        return items[: settings.max_items_per_source * 2]
+        logger.info("RSSCollector fetched %d items across %d feeds", len(items), len(tasks))
+        return items
 
     async def _search_news_rss(self, url: str, topic: str, source_id: str) -> list[NewsItem]:
         """Fetch a search-based RSS feed using feedparser's own HTTP stack.

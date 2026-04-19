@@ -84,18 +84,114 @@ async def _resolve_url(url: str) -> str:
         logger.debug("URL resolution fallback failed for %s: %s", url[:80], e)
         return url
 
-# (url, topic, source_id, display_label)
+# (url, topic, source_id)
 DEFAULT_RSS_FEEDS: list[tuple[str, str, str]] = [
-    # AI / Tech
-    ("https://www.techmeme.com/feed.xml",                               "ai",     "techmeme"),
-    ("https://feeds.feedburner.com/venturebeat/SZYF",                   "ai",     "venturebeat"),
-    ("https://techcrunch.com/category/artificial-intelligence/feed/",   "ai",     "techcrunch"),
-    ("https://www.wired.com/feed/rss",                                   "ai",     "wired"),
-    ("https://openai.com/news/rss.xml",                                  "ai",     "openai"),
-    ("https://www.deepmind.com/blog/rss.xml",                            "ai",     "deepmind"),
-    # Sports
+    # ── AI News & Analysis ────────────────────────────────────────────────────
+    ("https://www.techmeme.com/feed.xml",                                "ai", "techmeme"),
+    ("https://feeds.feedburner.com/venturebeat/SZYF",                   "ai", "venturebeat"),
+    ("https://techcrunch.com/category/artificial-intelligence/feed/",   "ai", "techcrunch"),
+    ("https://www.wired.com/feed/rss",                                   "ai", "wired"),
+    ("https://thenextweb.com/feed",                                      "ai", "thenextweb"),
+    ("https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss","ai", "ieee-spectrum"),
+    ("https://www.technologyreview.com/feed/",                           "ai", "mit-tech-review"),
+    ("https://www.theregister.com/headlines.atom",                       "ai", "the-register"),
+
+    # ── Frontier Labs — Research Blogs ────────────────────────────────────────
+    ("https://openai.com/news/rss.xml",                                  "ai", "openai"),
+    ("https://www.deepmind.com/blog/rss.xml",                            "ai", "deepmind"),
+    # Anthropic has no native RSS — use Google News search
+    ("https://news.google.com/rss/search?q=Anthropic+AI&hl=en-US&gl=US&ceid=US:en",
+                                                                         "ai", "anthropic-news"),
+    ("https://ai.googleblog.com/feeds/posts/default",                    "ai", "google-ai-blog"),
+    ("https://research.facebook.com/feed/",                              "ai", "meta-research"),
+    ("https://machinelearning.apple.com/rss/all_articles.rss",           "ai", "apple-ml"),
+    ("https://www.microsoft.com/en-us/research/feed/",                   "ai", "microsoft-research"),
+    ("https://aws.amazon.com/blogs/machine-learning/feed/",              "ai", "amazon-science"),
+    ("https://huggingface.co/blog/feed.xml",                             "ai", "huggingface"),
+    ("https://blogs.nvidia.com/blog/category/deep-learning/feed/",       "ai", "nvidia-ai"),
+    ("https://allenai.org/blog?format=rss",                              "ai", "allen-ai"),
+    ("https://blog.mistral.ai/rss/",                                     "ai", "mistral"),
+    ("https://stability.ai/news?format=rss",                             "ai", "stability-ai"),
+    ("https://cohere.com/blog/rss",                                      "ai", "cohere"),
+
+    # ── Robotics & Embodied AI ────────────────────────────────────────────────
+    # Physical Intelligence, Figure AI, World Labs have no native RSS — via Google News
+    ("https://news.google.com/rss/search?q=Physical+Intelligence+robotics+AI&hl=en-US&gl=US&ceid=US:en",
+                                                                         "ai", "physical-intelligence"),
+    ("https://news.google.com/rss/search?q=Figure+AI+robot&hl=en-US&gl=US&ceid=US:en",
+                                                                         "ai", "figure-ai"),
+    ("https://news.google.com/rss/search?q=World+Labs+Fei-Fei+Li+spatial+AI&hl=en-US&gl=US&ceid=US:en",
+                                                                         "ai", "world-labs"),
+    ("https://news.google.com/rss/search?q=Boston+Dynamics+robot&hl=en-US&gl=US&ceid=US:en",
+                                                                         "ai", "boston-dynamics"),
+    ("https://waymo.com/blog/rss",                                       "ai", "waymo"),
+
+    # ── Generative Media & Multimodal ─────────────────────────────────────────
+    ("https://news.google.com/rss/search?q=Runway+ML+video+generation&hl=en-US&gl=US&ceid=US:en",
+                                                                         "ai", "runway-ml"),
+    ("https://elevenlabs.io/blog/rss.xml",                               "ai", "elevenlabs"),
+    ("https://sakana.ai/blog/index.xml",                                 "ai", "sakana-ai"),
+
+    # ── arXiv — Daily Paper Feeds ────────────────────────────────────────────
+    ("https://arxiv.org/rss/cs.AI",                                      "ai", "arxiv-cs-ai"),
+    ("https://arxiv.org/rss/cs.LG",                                      "ai", "arxiv-cs-lg"),
+    ("https://arxiv.org/rss/cs.CV",                                      "ai", "arxiv-cs-cv"),
+    ("https://arxiv.org/rss/cs.RO",                                      "ai", "arxiv-cs-ro"),
+    ("https://arxiv.org/rss/cs.CL",                                      "ai", "arxiv-cs-cl"),
+    ("https://arxiv.org/rss/stat.ML",                                    "ai", "arxiv-stat-ml"),
+
+    # ── Paper Digests & Newsletters ───────────────────────────────────────────
+    ("https://thegradient.pub/rss/",                                     "ai", "the-gradient"),
+    ("https://importai.substack.com/feed",                               "ai", "import-ai"),       # Jack Clark
+    ("https://www.deeplearning.ai/the-batch/rss/",                       "ai", "the-batch"),        # Andrew Ng
+    ("https://lastweekin.ai/feed",                                       "ai", "last-week-in-ai"),
+    ("https://paperswithcode.com/newsletter/rss",                        "ai", "papers-with-code"),
+
+    # ── Top AI Researchers — Blogs ────────────────────────────────────────────
+    ("https://lilianweng.github.io/index.xml",                           "ai", "lilian-weng"),
+    ("https://karpathy.github.io/feed.xml",                              "ai", "karpathy-blog"),
+    ("https://www.fast.ai/index.xml",                                    "ai", "fastai"),
+    ("https://colah.github.io/rss.xml",                                  "ai", "colah"),
+    ("https://blog.samaltman.com/rss",                                   "ai", "sam-altman"),
+    ("https://jalammar.github.io/feed.xml",                              "ai", "jay-alammar"),
+    ("https://ruder.io/rss/index.rss",                                   "ai", "sebastian-ruder"),
+    ("https://huyenchip.com/feed.xml",                                   "ai", "chip-huyen"),
+    ("https://simonwillison.net/atom/everything/",                       "ai", "simon-willison"),   # prolific AI/LLM blogger
+    ("https://fchollet.substack.com/feed",                               "ai", "chollet"),          # François Chollet
+    ("https://bair.berkeley.edu/blog/feed.xml",                          "ai", "bair"),
+    ("https://ai.stanford.edu/blog/feed.xml",                            "ai", "stanford-ai"),
+
+    # ── AI Safety & Alignment ─────────────────────────────────────────────────
+    ("https://www.alignmentforum.org/feed.xml",                          "ai", "alignment-forum"),
+    ("https://www.lesswrong.com/feed.xml",                               "ai", "lesswrong"),
+    ("https://intelligence.org/feed/",                                   "ai", "miri"),
+
+    # ── Robotics / Vision (additional) ───────────────────────────────────────
+    ("https://spectrum.ieee.org/feeds/topic/robotics.rss",               "ai", "ieee-robotics"),
+    ("https://www.csail.mit.edu/news?format=rss",                        "ai", "mit-csail"),
+
+    # ── AI Podcasts — Current Events, Ethics & Future Vision ──────────────────
+    # Technical depth + researcher interviews
+    ("https://twimlai.com/feed/podcast/",                                "ai", "twiml-ai"),          # This Week in ML & AI — Sam Charrington
+    ("https://www.latent.space/feed",                                    "ai", "latent-space"),       # Latent Space — AI engineering deep dives
+    ("https://lexfridman.com/feed/podcast/",                             "ai", "lex-fridman-pod"),   # Lex Fridman Podcast
+    ("https://changelog.com/practicalai/feed",                           "ai", "practical-ai"),      # Practical AI — weekly applied AI
+    ("https://feeds.feedburner.com/nvidia-ai-podcast",                   "ai", "nvidia-ai-pod"),     # NVIDIA AI Podcast
+    # Future, ethics & societal impact
+    ("https://futureoflife.org/podcast/feed/",                           "ai", "future-of-life"),    # FLI Podcast — existential risk, AI safety
+    ("https://80000hours.org/podcast/feed/",                             "ai", "80k-hours"),         # 80,000 Hours — AI safety careers & ethics
+    ("https://cognitiverevolution.ai/feed/",                             "ai", "cognitive-rev"),     # The Cognitive Revolution — Nathan Labenz
+    ("https://www.nopriorsai.com/feed",                                  "ai", "no-priors"),         # No Priors — Sarah Guo & Elad Gil (VCs)
+    ("https://www.eye-on.ai/podcast-audio/feed",                         "ai", "eye-on-ai"),         # Eye on AI — Craig Smith
+    # Humane tech & ethics focus
+    ("https://your-undivided-attention.simplecast.com/episodes/rss",     "ai", "undivided-attention"), # Tristan Harris / Center for Humane Tech
+    # Neuroscience × AI
+    ("https://braininspired.co/feed/podcast/",                           "ai", "brain-inspired"),    # Brain Inspired — Paul Middlebrooks
+
+    # ── Sports ────────────────────────────────────────────────────────────────
     ("https://www.espn.com/espn/rss/nba/news",                           "basketball", "espn-nba"),
-    # Finance / Markets
+
+    # ── Finance / Markets ─────────────────────────────────────────────────────
     ("https://feeds.bloomberg.com/markets/news.rss",                     "stocks", "bloomberg"),
     ("https://feeds.a.dj.com/rss/RSSMarketsMain.xml",                    "stocks", "wsj"),
     ("https://www.ft.com/markets?format=rss",                            "stocks", "ft"),
@@ -111,7 +207,7 @@ class RSSCollector(BaseCollector):
     rate_limit_delay = 1.0
 
     def is_enabled(self) -> bool:
-        return settings.linkedin_enabled  # reuses existing config flag
+        return True  # RSS needs no credentials
 
     @retry(wait=wait_exponential(multiplier=1, min=4, max=30), stop=stop_after_attempt(2))
     async def _fetch_feed(self, url: str, topic: str, source_id: str) -> list[NewsItem]:

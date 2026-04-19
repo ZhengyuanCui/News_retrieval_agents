@@ -109,13 +109,27 @@ class Settings(BaseSettings):
     youtube_api_key: str | None = None
     youtube_enabled: bool = True
     youtube_channel_ids: list[str] = [
+        # ── Frontier Labs ──────────────────────────────────────────────────────
+        "UCXZCJLdBC09xxGZ6gcdrc6A",  # OpenAI
+        "UCrDwWp7EBBv4NwvScIpBDOA",  # Anthropic
+        "UCnUYZLuoy1rq1aVMwx4aTzw",  # Google DeepMind
+        "UCCb9_Kn8F_Opb3UCGm-lILQ",  # Microsoft Research
         "UCbmNph6atAoGfqLoCL_duAg",  # Two Minute Papers
+        # ── Top AI Researchers ─────────────────────────────────────────────────
+        "UCPk8m_r6fkUSYmvgCBwq-sw",  # Andrej Karpathy (active channel)
         "UCWX3yGbODI3HLa-7k-4FNHA",  # Yannic Kilcher
-        "UCZHmQk67mSJgfCCTn7xBfew",  # Andrej Karpathy
+        "UCtYLUTtgS3k1Fg4y5tAhLbw",  # Lex Fridman
+        "UCMU7l2bIv6MXlgJR3-E33Dw",  # Yann LeCun
+        "UCX7Y2qWriXpqocG97SFW2OQ",  # Jeremy Howard (fast.ai)
+        "UCMLtBahI5DMrt0NPvDSoIRQ",  # ML Street Talk
+        "UCNJ1Ymd5yFuUPtn21xtRbbw",  # AI Explained
+        "UCYO_jab_esuFRV4b17AJtAw",  # 3Blue1Brown (math/ML foundations)
+        # ── AI Education & Commentary ──────────────────────────────────────────
+        "UCsBjURrPoezykLs9EqgamOA",  # Fireship (dev/AI news)
+        "UChugFTK0KyrES9terTid8vA",  # Stanford HAI
+        # ── Finance / Markets ──────────────────────────────────────────────────
         "UCrM7B7SL_g1edFOnmj-SDKg",  # Bloomberg Markets
         "UCrp_UI8XtuYfpiqluWLD7Lw",  # CNBC Television
-        "UCtYLUTtgS3k1Fg4y5tAhLbw",  # Lex Fridman
-        "UCnUYZLuoy1rq1aVMwx4aTzw",  # Google DeepMind
     ]
 
     # ── LinkedIn ──────────────────────────────────────────────────────────────

@@ -166,9 +166,6 @@ DEFAULT_RSS_FEEDS: list[tuple[str, str, str]] = [
     ("https://www.neelnanda.io/blog?format=rss",                         "ai", "neel-nanda"),       # mechanistic interpretability
     ("https://bounded-regret.ghost.io/rss/",                             "ai", "steinhardt"),       # Jacob Steinhardt — AI governance & safety
     ("https://sideways-view.com/feed/",                                  "ai", "paul-christiano"),  # Paul Christiano — AI alignment
-    # Dario Amodei has no RSS — essays at darioamodei.com, track via Google News
-    ("https://news.google.com/rss/search?q=Dario+Amodei+essay+AI&hl=en-US&gl=US&ceid=US:en",
-                                                                         "ai", "dario-amodei"),
 
     # ── AI Safety & Alignment ─────────────────────────────────────────────────
     ("https://www.alignmentforum.org/feed.xml",                          "ai", "alignment-forum"),
@@ -206,6 +203,13 @@ DEFAULT_RSS_FEEDS: list[tuple[str, str, str]] = [
     ("https://www.ft.com/markets?format=rss",                            "stocks", "ft"),
     ("https://www.cnbc.com/id/10000664/device/rss/rss.html",             "stocks", "cnbc"),
     ("https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines","stocks", "marketwatch"),
+]
+
+
+# Sites with no RSS feed — scraped directly from the homepage.
+# (base_url, article_path_prefix, topic, source_id)
+SCRAPED_SITES: list[tuple[str, str, str, str]] = [
+    ("https://darioamodei.com", "/post/,/essay/", "ai", "dario-amodei"),
 ]
 
 
@@ -260,6 +264,75 @@ class RSSCollector(BaseCollector):
 
         return items
 
+    async def _fetch_scraped_site(
+        self, base_url: str, path_prefixes: str, topic: str, source_id: str, limit: int = 5
+    ) -> list[NewsItem]:
+        """Fetch articles from a site with no RSS by scanning the homepage for post links."""
+        prefixes = [p.strip() for p in path_prefixes.split(",")]
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; NewsAgent/1.0)"}
+        try:
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+                resp = await client.get(base_url, headers=headers)
+                resp.raise_for_status()
+                html = resp.text
+        except Exception as e:
+            logger.warning("Scrape home fetch failed for %s: %s", base_url, e)
+            return []
+
+        # Extract unique href paths matching any of the prefixes
+        all_hrefs = _re.findall(r'href="(/[^"]+)"', html)
+        seen: set[str] = set()
+        paths: list[str] = []
+        for href in all_hrefs:
+            if any(href.startswith(p) for p in prefixes) and href not in seen:
+                seen.add(href)
+                paths.append(href)
+            if len(paths) >= limit:
+                break
+
+        items: list[NewsItem] = []
+        for path in paths:
+            url = base_url.rstrip("/") + path
+            try:
+                async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+                    r = await client.get(url, headers=headers)
+                    r.raise_for_status()
+                    page_html = r.text
+
+                # Title: prefer <h1>, fall back to <title>
+                h1 = _re.search(r"<h1[^>]*>\s*([^<]+)\s*</h1>", page_html, _re.IGNORECASE)
+                title_tag = _re.search(r"<title[^>]*>([^<]+)</title>", page_html, _re.IGNORECASE)
+                raw_title = (h1 or title_tag).group(1) if (h1 or title_tag) else path
+                title = _clean_summary(raw_title).strip(" —|-")
+
+                # Date: look for "Month YYYY" pattern (e.g. "April 2025")
+                date_match = _re.search(
+                    r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(20\d{2})\b",
+                    page_html,
+                )
+                if date_match:
+                    published_at = datetime.strptime(f"{date_match.group(1)} {date_match.group(2)}", "%B %Y")
+                else:
+                    published_at = datetime.utcnow()
+
+                # Body text: strip all tags
+                body = _clean_summary(page_html)[:3000]
+
+                items.append(NewsItem(
+                    source=source_id,
+                    topic=topic,
+                    title=title,
+                    url=url,
+                    content=body or title,
+                    published_at=published_at,
+                    raw_score=0.8,
+                ))
+            except Exception as e:
+                logger.debug("Scrape article fetch failed for %s: %s", url, e)
+
+        logger.info("Scraped %d articles from %s", len(items), base_url)
+        return items
+
     async def fetch(self) -> list[NewsItem]:
         if not self.is_enabled():
             return []
@@ -295,6 +368,15 @@ class RSSCollector(BaseCollector):
         for source_items in results:
             # Cap per feed so no single high-volume source (e.g. arXiv) crowds out others
             items += source_items[:8]
+
+        # Scrape no-RSS sites (these have very few posts so no per-site cap needed)
+        scrape_results = await _asyncio.gather(*[
+            self._fetch_scraped_site(base_url, prefixes, topic, source_id)
+            for base_url, prefixes, topic, source_id in SCRAPED_SITES
+            if not self.topics or topic in self.topics
+        ])
+        for scraped in scrape_results:
+            items += scraped
 
         logger.info("RSSCollector fetched %d items across %d feeds", len(items), len(tasks))
         return items

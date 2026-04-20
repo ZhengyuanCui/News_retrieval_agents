@@ -158,7 +158,6 @@ class NewsRepository:
         query: str,
         hours: float = 24,
         limit: int = 60,
-        strict: bool = False,
         languages: list[str] | None = None,
         min_relevance: float = 4.0,
     ) -> list[NewsItem]:

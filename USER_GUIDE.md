@@ -23,7 +23,7 @@ The scheduler starts automatically with the server — no second process needed.
 
 ### Search page (`/search`)
 
-Type any keyword in the search bar. The system immediately fetches from Google News, Bing News, Reddit, YouTube, and Twitter for that keyword and shows results as they arrive.
+Type any keyword in the search bar. Results are retrieved from the database using hybrid BM25 + semantic search (RRF merge). For keywords not already in the database, the system fetches live from Google News, Bing News, Reddit, YouTube, and GitHub for that keyword and streams results as they arrive.
 
 ---
 
@@ -67,7 +67,7 @@ python -m news_agent.cli digest --topic "basketball"
 python -m news_agent.cli digest --topic "ai" --hours 48
 ```
 
-Requires `ANTHROPIC_API_KEY` in `.env`.
+Requires `LLM_API_KEY` (or `ANTHROPIC_API_KEY`) in `.env`.
 
 ---
 
@@ -102,7 +102,7 @@ python -m news_agent.cli sources enable reddit
 python -m news_agent.cli sources disable youtube
 ```
 
-Available sources: `reddit`, `github`, `youtube`, `x`, `rss`
+Available sources: `reddit`, `github`, `youtube`, `twitter`, `rss`
 
 ---
 
@@ -125,8 +125,10 @@ Schedule (configured in `.env`):
 
 | Key | Description |
 |---|---|
-| `ANTHROPIC_API_KEY` | Required for digests and Claude analysis |
-| `OPENAI_API_KEY` | Optional — enables higher-quality podcast TTS |
+| `LLM_MODEL` | LLM to use (default: `anthropic/claude-sonnet-4-6`) |
+| `LLM_API_KEY` | Required — API key for the LLM provider (Anthropic, OpenAI, Gemini, etc.) |
+| `ANALYSIS_MODEL` | Cheaper model for bulk item scoring (default: `anthropic/claude-haiku-4-5-20251001`) |
+| `OPENAI_API_KEY` | Optional — enables higher-quality podcast TTS via OpenAI |
 | `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` | Reddit API credentials |
 | `TWITTER_BEARER_TOKEN` | Twitter/X API bearer token |
 | `YOUTUBE_API_KEY` | YouTube Data API key |

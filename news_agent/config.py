@@ -132,12 +132,6 @@ class Settings(BaseSettings):
         "UCrp_UI8XtuYfpiqluWLD7Lw",  # CNBC Television
     ]
 
-    # ── LinkedIn ──────────────────────────────────────────────────────────────
-    linkedin_enabled: bool = True
-    linkedin_rss_feeds: list[str] = [
-        "https://www.linkedin.com/newsletters/ai-weekly/",
-    ]
-
     # ── Pipeline ──────────────────────────────────────────────────────────────
     dedup_strategy: str = "semantic"  # "semantic" | "tfidf" | "url_only"
     dedup_similarity_threshold: float = 0.82
@@ -151,7 +145,7 @@ class Settings(BaseSettings):
     # ── Scheduler ─────────────────────────────────────────────────────────────
     schedule_interval_hours: int = 4
 
-    @field_validator("youtube_channel_ids", "github_watch_repos", "linkedin_rss_feeds",
+    @field_validator("youtube_channel_ids", "github_watch_repos",
                      "analysis_models", "analysis_api_keys", "analysis_rpms", mode="before")
     @classmethod
     def split_comma_list(cls, v: str | list) -> list[str]:

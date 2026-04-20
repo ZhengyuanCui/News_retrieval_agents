@@ -15,7 +15,7 @@ _SOURCE_AUTHORITY: dict[str, float] = {
     "bloomberg": 0.9, "reuters": 0.9, "wsj": 0.85, "ft": 0.85,
     "bbc": 0.82, "techcrunch": 0.80, "wired": 0.75,
     "cnbc": 0.75, "marketwatch": 0.70, "ventureBeat": 0.75,
-    "youtube": 0.60, "linkedin": 0.60, "rss": 0.65,
+    "youtube": 0.60, "rss": 0.65,
     "reddit": 0.50, "twitter": 0.40,
 }
 

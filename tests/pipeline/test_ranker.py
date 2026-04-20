@@ -43,22 +43,62 @@ class TestFreshnessDecay:
 # ── Source authority table ────────────────────────────────────────────────────
 
 class TestSourceAuthority:
-    def test_high_authority_sources(self):
-        for src in ("openai", "deepmind", "reuters", "bloomberg"):
-            assert _SOURCE_AUTHORITY[src] >= 0.85, f"{src} should be high authority"
+    def test_frontier_labs_are_top_tier(self):
+        """Primary-source AI research labs should sit at the very top."""
+        for src in ("openai", "anthropic", "deepmind", "google-ai-blog",
+                    "meta-research", "apple-ml", "microsoft-research"):
+            assert _SOURCE_AUTHORITY[src] >= 0.90, f"{src} should be frontier-lab tier"
+
+    def test_primary_research_above_trade_press(self):
+        """arXiv / academic labs should outrank tech-trade press."""
+        for research in ("arxiv-cs-ai", "arxiv-cs-lg", "bair", "mit-csail"):
+            for press in ("techcrunch", "venturebeat", "wired"):
+                assert _SOURCE_AUTHORITY[research] > _SOURCE_AUTHORITY[press], (
+                    f"{research} should outrank {press}"
+                )
+
+    def test_news_aggregators_are_down_weighted(self):
+        """Google News / Bing News produce copies of primary-source stories
+        and should be penalized relative to the default authority."""
+        for src in ("google-news", "bing-news"):
+            assert _SOURCE_AUTHORITY[src] <= 0.30, (
+                f"{src} should be heavily down-weighted (got {_SOURCE_AUTHORITY[src]})"
+            )
+
+    def test_frontier_labs_outrank_news_aggregators(self):
+        """The core user-requested intent: frontier-lab blogs should dominate
+        Google News / Bing News by a wide margin."""
+        for lab in ("openai", "anthropic", "deepmind", "huggingface", "mistral"):
+            for agg in ("google-news", "bing-news"):
+                assert _SOURCE_AUTHORITY[lab] - _SOURCE_AUTHORITY[agg] >= 0.50, (
+                    f"{lab} should heavily outrank {agg}"
+                )
+
+    def test_steady_news_wires_below_frontier_labs(self):
+        """Reputable wires (Reuters, Bloomberg, WSJ, FT, CNBC) are trustworthy
+        but mostly repackage primary-source news — they must rank below the
+        frontier labs for AI queries."""
+        for wire in ("reuters", "bloomberg", "wsj", "ft", "cnbc", "bbc"):
+            for lab in ("openai", "anthropic", "deepmind"):
+                assert _SOURCE_AUTHORITY[lab] > _SOURCE_AUTHORITY[wire], (
+                    f"{lab} should rank above steady news source {wire}"
+                )
 
     def test_low_authority_sources(self):
-        for src in ("twitter", "reddit"):
+        for src in ("twitter", "reddit", "x"):
             assert _SOURCE_AUTHORITY[src] <= 0.55, f"{src} should be low authority"
 
     def test_unknown_source_gets_default(self):
-        unknown = _SOURCE_AUTHORITY.get("some_obscure_blog", 0.65)
-        assert 0.5 <= unknown <= 0.8
+        from news_agent.pipeline.ranker import _DEFAULT_AUTHORITY
+        assert 0.4 <= _DEFAULT_AUTHORITY <= 0.7
 
     def test_authority_ordering(self):
         assert _SOURCE_AUTHORITY["openai"] > _SOURCE_AUTHORITY["reddit"]
         assert _SOURCE_AUTHORITY["reuters"] > _SOURCE_AUTHORITY["twitter"]
         assert _SOURCE_AUTHORITY["github"] > _SOURCE_AUTHORITY["youtube"]
+        # Researcher personal blogs should rank above generic trade press.
+        assert _SOURCE_AUTHORITY["karpathy-blog"] > _SOURCE_AUTHORITY["techcrunch"]
+        assert _SOURCE_AUTHORITY["lilian-weng"] > _SOURCE_AUTHORITY["venturebeat"]
 
 
 # ── rank_by_query end-to-end ranking signals ──────────────────────────────────
@@ -146,6 +186,81 @@ class TestRankByQuery:
     def test_single_item_returns_unchanged(self):
         item = make_item()
         assert rank_by_query("AI news", [item]) == [item]
+
+    def test_frontier_lab_beats_google_news_for_same_story(self):
+        """An OpenAI-blog article should outrank a Google News copy of the
+        same story even when both are equally fresh and have the same LLM
+        relevance score."""
+        frontier = make_item(
+            url="https://openai.com/blog/gpt-next",
+            title="Introducing GPT-Next",
+            content="OpenAI today announced GPT-Next with major capability gains.",
+            published_at=hours_ago(2),
+            relevance_score=8.0,
+            raw_score=0.5,
+            source="openai",
+        )
+        aggregator = make_item(
+            url="https://news.google.com/articles/xyz",
+            title="Introducing GPT-Next",
+            content="OpenAI today announced GPT-Next with major capability gains.",
+            published_at=hours_ago(2),
+            relevance_score=8.0,
+            raw_score=0.9,  # even with higher engagement
+            source="google-news",
+        )
+        ranked = rank_by_query("GPT-Next release", [aggregator, frontier])
+        assert ranked[0].source == "openai", (
+            "Frontier-lab primary source should beat aggregator copy"
+        )
+
+    def test_arxiv_paper_beats_tech_trade_press(self):
+        """A fresh arXiv paper on the same topic should outrank a TechCrunch
+        write-up of it when the content is equivalent."""
+        arxiv = make_item(
+            url="https://arxiv.org/abs/2501.12345",
+            title="Scaling Laws for Next-Gen Language Models",
+            content="We investigate scaling behavior of modern language models.",
+            published_at=hours_ago(6),
+            relevance_score=7.5,
+            raw_score=0.4,
+            source="arxiv-cs-lg",
+        )
+        tc = make_item(
+            url="https://techcrunch.com/scaling-laws",
+            title="Scaling Laws for Next-Gen Language Models",
+            content="We investigate scaling behavior of modern language models.",
+            published_at=hours_ago(6),
+            relevance_score=7.5,
+            raw_score=0.6,
+            source="techcrunch",
+        )
+        ranked = rank_by_query("scaling laws language models", [tc, arxiv])
+        assert ranked[0].source == "arxiv-cs-lg"
+
+    def test_researcher_blog_beats_generic_news(self):
+        """A researcher's personal blog post should outrank a generic news
+        wire covering the same topic."""
+        blog = make_item(
+            url="https://lilianweng.github.io/posts/agents",
+            title="On LLM-powered autonomous agents",
+            content="A survey of recent progress in agentic LLM systems.",
+            published_at=hours_ago(10),
+            relevance_score=8.0,
+            raw_score=0.3,
+            source="lilian-weng",
+        )
+        wire = make_item(
+            url="https://news.google.com/agents-roundup",
+            title="On LLM-powered autonomous agents",
+            content="A survey of recent progress in agentic LLM systems.",
+            published_at=hours_ago(10),
+            relevance_score=8.0,
+            raw_score=0.7,
+            source="google-news",
+        )
+        ranked = rank_by_query("autonomous agents", [wire, blog])
+        assert ranked[0].source == "lilian-weng"
 
     def test_combined_signals_correct_order(self):
         """A fresh high-authority article should beat a stale low-authority one

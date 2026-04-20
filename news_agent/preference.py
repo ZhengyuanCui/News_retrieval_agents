@@ -13,10 +13,10 @@ logger = logging.getLogger(__name__)
 
 # Interaction weights — how much each action shifts the score
 WEIGHTS = {
-    "star": 5.0,
-    "unstar": -5.0,
-    "dislike": -8.0,     # stronger signal: suppress this type of content
-    "undislike": 8.0,
+    "upvote": 5.0,
+    "unupvote": -5.0,
+    "downvote": -8.0,     # stronger signal: suppress this type of content
+    "undownvote": 8.0,
     "click": 1.5,
     "read_short": 0.5,   # 15–60s
     "read_medium": 1.5,  # 60–180s
@@ -98,14 +98,14 @@ async def recompute_preferences(session: AsyncSession) -> None:
 
 
 def _interaction_weight(interaction: UserInteractionORM) -> float:
-    if interaction.action == "star":
-        return WEIGHTS["star"]
-    if interaction.action == "unstar":
-        return WEIGHTS["unstar"]
-    if interaction.action == "dislike":
-        return WEIGHTS["dislike"]
-    if interaction.action == "undislike":
-        return WEIGHTS["undislike"]
+    if interaction.action == "upvote":
+        return WEIGHTS["upvote"]
+    if interaction.action == "unupvote":
+        return WEIGHTS["unupvote"]
+    if interaction.action == "downvote":
+        return WEIGHTS["downvote"]
+    if interaction.action == "undownvote":
+        return WEIGHTS["undownvote"]
     if interaction.action == "click":
         return WEIGHTS["click"]
     if interaction.action == "read" and interaction.read_seconds:

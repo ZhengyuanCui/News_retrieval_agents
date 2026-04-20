@@ -194,7 +194,6 @@ async def digest_page(hours: float = 24, topic1: str = "", topic2: str = "", lan
         repo = NewsRepository(session)
         items1 = await repo.search(topic1, hours=hours, languages=languages) if topic1 else await repo.get_recent(hours=hours, limit=60, languages=languages)
         items2 = await repo.search(topic2, hours=hours, languages=languages) if topic2 else await repo.get_recent(hours=hours, limit=60, languages=languages)
-        starred = await repo.get_starred_ids()
         digest1 = await repo.get_digest(today, topic1.lower()) if topic1 else None
         digest2 = await repo.get_digest(today, topic2.lower()) if topic2 else None
         prefs = await get_preference_scores(session)
@@ -215,7 +214,6 @@ async def digest_page(hours: float = 24, topic1: str = "", topic2: str = "", lan
         items2=items2,
         topic1=topic1,
         topic2=topic2,
-        starred_ids=starred,
         hours=hours,
         langs=langs,
         digest1=_parse_digest(digest1.content if digest1 else None),
@@ -232,16 +230,33 @@ class InteractionPayload(BaseModel):
     read_seconds: float | None = None
 
 
+_VOTE_OPPOSITES = {"upvote": "downvote", "downvote": "upvote"}
+_VOTE_CANCELS   = {"upvote": "unupvote", "downvote": "undownvote"}
+
+
+async def _cancel_opposite_vote(session, item_id: str, action: str) -> None:
+    """If the user already has the opposite vote active, cancel it first."""
+    opposite = _VOTE_OPPOSITES.get(action)
+    if not opposite:
+        return
+    from sqlalchemy import select as _sel
+    from news_agent.models import UserInteractionORM as _UIO
+    result = await session.execute(
+        _sel(_UIO)
+        .where(_UIO.item_id == item_id, _UIO.action.in_([opposite, _VOTE_CANCELS[opposite]]))
+        .order_by(_UIO.created_at.desc())
+        .limit(1)
+    )
+    last = result.scalar_one_or_none()
+    if last and last.action == opposite:
+        await record_interaction(session, item_id, _VOTE_CANCELS[opposite])
+
+
 @app.post("/api/interaction")
 async def log_interaction(payload: InteractionPayload):
     async with get_session() as session:
+        await _cancel_opposite_vote(session, payload.item_id, payload.action)
         await record_interaction(session, payload.item_id, payload.action, payload.read_seconds)
-        repo = NewsRepository(session)
-        if payload.action in ("star", "unstar"):
-            await repo.set_starred(payload.item_id, payload.action == "star")
-        elif payload.action == "dislike":
-            # Disliked items are unstarred and scored negatively in preferences
-            await repo.set_starred(payload.item_id, False)
         await recompute_preferences(session)
     return {"ok": True}
 
@@ -435,7 +450,6 @@ async def panel_fragment(topic: str = "", hours: float = 24, langs: str = ""):
     async with get_session() as session:
         repo = NewsRepository(session)
         items = await repo.search(topic, hours=effective_hours, languages=languages) if topic else await repo.get_recent(hours=hours, limit=60, languages=languages)
-        starred = await repo.get_starred_ids()
         prefs = await get_preference_scores(session)
 
     items = apply_preference_boost(items, prefs)
@@ -470,7 +484,7 @@ async def panel_fragment(topic: str = "", hours: float = 24, langs: str = ""):
         items = await loop.run_in_executor(None, rank_by_query, topic, items)
 
     return render("partials/panel_items.html", topic=topic, items=items,
-                  starred_ids=starred, hours=hours, widened_hours=widened_hours)
+                  hours=hours, widened_hours=widened_hours)
 
 
 @app.post("/api/podcast/{topic}")

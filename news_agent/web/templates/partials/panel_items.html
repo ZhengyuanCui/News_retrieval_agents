@@ -8,7 +8,7 @@
 <p style="color:var(--text-muted)">No new items found. Try a wider time range.</p>
 {% else %}
   {% for item in items %}
-  <article class="news-card{% if item.id in starred_ids %} liked{% endif %}" data-id="{{ item.id }}">
+  <article class="news-card" data-id="{{ item.id }}">
     <div class="card-header" onclick="toggleExpand(this.parentElement)">
       <div class="card-meta">
         <span class="source source-{{ item.source }}">{{ item.source }}</span>
@@ -18,8 +18,8 @@
       <div class="card-title-row">
         <h3 class="card-title">{{ item.title }}</h3>
         <div class="vote-btns">
-          <button class="vote-btn vote-up{% if item.id in starred_ids %} on{% endif %}" title="Like" onclick="toggleVote(event,'{{ item.id }}','up')">&#128077;</button>
-          <button class="vote-btn vote-down" title="Dislike" onclick="toggleVote(event,'{{ item.id }}','down')">&#128078;</button>
+          <button class="vote-btn vote-up" title="Upvote" onclick="toggleVote(event,'{{ item.id }}','up')">&#128077;</button>
+          <button class="vote-btn vote-down" title="Downvote" onclick="toggleVote(event,'{{ item.id }}','down')">&#128078;</button>
         </div>
       </div>
       <p class="card-summary">{{ (item.summary or item.content[:300])|strip_html }}{% if not item.summary and item.content|length > 300 %}…{% endif %}</p>

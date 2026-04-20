@@ -1,5 +1,5 @@
 <article
-  class="news-card {% if item.id in starred_ids %}liked{% endif %}"
+  class="news-card"
   data-id="{{ item.id }}"
   data-url="{{ item.url }}"
 >
@@ -26,13 +26,13 @@
       <h3 class="card-title">{{ item.title }}</h3>
       <div class="vote-btns">
         <button
-          class="vote-btn vote-up {% if item.id in starred_ids %}on{% endif %}"
-          title="Like"
+          class="vote-btn vote-up"
+          title="Upvote"
           onclick="toggleVote(event, '{{ item.id }}', 'up')"
         >&#128077;</button>
         <button
           class="vote-btn vote-down"
-          title="Dislike"
+          title="Downvote"
           onclick="toggleVote(event, '{{ item.id }}', 'down')"
         >&#128078;</button>
       </div>

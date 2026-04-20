@@ -33,7 +33,6 @@ class NewsItem(BaseModel):
     is_duplicate: bool = False
     duplicate_of: str | None = None
     cluster_id: str | None = None  # story cluster; set on semantic near-dupes
-    is_starred: bool = False
     language: str = "en"  # ISO 639-1 code, e.g. "en", "zh", "es"
 
     @computed_field
@@ -77,7 +76,6 @@ class NewsItemORM(Base):
     is_duplicate: Mapped[bool] = mapped_column(Boolean, default=False)
     duplicate_of: Mapped[str | None] = mapped_column(String(16), nullable=True)
     cluster_id: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
-    is_starred: Mapped[bool] = mapped_column(Boolean, default=False)
     language: Mapped[str] = mapped_column(String(8), default="en", index=True)
 
     def to_pydantic(self) -> NewsItem:
@@ -120,7 +118,7 @@ class UserInteractionORM(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     item_id: Mapped[str] = mapped_column(String(16), index=True)
-    action: Mapped[str] = mapped_column(String(16))  # "click" | "star" | "unstar" | "read"
+    action: Mapped[str] = mapped_column(String(16))  # "click" | "upvote" | "unupvote" | "downvote" | "undownvote" | "read"
     read_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)  # for "read" actions
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 

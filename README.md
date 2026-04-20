@@ -188,22 +188,26 @@ The answer is honest about gaps: if the retrieved articles don't contain enough 
 
 ### How retrieval works
 
-1. **Topic-exact match** (fast DB query) — if items have been fetched specifically for this keyword, they are returned immediately within the selected time window.
-2. **Semantic vector search** (fallback) — if no exact match, the query is encoded with `all-MiniLM-L6-v2` and compared against an in-memory index of all articles from the last 7 days via cosine similarity. This handles natural-language questions and paraphrased queries with no keyword overlap.
+Hybrid search runs two passes in parallel, then merges results via **Reciprocal Rank Fusion (RRF)**:
 
-The vector index holds embeddings for all non-duplicate articles from the last 7 days (~4 k items, 5–6 MB). It is built lazily on first use (~2–3 s once the model is warm) and refreshed every 10 minutes or after each pipeline ingest.
+1. **BM25 keyword search** — SQLite FTS5 full-text index over title + content; catches exact keyword and ticker matches.
+2. **Semantic vector search** — query encoded with `all-MiniLM-L6-v2`, compared against an in-memory index of all articles from the last 7 days. Handles natural-language questions and paraphrased queries with no keyword overlap.
+
+Both lists are merged by RRF so articles ranked highly in either (or both) rise to the top. The vector index holds embeddings for all non-duplicate articles from the last 7 days (~4 k items, 5–6 MB). It is built lazily on first use (~2–3 s once the model is warm) and refreshed every 10 minutes or after each pipeline ingest.
 
 ### How results are ranked
 
 Retrieved articles are re-ranked using a blended score:
 
 ```
-score = 0.5 × semantic_similarity   (embedding cosine sim to query)
-      + 0.4 × llm_relevance          (LLM 0–10 score normalised to 0–1)
-      + 0.1 × raw_engagement         (likes/retweets/views, normalised)
+score = 0.40 × semantic_similarity   (embedding cosine sim to query)
+      + 0.30 × llm_relevance          (LLM 0–10 score normalised to 0–1)
+      + 0.10 × raw_engagement         (likes/retweets/views, normalised)
+      + 0.10 × freshness              (exponential decay, half-life 48 h)
+      + 0.10 × source_authority       (editorial weight per source)
 ```
 
-Items LLM-scored below 4.0/10 are excluded. Un-scored items (NULL) are always included so fresh articles appear before analysis completes.
+Top-20 results are further re-ranked with a cross-encoder (`ms-marco-MiniLM-L-6-v2`) when available. Items LLM-scored below 4.0/10 are excluded; un-scored items (NULL) are always included so fresh articles appear before analysis completes.
 
 ---
 

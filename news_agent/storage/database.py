@@ -37,9 +37,19 @@ if _is_sqlite:
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
+async def _migrate_drop_is_starred(conn) -> None:
+    """Drop the is_starred column that was removed from the ORM (SQLite 3.35+)."""
+    result = await conn.execute(text("PRAGMA table_info(news_items)"))
+    cols = {row[1] for row in result.fetchall()}
+    if "is_starred" in cols:
+        await conn.execute(text("ALTER TABLE news_items DROP COLUMN is_starred"))
+
+
 async def init_db() -> None:
     """Create all tables if they don't exist."""
     async with engine.begin() as conn:
+        if _is_sqlite:
+            await _migrate_drop_is_starred(conn)
         await conn.run_sync(Base.metadata.create_all)
         if _is_sqlite:
             await conn.execute(text(

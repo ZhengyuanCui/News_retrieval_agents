@@ -190,10 +190,12 @@ async def digest_page(hours: float = 24, topic1: str = "", topic2: str = "", lan
     today = datetime.utcnow().strftime("%Y-%m-%d")
     languages = _parse_languages(langs)
 
+    # Min 72h pool so episodic sources (curated YouTube, frontier-lab blogs) appear
+    search_hours = max(hours, 72)
     async with get_session() as session:
         repo = NewsRepository(session)
-        items1 = await repo.search(topic1, hours=hours, languages=languages) if topic1 else await repo.get_recent(hours=hours, limit=60, languages=languages)
-        items2 = await repo.search(topic2, hours=hours, languages=languages) if topic2 else await repo.get_recent(hours=hours, limit=60, languages=languages)
+        items1 = await repo.search(topic1, hours=search_hours, languages=languages) if topic1 else await repo.get_recent(hours=hours, limit=60, languages=languages)
+        items2 = await repo.search(topic2, hours=search_hours, languages=languages) if topic2 else await repo.get_recent(hours=hours, limit=60, languages=languages)
         digest1 = await repo.get_digest(today, topic1.lower()) if topic1 else None
         digest2 = await repo.get_digest(today, topic2.lower()) if topic2 else None
         prefs = await get_preference_scores(session)
@@ -447,23 +449,31 @@ async def panel_fragment(topic: str = "", hours: float = 24, langs: str = ""):
     effective_hours = max(hours, 168) if topic and _is_question(topic) else hours
     widened_hours: float | None = None  # set when the window was auto-expanded
 
+    # Always search at least 72h so episodic sources (curated YouTube channels,
+    # frontier-lab blogs) that post every 2-5 days are included in the pool.
+    # rank_by_query re-orders by freshness + quality, so recent items still lead.
+    search_hours = max(effective_hours, 72) if topic else effective_hours
+
     async with get_session() as session:
         repo = NewsRepository(session)
-        items = await repo.search(topic, hours=effective_hours, languages=languages) if topic else await repo.get_recent(hours=hours, limit=60, languages=languages)
+        if topic:
+            items = await repo.search(topic, hours=search_hours, languages=languages)
+        else:
+            items = await repo.get_recent(hours=hours, limit=60, languages=languages)
         prefs = await get_preference_scores(session)
 
     items = apply_preference_boost(items, prefs)
 
-    # For sparse keyword results (<5 hits), automatically widen to 72h so that
-    # tickers and niche terms with few recent articles still return useful results.
-    if topic and not _is_question(topic) and len(items) < 5:
-        wider = max(effective_hours * 3, 72)
-        async with get_session() as session:
-            repo = NewsRepository(session)
-            wider_items = await repo.search(topic, hours=wider, languages=languages)
-        if len(wider_items) > len(items):
-            items = wider_items
-            widened_hours = wider
+    # Post-filter to requested window if there are enough items; otherwise keep
+    # the wider pool and show the widened indicator to the user.
+    if topic and not _is_question(topic) and search_hours > effective_hours:
+        from datetime import timedelta as _td
+        cutoff_dt = datetime.utcnow() - _td(hours=effective_hours)
+        hours_filtered = [i for i in items if i.published_at >= cutoff_dt]
+        if len(hours_filtered) >= 5:
+            items = hours_filtered
+        else:
+            widened_hours = search_hours
 
     # Resolve any stale Google News redirect URLs and persist the real URL
     google_items = [i for i in items if "news.google.com" in i.url]

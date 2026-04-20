@@ -572,6 +572,48 @@ async def podcast_audio(topic: str):
     )
 
 
+class DefaultTopicsPayload(BaseModel):
+    topic1: str = ""
+    topic2: str = ""
+
+
+@app.get("/api/default-topics")
+async def get_default_topics():
+    """Return the server-persisted default topics (used by the newsletter scheduler)."""
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        raw = await repo.get_setting("default_topics", "")
+    parts = [p.strip() for p in raw.split("|") if p.strip()]
+    return {
+        "topic1": parts[0] if len(parts) > 0 else "",
+        "topic2": parts[1] if len(parts) > 1 else "",
+    }
+
+
+@app.post("/api/default-topics")
+async def set_default_topics(payload: DefaultTopicsPayload):
+    """Persist the user's default topics server-side so the newsletter scheduler
+    can pick them up. Called by the UI's Default Topics settings panel."""
+    value = f"{payload.topic1.strip()}|{payload.topic2.strip()}"
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.set_setting("default_topics", value)
+    return {"ok": True}
+
+
+@app.post("/api/newsletter/send")
+async def newsletter_send_now():
+    """Trigger a one-off newsletter send right now (uses current default topics
+    and SMTP settings). Returns the outcome synchronously so the UI can show it."""
+    from news_agent.pipeline.newsletter import send_newsletter_now
+    try:
+        result = await send_newsletter_now()
+        return {"ok": True, **result}
+    except Exception as e:
+        logger.exception("Newsletter send failed")
+        return {"ok": False, "error": str(e)}
+
+
 @app.get("/api/stats")
 async def get_stats():
     async with get_session() as session:

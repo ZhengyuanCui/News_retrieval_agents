@@ -154,9 +154,33 @@ class Settings(BaseSettings):
 
     # ── Scheduler ─────────────────────────────────────────────────────────────
     schedule_interval_hours: int = 4
+    scheduler_timezone: str = "America/Los_Angeles"  # IANA name; used for cron jobs
+
+    # ── Newsletter (daily email) ──────────────────────────────────────────────
+    newsletter_enabled: bool = False
+    newsletter_email_to: str = ""        # recipient address (one or more, comma-sep)
+    newsletter_email_from: str = ""      # sender address (defaults to SMTP user)
+    newsletter_hour: int = 7             # local hour (scheduler_timezone) to send
+    newsletter_minute: int = 0
+    newsletter_hours_lookback: int = 24  # include items from the last N hours
+    newsletter_include_audio: bool = True  # attach MP3 narration
+    # Optional override for which topics to include. Empty = use topics saved
+    # via the web UI's "Default Topics" settings panel (UserSettingORM).
+    newsletter_topics: list[str] = []
+
+    # ── SMTP (for newsletter) ─────────────────────────────────────────────────
+    # Gmail: host=smtp.gmail.com, port=587, user=your@gmail.com,
+    #   password=APP-PASSWORD (16-char app password, not your login password).
+    #   Create one at https://myaccount.google.com/apppasswords
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = True  # STARTTLS on port 587; set False + port 465 for SSL
 
     @field_validator("youtube_channel_ids", "github_watch_repos",
-                     "analysis_models", "analysis_api_keys", "analysis_rpms", mode="before")
+                     "analysis_models", "analysis_api_keys", "analysis_rpms",
+                     "newsletter_topics", mode="before")
     @classmethod
     def split_comma_list(cls, v: str | list) -> list[str]:
         if isinstance(v, str):

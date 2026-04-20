@@ -100,6 +100,7 @@ async def isolated_db(tmp_path, monkeypatch):
     for mod_name in (
         "news_agent.web.app",
         "news_agent.pipeline.vector_search",
+        "news_agent.pipeline.newsletter",
         "news_agent.orchestrator",
         "news_agent.scheduler",
     ):

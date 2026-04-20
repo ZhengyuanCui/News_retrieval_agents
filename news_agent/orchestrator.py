@@ -273,6 +273,105 @@ async def run_keyword_fetch(keyword: str) -> dict:
     return {"items_stored": len(unique)}
 
 
+async def fetch_and_analyze_topic(keyword: str) -> dict:
+    """Fetch news for `keyword` and wait for LLM analysis to complete.
+
+    Unlike `run_keyword_fetch`, this does NOT return until every newly-stored
+    item has been through the analyzer (summaries, relevance, tags, sentiment
+    populated). Used by the newsletter job so the email always contains
+    analyzed content rather than raw placeholders.
+
+    Returns the same summary dict as `run_keyword_fetch`, plus an `analyzed`
+    count.
+    """
+    from news_agent.collectors import get_enabled_collectors
+
+    collectors = get_enabled_collectors(topics=[keyword])
+    if not collectors:
+        logger.warning("No enabled collectors for fetch-and-analyze of %r", keyword)
+        return {"items_stored": 0, "analyzed": 0}
+
+    results = await asyncio.gather(
+        *[c.fetch_keyword(keyword) for c in collectors],
+        return_exceptions=True,
+    )
+    from news_agent.collectors.base import BaseCollector as _BC
+    raw_items: list[NewsItem] = []
+    for collector, r in zip(collectors, results):
+        if isinstance(r, Exception):
+            logger.error("Collector error (%s): %s", collector.source_name, r)
+        else:
+            raw_items.extend(_BC.tag_languages(r))
+
+    if not raw_items:
+        logger.info("fetch_and_analyze_topic(%r): no raw items", keyword)
+        return {"items_stored": 0, "analyzed": 0}
+
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        existing_items = await repo.get_recent(
+            topic=keyword, hours=168, include_duplicates=False, limit=300,
+        )
+    existing_ids = {i.id for i in existing_items}
+
+    deduplicator = Deduplicator()
+    loop = asyncio.get_event_loop()
+    deduped_all = await loop.run_in_executor(
+        None, deduplicator.deduplicate, existing_items + raw_items,
+    )
+    deduped = [i for i in deduped_all if i.id not in existing_ids]
+    unique = [i for i in deduped if not i.is_duplicate]
+
+    # Clear stale analysis so items are re-scored with the topic-specific prompt
+    for item in deduped:
+        item.summary = None
+        item.relevance_score = None
+
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.upsert_many(deduped)
+
+    from news_agent.pipeline.vector_search import invalidate_index
+    invalidate_index()
+
+    analyzed_count = 0
+    if deduped and (settings.llm_api_key or settings.anthropic_api_key):
+        # Synchronous analysis — block until summaries/tags/sentiment are written
+        await _analyze_and_digest(deduped, [keyword])
+        async with get_session() as session:
+            repo = NewsRepository(session)
+            analyzed_count = len(
+                [i for i in await repo.get_recent(topic=keyword, hours=168, limit=300)
+                 if i.summary]
+            )
+
+    logger.info(
+        "fetch_and_analyze_topic(%r): stored=%d unique=%d analyzed=%d",
+        keyword, len(deduped), len(unique), analyzed_count,
+    )
+    return {
+        "items_stored": len(deduped),
+        "unique_items": len(unique),
+        "analyzed": analyzed_count,
+    }
+
+
+async def fetch_and_analyze_topics(topics: list[str]) -> dict[str, dict]:
+    """Run `fetch_and_analyze_topic` for each topic, sequentially.
+
+    Sequential (not parallel) so each topic's analysis batch gets full use of
+    the LLM rate-limit budget rather than fighting for tokens with the others.
+    """
+    results: dict[str, dict] = {}
+    for topic in topics:
+        try:
+            results[topic] = await fetch_and_analyze_topic(topic)
+        except Exception as e:
+            logger.error("fetch_and_analyze_topic(%r) failed: %s", topic, e, exc_info=True)
+            results[topic] = {"items_stored": 0, "analyzed": 0, "error": str(e)}
+    return results
+
+
 async def generate_digest(topic: str, hours: int = 24) -> tuple[str, list[NewsItem]]:
     """Generate a Claude digest for a topic from recent DB items."""
     async with get_session() as session:

@@ -134,6 +134,16 @@ class UserPreferenceORM(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class UserSettingORM(Base):
+    """Simple key/value store for server-side user settings (e.g. default topics
+    saved from the web UI so the scheduler can read them)."""
+    __tablename__ = "user_settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class CollectorStateORM(Base):
     __tablename__ = "collector_state"
 

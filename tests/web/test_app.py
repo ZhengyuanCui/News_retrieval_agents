@@ -385,6 +385,250 @@ async def test_digest_fragment_no_digest_returns_empty_html(client):
     assert resp.status_code == 200
 
 
+# ── Default topics (server-side persistence for newsletter) ──────────────────
+
+@pytest.mark.asyncio
+async def test_default_topics_initially_empty(client):
+    resp = await client.get("/api/default-topics")
+    assert resp.status_code == 200
+    assert resp.json() == {"topic1": "", "topic2": ""}
+
+
+@pytest.mark.asyncio
+async def test_default_topics_post_persists(client):
+    """POST then GET — the topics must survive so the newsletter CLI/cron
+    running in a separate process can read them."""
+    resp = await client.post(
+        "/api/default-topics",
+        json={"topic1": "ai", "topic2": "stocks"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True}
+
+    # Read via the API
+    resp = await client.get("/api/default-topics")
+    assert resp.json() == {"topic1": "ai", "topic2": "stocks"}
+
+    # Read via the newsletter pipeline (same path the CLI / scheduler uses)
+    from news_agent.pipeline.newsletter import get_default_topics
+    assert await get_default_topics() == ["ai", "stocks"]
+
+
+@pytest.mark.asyncio
+async def test_default_topics_post_overwrites(client):
+    await client.post("/api/default-topics", json={"topic1": "ai", "topic2": "stocks"})
+    await client.post("/api/default-topics", json={"topic1": "crypto", "topic2": ""})
+
+    resp = await client.get("/api/default-topics")
+    assert resp.json() == {"topic1": "crypto", "topic2": ""}
+
+    from news_agent.pipeline.newsletter import get_default_topics
+    assert await get_default_topics() == ["crypto"]
+
+
+@pytest.mark.asyncio
+async def test_default_topics_post_trims_whitespace(client):
+    resp = await client.post(
+        "/api/default-topics",
+        json={"topic1": "  ai  ", "topic2": "  stocks  "},
+    )
+    assert resp.status_code == 200
+
+    from news_agent.pipeline.newsletter import get_default_topics
+    assert await get_default_topics() == ["ai", "stocks"]
+
+
+@pytest.mark.asyncio
+async def test_default_topics_post_accepts_blank_both_fields(client):
+    """Saving blank defaults clears the server-side topics list."""
+    await client.post("/api/default-topics", json={"topic1": "ai", "topic2": "stocks"})
+    await client.post("/api/default-topics", json={"topic1": "", "topic2": ""})
+
+    resp = await client.get("/api/default-topics")
+    assert resp.json() == {"topic1": "", "topic2": ""}
+
+    from news_agent.pipeline.newsletter import get_default_topics
+    assert await get_default_topics() == []
+
+
+# ── Save-defaults side-effect isolation ──────────────────────────────────────
+# Saving defaults must be a pure write: it must NOT touch the news_items table,
+# must NOT touch the digests table, must NOT trigger a fetch cycle, and must
+# NOT invalidate any cached state. These tests lock that invariant in.
+
+@pytest.mark.asyncio
+async def test_saving_defaults_does_not_modify_news_items(client, isolated_db):
+    """Saving defaults must not add, remove, or modify any news_items rows."""
+    from news_agent.storage.database import get_session
+    from news_agent.storage.repository import NewsRepository
+    from news_agent.models import NewsItemORM
+    from sqlalchemy import select
+
+    item = make_item(
+        url="https://example.com/preserved",
+        title="Preexisting item",
+        topic="ai",
+        summary="Original summary, must not change",
+        published_at=hours_ago(1),
+    )
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.upsert(item)
+
+    async def snapshot_items():
+        async with get_session() as session:
+            rows = (await session.execute(select(NewsItemORM))).scalars().all()
+            return [(r.id, r.title, r.summary, r.topic) for r in rows]
+
+    before = await snapshot_items()
+
+    resp = await client.post(
+        "/api/default-topics",
+        json={"topic1": "ai", "topic2": "stocks"},
+    )
+    assert resp.status_code == 200
+
+    after = await snapshot_items()
+    assert before == after, "news_items must not change when defaults are saved"
+
+
+@pytest.mark.asyncio
+async def test_saving_defaults_does_not_regenerate_digest(client, isolated_db):
+    """A pre-existing digest for the just-saved topic must stay exactly as-is."""
+    from datetime import datetime
+    from news_agent.storage.database import get_session
+    from news_agent.storage.repository import NewsRepository
+
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.upsert_digest(
+            date=today, topic="ai",
+            content="ORIGINAL DIGEST — must not be regenerated",
+            item_count=7,
+        )
+        existing_before = await repo.get_digest(today, "ai")
+        assert existing_before is not None
+        original_generated_at = existing_before.generated_at
+        original_content = existing_before.content
+
+    await client.post("/api/default-topics", json={"topic1": "ai", "topic2": ""})
+
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        after = await repo.get_digest(today, "ai")
+    assert after is not None
+    assert after.content == original_content
+    assert after.generated_at == original_generated_at
+    assert after.item_count == 7
+
+
+@pytest.mark.asyncio
+async def test_saving_defaults_does_not_trigger_fetch(client):
+    """POSTing defaults must not spin up a keyword-fetch background task."""
+    from news_agent.web import app as app_module
+
+    before = set(app_module._keyword_fetching)
+    resp = await client.post(
+        "/api/default-topics",
+        json={"topic1": "some-brand-new-keyword", "topic2": ""},
+    )
+    assert resp.status_code == 200
+    after = set(app_module._keyword_fetching)
+    assert after == before, "saving defaults must not start a keyword fetch"
+
+
+@pytest.mark.asyncio
+async def test_saving_defaults_does_not_invalidate_vector_index(client):
+    """The semantic vector index must not be invalidated by a pure settings write."""
+    import news_agent.pipeline.vector_search as vs
+
+    calls = {"n": 0}
+    original = vs.invalidate_index
+
+    def counting_invalidate():
+        calls["n"] += 1
+        return original()
+
+    try:
+        vs.invalidate_index = counting_invalidate
+        await client.post(
+            "/api/default-topics",
+            json={"topic1": "ai", "topic2": "stocks"},
+        )
+    finally:
+        vs.invalidate_index = original
+
+    assert calls["n"] == 0, "saving defaults should not invalidate the vector index"
+
+
+# ── Client-side JS invariants (inline in digest.html) ────────────────────────
+# These assert the rendered HTML/JS has the properties that make saveDefaultTopics
+# a pure save — no navigation, no panel reload — so a future refactor that
+# reintroduces window.location.reload() inside the save path trips the test.
+
+@pytest.mark.asyncio
+async def test_digest_page_save_defaults_js_does_not_navigate(client):
+    """saveDefaultTopics() must not call window.location = or window.location.reload."""
+    resp = await client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+
+    # Isolate just the saveDefaultTopics function body.
+    start = html.index("async function saveDefaultTopics(")
+    end = html.index("function showSettingsToast", start)
+    save_fn_src = html[start:end]
+
+    forbidden_patterns = [
+        "window.location =",
+        "window.location=",
+        "window.location.href",
+        "window.location.reload",
+        "location.reload",
+    ]
+    for pat in forbidden_patterns:
+        assert pat not in save_fn_src, (
+            f"saveDefaultTopics must not navigate (found {pat!r}); "
+            "saving defaults should be a pure save."
+        )
+
+
+@pytest.mark.asyncio
+async def test_digest_page_save_defaults_js_posts_to_server(client):
+    """saveDefaultTopics() must POST to /api/default-topics with keepalive so
+    the request survives any subsequent page navigation."""
+    resp = await client.get("/")
+    html = resp.text
+
+    start = html.index("async function saveDefaultTopics(")
+    end = html.index("function showSettingsToast", start)
+    save_fn_src = html[start:end]
+
+    assert "/api/default-topics" in save_fn_src
+    assert "method: 'POST'" in save_fn_src or "method:\"POST\"" in save_fn_src
+    assert "keepalive" in save_fn_src, (
+        "POST must use keepalive:true so it isn't cancelled by navigation"
+    )
+    assert "await fetch" in save_fn_src, (
+        "fetch must be awaited so the save completes before the function returns"
+    )
+
+
+@pytest.mark.asyncio
+async def test_digest_page_save_defaults_js_shows_toast(client):
+    """saveDefaultTopics() should give the user feedback via a toast,
+    since the visual page state doesn't change."""
+    resp = await client.get("/")
+    html = resp.text
+
+    start = html.index("async function saveDefaultTopics(")
+    end = html.index("function showSettingsToast", start)
+    save_fn_src = html[start:end]
+
+    assert "showSettingsToast" in save_fn_src
+    assert "toggleSettings()" in save_fn_src
+
+
 # ── GET /api/debug/topic/{topic} ──────────────────────────────────────────────
 
 @pytest.mark.asyncio

@@ -9,7 +9,7 @@ from sqlalchemy import delete, select, text, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from news_agent.models import CollectorStateORM, DigestORM, NewsItem, NewsItemORM
+from news_agent.models import CollectorStateORM, DigestORM, NewsItem, NewsItemORM, UserSettingORM
 
 logger = logging.getLogger(__name__)
 
@@ -275,6 +275,20 @@ class NewsRepository:
         obj = await self.session.get(DigestORM, f"{date}_{topic}")
         if obj:
             await self.session.delete(obj)
+
+    # ── User settings (server-side key/value store) ───────────────────────────
+
+    async def get_setting(self, key: str, default: str = "") -> str:
+        obj = await self.session.get(UserSettingORM, key)
+        return obj.value if obj else default
+
+    async def set_setting(self, key: str, value: str) -> None:
+        existing = await self.session.get(UserSettingORM, key)
+        if existing is None:
+            self.session.add(UserSettingORM(key=key, value=value, updated_at=datetime.utcnow()))
+        else:
+            existing.value = value
+            existing.updated_at = datetime.utcnow()
 
     # ── Collector state ───────────────────────────────────────────────────────
 

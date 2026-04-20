@@ -273,6 +273,42 @@ def status():
     asyncio.run(_run())
 
 
+# ── newsletter ────────────────────────────────────────────────────────────────
+
+@main.command()
+@click.option("--topics", default="", help="Comma-separated topics (default: use saved UI topics / NEWSLETTER_TOPICS)")
+@click.option("--to", "recipient", default="", help="Recipient email (default: NEWSLETTER_EMAIL_TO)")
+@click.option("--hours", default=None, type=int, help="Look back N hours (default: NEWSLETTER_HOURS_LOOKBACK)")
+@click.option("--no-audio", is_flag=True, help="Skip the MP3 audio attachment")
+@click.option("--no-refresh", is_flag=True, help="Skip the live fetch; send using items already in the DB")
+def newsletter(topics: str, recipient: str, hours: int | None, no_audio: bool, no_refresh: bool):
+    """Build and email a newsletter right now (manual trigger / test).
+
+    By default this fetches fresh news for every topic and waits for LLM
+    analysis before sending. Use --no-refresh to skip the fetch and use only
+    items already in the DB (much faster for SMTP testing).
+    """
+    from news_agent.storage import init_db
+    from news_agent.pipeline.newsletter import build_and_send_newsletter
+
+    topic_list = [t.strip() for t in topics.split(",") if t.strip()] or None
+
+    async def _run():
+        await init_db()
+        label = "Building newsletter…" if no_refresh else "Fetching fresh news, analyzing, and emailing…"
+        with console.status(f"[bold cyan]{label}"):
+            result = await build_and_send_newsletter(
+                topics=topic_list,
+                recipient=recipient or None,
+                hours=hours,
+                include_audio=not no_audio,
+                refresh=not no_refresh,
+            )
+        rprint(f"\n[bold green]Sent![/] {result}")
+
+    asyncio.run(_run())
+
+
 # ── sources ───────────────────────────────────────────────────────────────────
 
 @main.command()

@@ -8,6 +8,11 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:  # pragma: no cover — Python <3.9 fallback
+    ZoneInfo = None  # type: ignore
+
 from news_agent.config import settings
 
 logger = logging.getLogger(__name__)
@@ -52,6 +57,23 @@ async def _digest_job():
         logger.error("Digest job failed: %s", e, exc_info=True)
 
 
+async def _newsletter_job():
+    """Build and email the daily newsletter. Swallows errors so the scheduler
+    keeps running if the SMTP server is temporarily down."""
+    from news_agent.pipeline.newsletter import build_and_send_newsletter
+
+    if not settings.newsletter_enabled:
+        logger.debug("Newsletter disabled (NEWSLETTER_ENABLED=false) — skipping")
+        return
+
+    logger.info("Scheduled newsletter job starting…")
+    try:
+        summary = await build_and_send_newsletter()
+        logger.info("Newsletter delivered: %s", summary)
+    except Exception as e:
+        logger.error("Newsletter job failed: %s", e, exc_info=True)
+
+
 async def _prune_job():
     from news_agent.storage import get_session
     from news_agent.storage.repository import NewsRepository
@@ -66,8 +88,24 @@ async def _prune_job():
         logger.error("Prune job failed: %s", e, exc_info=True)
 
 
+def _cron_tz():
+    """Return a ZoneInfo for the configured scheduler timezone, or None to fall
+    back to the system local time."""
+    if ZoneInfo is None:
+        return None
+    try:
+        return ZoneInfo(settings.scheduler_timezone)
+    except Exception as e:
+        logger.warning(
+            "Invalid SCHEDULER_TIMEZONE=%r (%s) — falling back to system local time",
+            settings.scheduler_timezone, e,
+        )
+        return None
+
+
 def build_scheduler() -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler()
+    tz = _cron_tz()
 
     # Fetch every N hours
     scheduler.add_job(
@@ -78,19 +116,32 @@ def build_scheduler() -> AsyncIOScheduler:
         replace_existing=True,
     )
 
-    # Daily digest at 08:00
+    # Daily digest at 08:00 local
     scheduler.add_job(
         _digest_job,
-        trigger=CronTrigger(hour=8, minute=0),
+        trigger=CronTrigger(hour=8, minute=0, timezone=tz),
         id="digest_job",
         name="Generate daily digest",
         replace_existing=True,
     )
 
-    # Prune at 03:00
+    # Daily newsletter at configured hour (default 07:00 PST)
+    scheduler.add_job(
+        _newsletter_job,
+        trigger=CronTrigger(
+            hour=settings.newsletter_hour,
+            minute=settings.newsletter_minute,
+            timezone=tz,
+        ),
+        id="newsletter_job",
+        name="Send daily newsletter email",
+        replace_existing=True,
+    )
+
+    # Prune at 03:00 local
     scheduler.add_job(
         _prune_job,
-        trigger=CronTrigger(hour=3, minute=0),
+        trigger=CronTrigger(hour=3, minute=0, timezone=tz),
         id="prune_job",
         name="Prune old items",
         replace_existing=True,
@@ -107,8 +158,11 @@ async def run_scheduler():
     scheduler = build_scheduler()
     scheduler.start()
     logger.info(
-        "Scheduler started. Fetching every %dh, digest at 08:00, prune at 03:00.",
+        "Scheduler started (tz=%s). Fetch every %dh, digest 08:00, newsletter %02d:%02d (enabled=%s), prune 03:00.",
+        settings.scheduler_timezone,
         settings.schedule_interval_hours,
+        settings.newsletter_hour, settings.newsletter_minute,
+        settings.newsletter_enabled,
     )
 
     # Run an initial fetch immediately

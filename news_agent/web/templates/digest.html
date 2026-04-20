@@ -50,6 +50,17 @@
       <button class="settings-save-btn" onclick="saveDefaultTopics()">Save &amp; Apply</button>
       <button class="settings-cancel-btn" onclick="toggleSettings()">Cancel</button>
     </div>
+    <hr style="margin:14px 0;border:0;border-top:1px solid rgba(0,0,0,0.08)" />
+    <h3 style="margin-top:0">Daily Newsletter</h3>
+    <p class="settings-hint">
+      If <code>NEWSLETTER_ENABLED=true</code> and SMTP is configured in <code>.env</code>,
+      your default topics above will be emailed every day at your scheduled time.
+      Use the button below to send one right now as a test.
+    </p>
+    <div class="settings-actions">
+      <button class="settings-save-btn" onclick="sendNewsletterNow(this)">Send test now</button>
+      <span id="newsletter-status" style="margin-left:10px;font-size:12px;color:var(--text-muted)"></span>
+    </div>
   </div>
 </div>
 
@@ -218,22 +229,74 @@
     panel.style.display = visible ? 'none' : 'block';
   }
 
-  function saveDefaultTopics() {
+  async function saveDefaultTopics() {
     const t1 = document.getElementById('default-topic1').value.trim();
     const t2 = document.getElementById('default-topic2').value.trim();
+
+    // Persist to the server so the newsletter scheduler / CLI can read them.
+    // Await the POST (don't fire-and-forget) so it isn't cancelled if the
+    // user navigates away immediately after.
+    try {
+      await fetch('/api/default-topics', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({topic1: t1, topic2: t2}),
+        keepalive: true,
+      });
+    } catch (e) { /* best-effort — localStorage below is the source of truth for the UI */ }
+
+    // Mirror to localStorage so next visit to / restores these defaults
     if (!t1 && !t2) {
-      // Clear saved topics — next visit will show empty panels
       localStorage.removeItem('newsTopics');
-      window.location = '/';
-      return;
+    } else {
+      saveTopics(t1, t2);
     }
-    saveTopics(t1, t2);
-    const p = new URLSearchParams();
-    if (t1) p.set('topic1', t1);
-    if (t2) p.set('topic2', t2);
-    const hours = new URLSearchParams(window.location.search).get('hours');
-    if (hours) p.set('hours', hours);
-    window.location = '/?' + p.toString();
+
+    // Do NOT navigate or reload — saving defaults should never re-trigger
+    // panel fetches or digest regeneration. Just close the panel and toast.
+    toggleSettings();
+    showSettingsToast('Defaults saved');
+  }
+
+  function showSettingsToast(msg) {
+    let toast = document.getElementById('settings-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'settings-toast';
+      toast.style.cssText =
+        'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);' +
+        'background:#1d1d1f;color:#fff;padding:10px 18px;border-radius:6px;' +
+        'font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:9999;' +
+        'transition:opacity 0.3s ease;';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.style.opacity = '1';
+    clearTimeout(toast._hideTimer);
+    toast._hideTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+  }
+
+  async function sendNewsletterNow(btn) {
+    const status = document.getElementById('newsletter-status');
+    btn.disabled = true;
+    status.textContent = 'Sending…';
+    status.style.color = 'var(--text-muted)';
+    try {
+      const r = await fetch('/api/newsletter/send', {method: 'POST'});
+      const data = await r.json();
+      if (data.ok) {
+        status.textContent = `Sent to ${data.recipient} (${data.items} items, ${data.topics.join(', ')})`;
+        status.style.color = '#0a7a30';
+      } else {
+        status.textContent = `Failed: ${data.error || 'unknown error'}`;
+        status.style.color = '#c0392b';
+      }
+    } catch (e) {
+      status.textContent = `Failed: ${e.message}`;
+      status.style.color = '#c0392b';
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   function changeTopic(e, panelIdx) {
@@ -246,10 +309,6 @@
     } else {
       p.delete('topic' + panelIdx);
     }
-    // Save updated topics
-    const t1 = panelIdx === 1 ? val : (p.get('topic1') || '');
-    const t2 = panelIdx === 2 ? val : (p.get('topic2') || '');
-    saveTopics(t1, t2);
     window.location = '/?' + p.toString();
   }
 </script>

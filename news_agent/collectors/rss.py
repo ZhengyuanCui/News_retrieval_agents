@@ -279,7 +279,7 @@ class RSSCollector(BaseCollector):
             logger.warning("Scrape home fetch failed for %s: %s", base_url, e)
             return []
 
-        # Extract unique href paths matching any of the prefixes
+        # Extract unique on-site article paths matching any of the prefixes
         all_hrefs = _re.findall(r'href="(/[^"]+)"', html)
         seen: set[str] = set()
         paths: list[str] = []
@@ -289,6 +289,11 @@ class RSSCollector(BaseCollector):
                 paths.append(href)
             if len(paths) >= limit:
                 break
+
+        # Also extract YouTube interview/talk links from the page
+        yt_ids: list[str] = list(dict.fromkeys(
+            _re.findall(r'youtube\.com/watch\?v=([A-Za-z0-9_-]{11})', html)
+        ))
 
         items: list[NewsItem] = []
         for path in paths:
@@ -315,22 +320,42 @@ class RSSCollector(BaseCollector):
                 else:
                     published_at = datetime.utcnow()
 
-                # Body text: strip all tags
                 body = _clean_summary(page_html)[:3000]
-
                 items.append(NewsItem(
-                    source=source_id,
-                    topic=topic,
-                    title=title,
-                    url=url,
-                    content=body or title,
-                    published_at=published_at,
-                    raw_score=0.8,
+                    source=source_id, topic=topic, title=title, url=url,
+                    content=body or title, published_at=published_at, raw_score=0.8,
                 ))
             except Exception as e:
                 logger.debug("Scrape article fetch failed for %s: %s", url, e)
 
-        logger.info("Scraped %d articles from %s", len(items), base_url)
+        # Resolve YouTube links via oEmbed (no API key required)
+        for vid_id in yt_ids:
+            yt_url = f"https://www.youtube.com/watch?v={vid_id}"
+            try:
+                async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                    r = await client.get(
+                        f"https://www.youtube.com/oembed?url={yt_url}&format=json",
+                        headers=headers,
+                    )
+                    r.raise_for_status()
+                    data = r.json()
+                title = data.get("title", "").strip()
+                author = data.get("author_name", "")
+                if not title:
+                    continue
+                items.append(NewsItem(
+                    source=source_id, topic=topic,
+                    title=title,
+                    url=yt_url,
+                    content=f"{title} — {author}",
+                    author=author,
+                    published_at=datetime.utcnow(),
+                    raw_score=0.75,
+                ))
+            except Exception as e:
+                logger.debug("oEmbed fetch failed for %s: %s", vid_id, e)
+
+        logger.info("Scraped %d articles + %d interviews from %s", len(paths), len(yt_ids), base_url)
         return items
 
     async def fetch(self) -> list[NewsItem]:

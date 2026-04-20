@@ -77,6 +77,16 @@ CHANNEL_TOPICS: dict[str, str] = {
     # AI Education & Commentary
     "UCsBjURrPoezykLs9EqgamOA": "ai",       # Fireship
     "UChugFTK0KyrES9terTid8vA": "ai",       # Stanford HAI
+    # Interpretability & Safety
+    "UCBMJ0D-omcRay8dh4QT0doQ": "ai",       # Neel Nanda (mechanistic interpretability)
+    "UCY_K5gXsXHtuiP8mj3BiWxA": "ai",       # Center for AI Safety (Dan Hendrycks)
+    # Pioneer Researchers
+    "UCCbqqckmMxVKaEs5jDBxukA": "ai",       # Yoshua Bengio
+    # Long-form Researcher Interviews
+    "UCXl4i9dYBrFOabk0xGmbkRA": "ai",       # Dwarkesh Patel Podcast
+    # Industry Research Labs
+    "UC5qxlwEKM7-5YZudb24l0bg": "ai",       # AI at Meta
+    "UCcr5vuAH5TPlYox-QLj4ySw": "ai",       # The Alan Turing Institute
     # Finance / Markets
     "UCrM7B7SL_g1edFOnmj-SDKg": "stocks",   # Bloomberg Markets
     "UCrp_UI8XtuYfpiqluWLD7Lw": "stocks",   # CNBC Television

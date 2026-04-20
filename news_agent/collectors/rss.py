@@ -149,7 +149,8 @@ DEFAULT_RSS_FEEDS: list[tuple[str, str, str]] = [
 
     # ── Top AI Researchers — Blogs ────────────────────────────────────────────
     ("https://lilianweng.github.io/index.xml",                           "ai", "lilian-weng"),
-    ("https://karpathy.github.io/feed.xml",                              "ai", "karpathy-blog"),
+    ("https://karpathy.github.io/feed.xml",                              "ai", "karpathy-blog"),    # older posts
+    ("https://karpathy.bearblog.dev/feed/",                              "ai", "karpathy-new"),     # active since 2025
     ("https://www.fast.ai/index.xml",                                    "ai", "fastai"),
     ("https://colah.github.io/rss.xml",                                  "ai", "colah"),
     ("https://blog.samaltman.com/rss",                                   "ai", "sam-altman"),
@@ -160,6 +161,14 @@ DEFAULT_RSS_FEEDS: list[tuple[str, str, str]] = [
     ("https://fchollet.substack.com/feed",                               "ai", "chollet"),          # François Chollet
     ("https://bair.berkeley.edu/blog/feed.xml",                          "ai", "bair"),
     ("https://ai.stanford.edu/blog/feed.xml",                            "ai", "stanford-ai"),
+    ("https://yoshuabengio.org/feed",                                    "ai", "yoshua-bengio"),    # deep learning pioneer, AI safety
+    ("https://gwern.substack.com/feed",                                  "ai", "gwern"),            # AI scaling, long-horizon research
+    ("https://www.neelnanda.io/blog?format=rss",                         "ai", "neel-nanda"),       # mechanistic interpretability
+    ("https://bounded-regret.ghost.io/rss/",                             "ai", "steinhardt"),       # Jacob Steinhardt — AI governance & safety
+    ("https://sideways-view.com/feed/",                                  "ai", "paul-christiano"),  # Paul Christiano — AI alignment
+    # Dario Amodei has no RSS — essays at darioamodei.com, track via Google News
+    ("https://news.google.com/rss/search?q=Dario+Amodei+essay+AI&hl=en-US&gl=US&ceid=US:en",
+                                                                         "ai", "dario-amodei"),
 
     # ── AI Safety & Alignment ─────────────────────────────────────────────────
     ("https://www.alignmentforum.org/feed.xml",                          "ai", "alignment-forum"),

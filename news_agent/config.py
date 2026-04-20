@@ -127,6 +127,16 @@ class Settings(BaseSettings):
         # ── AI Education & Commentary ──────────────────────────────────────────
         "UCsBjURrPoezykLs9EqgamOA",  # Fireship (dev/AI news)
         "UChugFTK0KyrES9terTid8vA",  # Stanford HAI
+        # ── Interpretability & Safety ──────────────────────────────────────────
+        "UCBMJ0D-omcRay8dh4QT0doQ",  # Neel Nanda (mechanistic interpretability)
+        "UCY_K5gXsXHtuiP8mj3BiWxA",  # Center for AI Safety (Dan Hendrycks)
+        # ── Pioneer Researchers ────────────────────────────────────────────────
+        "UCCbqqckmMxVKaEs5jDBxukA",  # Yoshua Bengio
+        # ── Long-form Researcher Interviews ───────────────────────────────────
+        "UCXl4i9dYBrFOabk0xGmbkRA",  # Dwarkesh Patel Podcast
+        # ── Industry Research Labs ─────────────────────────────────────────────
+        "UC5qxlwEKM7-5YZudb24l0bg",  # AI at Meta
+        "UCcr5vuAH5TPlYox-QLj4ySw",  # The Alan Turing Institute
         # ── Finance / Markets ──────────────────────────────────────────────────
         "UCrM7B7SL_g1edFOnmj-SDKg",  # Bloomberg Markets
         "UCrp_UI8XtuYfpiqluWLD7Lw",  # CNBC Television

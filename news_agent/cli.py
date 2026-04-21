@@ -309,6 +309,105 @@ def newsletter(topics: str, recipient: str, hours: int | None, no_audio: bool, n
     asyncio.run(_run())
 
 
+# ── newsletter-preview ────────────────────────────────────────────────────────
+
+@main.command("newsletter-preview")
+@click.option("--topics", default="ai,stocks", show_default=True,
+              help="Comma-separated topics to render")
+@click.option("--to", "recipient", default="", help="Recipient email (default: NEWSLETTER_EMAIL_TO)")
+@click.option("--no-audio", is_flag=True, help="Skip the dummy audio attachment / player")
+@click.option("--audio-file", type=click.Path(exists=True, dir_okay=False),
+              default=None, help="Use this MP3 instead of the built-in silent clip")
+@click.option("--dump-html", type=click.Path(dir_okay=False), default=None,
+              help="Also write the rendered HTML body to this path (handy for browser preview)")
+def newsletter_preview(
+    topics: str,
+    recipient: str,
+    no_audio: bool,
+    audio_file: str | None,
+    dump_html: str | None,
+):
+    """Send a **formatting-only** preview newsletter.
+
+    Skips the fetch pipeline, LLM analysis, and TTS entirely. Renders the
+    email with dummy content + a tiny silent MP3 (or your own --audio-file)
+    and sends it via SMTP so you can verify the layout, the inline audio
+    player, and the attachment behavior without waiting for a real cycle.
+
+    Examples:
+
+    \b
+      # Minimal sanity check using defaults from .env
+      news-agent newsletter-preview
+
+    \b
+      # Override recipient and attach your own MP3
+      news-agent newsletter-preview --to me@example.com --audio-file briefing.mp3
+
+    \b
+      # No audio at all — just the HTML layout
+      news-agent newsletter-preview --no-audio
+
+    \b
+      # Also save the HTML for browser-level inspection
+      news-agent newsletter-preview --no-audio --dump-html /tmp/preview.html
+    """
+    from pathlib import Path as _Path
+    from news_agent.pipeline.newsletter import (
+        build_and_send_preview_newsletter,
+        _render_topic_section,
+        _render_email_html,
+        _dummy_items,
+        _dummy_digest,
+    )
+
+    topic_list = [t.strip() for t in topics.split(",") if t.strip()] or ["ai", "stocks"]
+
+    # Optional: dump HTML to disk for browser inspection *before* attempting
+    # SMTP so you can iterate on layout even without SMTP configured.
+    if dump_html:
+        sections = [
+            _render_topic_section(t, _dummy_digest(t), _dummy_items(t))
+            for t in topic_list
+        ]
+        html_body = _render_email_html(
+            date_str=datetime.utcnow().strftime("%B %d, %Y"),
+            sections=sections,
+            has_audio=False,
+            audio_topic_count=0,
+        )
+        _Path(dump_html).write_text(html_body, encoding="utf-8")
+        console.print(f"[green]Wrote HTML preview to[/] {dump_html}")
+
+    async def _run():
+        with console.status("[bold cyan]Sending preview newsletter…"):
+            result = await build_and_send_preview_newsletter(
+                topics=topic_list,
+                recipient=recipient or None,
+                include_audio=not no_audio,
+                audio_file=_Path(audio_file) if audio_file else None,
+            )
+        rprint(f"\n[bold green]Preview sent![/] {result}")
+        if result.get("audio_urls"):
+            console.print(
+                "\n[dim]Tip: the email's <audio> player points at these "
+                "URLs — make sure the app is reachable from the recipient's "
+                "mail client:[/dim]"
+            )
+            for url in result["audio_urls"]:
+                console.print(f"  {url}")
+        elif not no_audio:
+            console.print(
+                "\n[yellow]PUBLIC_BASE_URL is not set.[/] The email "
+                "contains the MP3 only as a `cid:` attachment, which most "
+                "webmail clients (Gmail, Outlook) will show as a download "
+                "instead of playing inline. Set PUBLIC_BASE_URL in .env to "
+                "enable true inline playback."
+            )
+
+    asyncio.run(_run())
+
+
 # ── sources ───────────────────────────────────────────────────────────────────
 
 @main.command()

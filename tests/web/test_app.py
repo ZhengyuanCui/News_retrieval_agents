@@ -674,3 +674,104 @@ async def test_podcast_status_not_ready(client):
 async def test_podcast_audio_404_when_not_ready(client):
     resp = await client.get("/api/podcast/nonexistent_topic/audio")
     assert resp.status_code == 404
+
+
+# ── Newsletter audio endpoints ────────────────────────────────────────────────
+#
+# These endpoints back the <audio> player embedded in the daily newsletter.
+# They must serve the MP3 with Content-Disposition: inline (so Gmail /
+# Chrome / Safari play it instead of downloading) and support HTTP Range
+# requests (so HTMLMediaElement can seek/stream progressively).  The
+# companion /newsletter/player/<slug> endpoint renders a small HTML page
+# so the "Play briefing in browser" link never opens a .mp3 URL directly,
+# which some browsers auto-download regardless of the response headers.
+
+def _seed_audio_file(content: bytes = b"\xff\xfb" + b"\x00" * 2000) -> str:
+    """Drop a fake MP3 into the configured newsletter_audio_dir and return
+    its filename.  The first two bytes are a valid MPEG frame sync so any
+    client-side sniff that does care sees an audio file."""
+    import news_agent.web.app as app_module
+    app_module._newsletter_audio_dir.mkdir(parents=True, exist_ok=True)
+    fname = "ai-briefing-test.mp3"
+    (app_module._newsletter_audio_dir / fname).write_bytes(content)
+    return fname
+
+
+@pytest.mark.asyncio
+async def test_newsletter_audio_serves_inline_with_range_support(client):
+    fname = _seed_audio_file()
+    resp = await client.get(f"/newsletter/audio/{fname}")
+    assert resp.status_code == 200
+    # The critical headers for inline playback
+    assert resp.headers["content-type"] == "audio/mpeg"
+    assert resp.headers["content-disposition"].startswith("inline;")
+    assert "attachment" not in resp.headers["content-disposition"].lower()
+    assert resp.headers["accept-ranges"] == "bytes"
+
+
+@pytest.mark.asyncio
+async def test_newsletter_audio_range_request_returns_206(client):
+    fname = _seed_audio_file(b"\xff\xfb" + b"X" * 1000)
+    resp = await client.get(
+        f"/newsletter/audio/{fname}", headers={"Range": "bytes=0-99"}
+    )
+    assert resp.status_code == 206
+    assert resp.headers["content-range"].startswith("bytes 0-99/")
+    assert resp.headers["content-length"] == "100"
+    assert len(resp.content) == 100
+
+
+@pytest.mark.asyncio
+async def test_newsletter_audio_unsatisfiable_range_returns_416(client):
+    fname = _seed_audio_file(b"tiny")
+    resp = await client.get(
+        f"/newsletter/audio/{fname}", headers={"Range": "bytes=9999-"}
+    )
+    assert resp.status_code == 416
+    assert resp.headers["content-range"] == "bytes */4"
+
+
+@pytest.mark.asyncio
+async def test_newsletter_audio_404_for_missing_file(client):
+    resp = await client.get("/newsletter/audio/does-not-exist.mp3")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_newsletter_audio_rejects_path_traversal(client):
+    # A simple "../secret" is normalised by httpx/starlette before it
+    # reaches our handler, so we test the in-handler defense via a name
+    # containing a literal slash in a single path segment.
+    resp = await client.get("/newsletter/audio/..%2Fsecret.mp3")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_newsletter_player_returns_html_with_embedded_audio(client):
+    fname = _seed_audio_file()
+    # slug without .mp3 — this is what the email links to
+    slug = fname.removesuffix(".mp3")
+    resp = await client.get(f"/newsletter/player/{slug}")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/html")
+    body = resp.text
+    assert "<audio" in body and "controls" in body
+    # The <audio src> points at the streaming endpoint, NOT the raw file
+    assert f'src="/newsletter/audio/{fname}"' in body
+    # No attachment-style disposition on the HTML page itself
+    assert "attachment" not in resp.headers.get("content-disposition", "")
+
+
+@pytest.mark.asyncio
+async def test_newsletter_player_accepts_slug_with_mp3_suffix(client):
+    """Back-compat: older emails link to /newsletter/player/<file>.mp3."""
+    fname = _seed_audio_file()
+    resp = await client.get(f"/newsletter/player/{fname}")
+    assert resp.status_code == 200
+    assert "<audio" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_newsletter_player_404_for_missing_file(client):
+    resp = await client.get("/newsletter/player/does-not-exist")
+    assert resp.status_code == 404

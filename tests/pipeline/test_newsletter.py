@@ -107,28 +107,35 @@ def test_render_topic_section_escapes_html_in_item_fields():
     assert "&lt;script&gt;" in html_out
 
 
-def test_render_email_html_has_audio_note_when_audio_attached():
+def test_render_email_html_has_no_top_audio_note():
+    """The top-of-email audio note was removed — each topic now carries its
+    own inline audio player, so the email body should not advertise the
+    attachments at the top."""
     sections = [nl._render_topic_section("ai", None, [])]
     with_audio = nl._render_email_html(date_str="Jan 1, 2026", sections=sections, has_audio=True)
     without_audio = nl._render_email_html(date_str="Jan 1, 2026", sections=sections, has_audio=False)
-    assert "audio briefing is attached" in with_audio
+    assert "audio briefing is attached" not in with_audio
+    assert "audio briefings are attached" not in with_audio
     assert "audio briefing is attached" not in without_audio
 
 
-def test_render_email_html_mentions_per_topic_count_when_multiple():
+def test_render_email_html_ignores_audio_topic_count():
+    """audio_topic_count is accepted for backwards compat but no longer
+    rendered as a header note."""
     sections = [nl._render_topic_section("ai", None, []),
                 nl._render_topic_section("stocks", None, [])]
     out = nl._render_email_html(
         date_str="Jan 1, 2026", sections=sections,
         has_audio=True, audio_topic_count=2,
     )
-    assert "2 audio briefings are attached" in out
-    assert "one per topic" in out
+    assert "2 audio briefings are attached" not in out
+    assert "one per topic" not in out
 
 
-def test_render_topic_section_embeds_audio_block_and_filename():
-    """Each topic section should advertise its own MP3 filename when an
-    audio briefing was generated for that topic."""
+def test_render_topic_section_embeds_inline_audio_player():
+    """Each topic section should embed an inline <audio> element pointing
+    at its own MP3 attachment (via cid:) so the user can play the briefing
+    on the page rather than downloading the file."""
     html_out = nl._render_topic_section(
         "ai",
         None,
@@ -136,10 +143,12 @@ def test_render_topic_section_embeds_audio_block_and_filename():
         audio_filename="ai-briefing-2026-01-01.mp3",
         audio_content_id="audio-ai-2026-01-01",
     )
-    assert "ai-briefing-2026-01-01.mp3" in html_out
     assert "cid:audio-ai-2026-01-01" in html_out
-    assert "Listen" in html_out
-    assert "Audio briefing" in html_out
+    assert "<audio" in html_out and "controls" in html_out
+    assert "Listen to this topic" in html_out
+    # Instructions for opening the attachment in a mail client should be gone.
+    assert "open the attachment" not in html_out
+    assert "in your mail client" not in html_out
 
 
 def test_render_topic_section_has_no_audio_block_when_absent():
@@ -250,7 +259,7 @@ async def test_build_and_send_uses_ui_saved_topics_when_env_empty(monkeypatch):
     assert "Stocks item" in captured["html_body"]
 
 
-async def test_build_and_send_generates_audio_per_topic(monkeypatch):
+async def test_build_and_send_generates_audio_per_topic(monkeypatch, tmp_path):
     """When include_audio is on and multiple topics have items, we generate
     one MP3 per topic and attach each one separately.  Each topic section
     in the HTML body references its own audio filename."""
@@ -258,6 +267,9 @@ async def test_build_and_send_generates_audio_per_topic(monkeypatch):
     monkeypatch.setattr(settings, "newsletter_email_to", "me@example.com")
     monkeypatch.setattr(settings, "newsletter_topics", ["ai", "stocks"])
     monkeypatch.setattr(settings, "newsletter_include_audio", True)
+    monkeypatch.setattr(settings, "newsletter_audio_dir", str(tmp_path / "audio"))
+    monkeypatch.setattr(settings, "public_base_url", "")
+    monkeypatch.setattr(settings, "newsletter_attach_audio", True)
     monkeypatch.setattr(settings, "llm_api_key", "fake")
     monkeypatch.setattr(settings, "anthropic_api_key", "")
 
@@ -302,24 +314,27 @@ async def test_build_and_send_generates_audio_per_topic(monkeypatch):
         assert data == f"MP3-{topic}".encode()
         assert cid.startswith(f"audio-{topic}-")
 
-    # Each topic section in the HTML body references its own MP3 filename
+    # Each topic section in the HTML body references its own MP3 via cid:
     html_body = captured["html_body"]
-    assert "ai-briefing-" in html_body
-    assert "stocks-briefing-" in html_body
-    # Both cid: references present
     assert "cid:audio-ai-" in html_body
     assert "cid:audio-stocks-" in html_body
-    # Top-of-email note acknowledges multiple attachments
-    assert "2 audio briefings are attached" in html_body
+    # Inline audio players are embedded (not download links)
+    assert html_body.count("<audio") == 2
+    # The old top-of-email attachment note has been removed
+    assert "audio briefings are attached" not in html_body
+    assert "open the attachment" not in html_body
 
 
-async def test_build_and_send_skips_audio_for_topics_without_items(monkeypatch):
+async def test_build_and_send_skips_audio_for_topics_without_items(monkeypatch, tmp_path):
     """A topic with zero items should not get an audio attachment, even
     when other topics in the same newsletter do."""
     from news_agent.config import settings
     monkeypatch.setattr(settings, "newsletter_email_to", "me@example.com")
     monkeypatch.setattr(settings, "newsletter_topics", ["ai", "empty-topic"])
     monkeypatch.setattr(settings, "newsletter_include_audio", True)
+    monkeypatch.setattr(settings, "newsletter_audio_dir", str(tmp_path / "audio"))
+    monkeypatch.setattr(settings, "public_base_url", "")
+    monkeypatch.setattr(settings, "newsletter_attach_audio", True)
     monkeypatch.setattr(settings, "llm_api_key", "fake")
     monkeypatch.setattr(settings, "anthropic_api_key", "")
 
@@ -347,11 +362,14 @@ async def test_build_and_send_skips_audio_for_topics_without_items(monkeypatch):
     assert len(captured["attachments"]) == 1
 
 
-async def test_build_and_send_skips_audio_when_no_items(monkeypatch):
+async def test_build_and_send_skips_audio_when_no_items(monkeypatch, tmp_path):
     from news_agent.config import settings
     monkeypatch.setattr(settings, "newsletter_email_to", "me@example.com")
     monkeypatch.setattr(settings, "newsletter_topics", ["nonexistent"])
     monkeypatch.setattr(settings, "newsletter_include_audio", True)
+    monkeypatch.setattr(settings, "newsletter_audio_dir", str(tmp_path / "audio"))
+    monkeypatch.setattr(settings, "public_base_url", "")
+    monkeypatch.setattr(settings, "newsletter_attach_audio", True)
     monkeypatch.setattr(settings, "llm_api_key", "fake")
 
     captured: dict = {}
@@ -361,6 +379,112 @@ async def test_build_and_send_skips_audio_when_no_items(monkeypatch):
     assert result["items"] == 0
     assert result["audio_included"] is False
     assert captured["attachments"] == []
+
+
+async def test_build_and_send_embeds_public_audio_url(monkeypatch, tmp_path):
+    """When PUBLIC_BASE_URL is configured the email embeds a streamable
+    https:// <audio> player instead of (or in addition to) the cid:
+    attachment.  This is the path that actually works in Gmail / Outlook —
+    those clients strip cid: audio, but will open the https URL in a
+    browser tab that streams the MP3 inline."""
+    from news_agent.config import settings
+    monkeypatch.setattr(settings, "newsletter_email_to", "me@example.com")
+    monkeypatch.setattr(settings, "newsletter_topics", ["ai"])
+    monkeypatch.setattr(settings, "newsletter_include_audio", True)
+    monkeypatch.setattr(settings, "newsletter_audio_dir", str(tmp_path / "audio"))
+    monkeypatch.setattr(settings, "public_base_url", "https://news.example.com")
+    monkeypatch.setattr(settings, "newsletter_attach_audio", False)
+    monkeypatch.setattr(settings, "llm_api_key", "fake")
+    monkeypatch.setattr(settings, "anthropic_api_key", "")
+
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.upsert_many([
+            make_item(title="AI item", topic="ai", url="https://a.com/ai"),
+        ])
+
+    def fake_topic_audio(topic, items, output_path):
+        output_path.write_bytes(b"MP3-bytes")
+        return output_path
+
+    monkeypatch.setattr(nl, "_generate_topic_audio", fake_topic_audio)
+
+    captured: dict = {}
+    monkeypatch.setattr(nl, "send_email", lambda **kw: captured.update(kw))
+
+    result = await nl.build_and_send_newsletter(refresh=False)
+
+    # The MP3 was persisted under newsletter_audio_dir so the web app can
+    # stream it.
+    audio_dir = tmp_path / "audio"
+    mp3s = list(audio_dir.glob("*.mp3"))
+    assert len(mp3s) == 1, f"expected one mp3, got {mp3s}"
+    assert mp3s[0].read_bytes() == b"MP3-bytes"
+
+    # The email body embeds the streamable https URL — no cid: needed.
+    html_body = captured["html_body"]
+    assert "https://news.example.com/newsletter/audio/ai-briefing-" in html_body
+    assert "<audio" in html_body
+    assert "cid:audio-ai-" not in html_body
+
+    # The <audio> element's src points at the raw streaming endpoint
+    # (/newsletter/audio/...mp3); the "Play briefing in browser" link
+    # points at the /newsletter/player/... page (no .mp3 suffix) so
+    # clicking it never triggers a download.
+    import re as _re
+    listen_hrefs = _re.findall(r'a class="listen"[^>]*href="([^"]+)"', html_body)
+    audio_srcs = _re.findall(r'<audio[^>]*src="([^"]+)"', html_body)
+    assert listen_hrefs, "email should contain a listen link"
+    for href in listen_hrefs:
+        assert "/newsletter/player/" in href, f"listen link must use player page, got {href}"
+        assert not href.endswith(".mp3"), f"listen link must not end in .mp3, got {href}"
+    for src in audio_srcs:
+        assert "/newsletter/audio/" in src
+        assert src.endswith(".mp3")
+
+    # With newsletter_attach_audio=False we send the email without attaching
+    # the MP3 — playback relies entirely on the public URL.
+    assert captured["attachments"] == []
+
+    # The summary exposes the public URL for logging / UI display.
+    assert len(result["audio_urls"]) == 1
+    assert result["audio_urls"][0].startswith(
+        "https://news.example.com/newsletter/audio/ai-briefing-"
+    )
+
+
+async def test_build_and_send_without_public_url_falls_back_to_cid(monkeypatch, tmp_path):
+    """If PUBLIC_BASE_URL isn't set we still attach the MP3 and fall back
+    to the cid: player so the email isn't completely silent."""
+    from news_agent.config import settings
+    monkeypatch.setattr(settings, "newsletter_email_to", "me@example.com")
+    monkeypatch.setattr(settings, "newsletter_topics", ["ai"])
+    monkeypatch.setattr(settings, "newsletter_include_audio", True)
+    monkeypatch.setattr(settings, "newsletter_audio_dir", str(tmp_path / "audio"))
+    monkeypatch.setattr(settings, "public_base_url", "")
+    monkeypatch.setattr(settings, "newsletter_attach_audio", True)
+    monkeypatch.setattr(settings, "llm_api_key", "fake")
+    monkeypatch.setattr(settings, "anthropic_api_key", "")
+
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.upsert_many([
+            make_item(title="AI item", topic="ai", url="https://a.com/ai"),
+        ])
+
+    monkeypatch.setattr(
+        nl, "_generate_topic_audio",
+        lambda topic, items, output_path: (output_path.write_bytes(b"MP3"), output_path)[1],
+    )
+    captured: dict = {}
+    monkeypatch.setattr(nl, "send_email", lambda **kw: captured.update(kw))
+
+    result = await nl.build_and_send_newsletter(refresh=False)
+    assert result["audio_urls"] == []
+    html_body = captured["html_body"]
+    assert "cid:audio-ai-" in html_body
+    assert "https://" not in html_body.split("<audio", 1)[1].split("</audio>", 1)[0]
+    assert len(captured["attachments"]) == 1
 
 
 # ── Fetch-before-send flow ──────────────────────────────────────────────────

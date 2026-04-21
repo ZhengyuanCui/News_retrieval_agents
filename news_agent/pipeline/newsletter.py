@@ -85,18 +85,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
 .news-item .tags { margin-top: 6px; }
 .news-item .tag { display: inline-block; background: #f0f0f2; color: #3a3a3c;
                   font-size: 11px; padding: 2px 7px; border-radius: 10px; margin-right: 4px; }
-.audio-note { background: #fff7e6; border: 1px solid #ffd48a; padding: 12px 16px;
-              border-radius: 4px; margin: 20px 28px; font-size: 13px; color: #6b4f00; }
 .topic-audio { margin: 0 0 18px 0; padding: 12px 14px; background: #eef6ff;
                border: 1px solid #cfe4ff; border-radius: 6px;
                font-size: 13px; color: #0a3d7a; }
-.topic-audio .label { font-weight: 600; margin-right: 6px; }
+.topic-audio .label { font-weight: 600; }
+.topic-audio audio { display: block; margin-top: 8px; }
 .topic-audio a.listen { display: inline-block; margin-top: 6px; padding: 6px 12px;
                         background: #0071e3; color: #fff !important; text-decoration: none;
                         border-radius: 4px; font-weight: 600; font-size: 13px; }
-.topic-audio .filename { font-family: ui-monospace, Menlo, Consolas, monospace;
-                         background: #dbeafe; padding: 1px 6px; border-radius: 3px;
-                         font-size: 12px; color: #0a3d7a; }
 .footer { padding: 18px 28px; color: #86868b; font-size: 12px; text-align: center; }
 """
 
@@ -125,29 +121,54 @@ def _render_bullet(text: str) -> str:
     return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
 
 
-def _render_topic_audio(audio_filename: str | None, content_id: str | None) -> str:
-    """Render the per-topic audio player / attachment pointer.
+def _render_topic_audio(
+    audio_filename: str | None,
+    content_id: str | None,
+    audio_url: str | None = None,
+    player_url: str | None = None,
+) -> str:
+    """Render the per-topic audio player.
 
-    Most email clients (Gmail, Outlook) strip <audio> tags, so we render a
-    clearly-labeled block that tells the reader which attachment belongs to
-    this topic.  Clients that do render cid: links (Apple Mail, many
-    webmails) get a clickable "Listen" button that jumps to the attachment.
+    Preference order:
+      1. A public ``audio_url`` (streams raw MP3 with
+         ``Content-Disposition: inline``).  The embedded <audio> element
+         fetches this URL.
+      2. A ``player_url`` (e.g. /newsletter/player/<file>) that the
+         "Play briefing in browser" link points at.  We never link
+         directly to the .mp3 URL because many browsers / extensions
+         auto-download any URL whose path ends in ``.mp3``.  The player
+         page wraps the same audio stream in an <audio controls> element
+         so clicking the link opens a tab that plays instead of saves.
+      3. As a final fallback when no public URL is configured we embed a
+         ``cid:`` reference to the attached MP3.  Apple Mail and some
+         other clients will render <audio> from a cid: source; Gmail and
+         Outlook unfortunately still force a download, which is a client
+         limitation we cannot work around.
     """
-    if not audio_filename:
-        return ""
-    filename_html = f'<span class="filename">{html.escape(audio_filename)}</span>'
-    listen_link = (
-        f'<a class="listen" href="cid:{html.escape(content_id)}">'
-        f'&#9654; Listen to this topic</a>'
-        if content_id else ""
-    )
-    return f"""
+    if audio_url:
+        url = html.escape(audio_url)
+        link_url = html.escape(player_url or audio_url)
+        return f"""
     <div class="topic-audio">
-      <span class="label">&#127911; Audio briefing:</span>
-      open the attachment {filename_html} in your mail client.
-      <br>{listen_link}
+      <div class="label">&#127911; Listen to this topic</div>
+      <audio controls preload="none" src="{url}" style="width:100%;max-width:420px;margin-top:8px;">
+      </audio>
+      <div style="margin-top:8px;font-size:12px;">
+        <a class="listen" href="{link_url}" target="_blank" rel="noopener">&#9654; Play briefing in browser</a>
+      </div>
     </div>
     """
+    if audio_filename and content_id:
+        cid = html.escape(content_id)
+        return f"""
+    <div class="topic-audio">
+      <div class="label">&#127911; Listen to this topic</div>
+      <audio controls preload="none" src="cid:{cid}" style="width:100%;max-width:420px;margin-top:8px;">
+        <a class="listen" href="cid:{cid}">&#9654; Play briefing</a>
+      </audio>
+    </div>
+    """
+    return ""
 
 
 def _render_topic_section(
@@ -157,6 +178,8 @@ def _render_topic_section(
     *,
     audio_filename: str | None = None,
     audio_content_id: str | None = None,
+    audio_url: str | None = None,
+    player_url: str | None = None,
 ) -> str:
     topic_label = html.escape(topic.title())
 
@@ -174,7 +197,9 @@ def _render_topic_section(
             "No summary available for this period yet.</div></div>"
         )
 
-    audio_html = _render_topic_audio(audio_filename, audio_content_id)
+    audio_html = _render_topic_audio(
+        audio_filename, audio_content_id, audio_url, player_url,
+    )
 
     items_html_parts: list[str] = []
     for item in items:
@@ -228,23 +253,13 @@ def _render_email_html(
     *,
     date_str: str,
     sections: list[str],
-    has_audio: bool,
+    has_audio: bool = False,
     audio_topic_count: int = 0,
 ) -> str:
-    if has_audio:
-        count_text = (
-            f"{audio_topic_count} audio briefings are attached — one per topic. "
-            if audio_topic_count > 1
-            else "An audio briefing is attached to this email. "
-        )
-        audio_note = (
-            '<div class="audio-note">'
-            f"&#127911; {count_text}"
-            "Each topic section below links to its own MP3 attachment."
-            "</div>"
-        )
-    else:
-        audio_note = ""
+    # The per-topic sections render their own inline audio player, so no
+    # top-of-email note is needed.  `has_audio` / `audio_topic_count` are
+    # kept for backwards compatibility with callers and tests.
+    del has_audio, audio_topic_count
     body = "\n".join(sections)
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>{_EMAIL_CSS}</style></head>
@@ -254,7 +269,6 @@ def _render_email_html(
       <h1>News Digest</h1>
       <span class="date">{html.escape(date_str)}</span>
     </div>
-    {audio_note}
     {body}
     <div class="footer">
       Generated by your News Retrieval Agent &middot; {html.escape(date_str)}
@@ -401,9 +415,26 @@ async def build_and_send_newsletter(
         settings.llm_api_key or settings.anthropic_api_key
     )
 
+    # Resolve the directory where MP3s are persisted so the web app can
+    # stream them.  We write each briefing to disk here regardless of
+    # whether a public URL is configured — it's cheap, makes debugging
+    # easier, and lets the app start serving the URL retroactively.
+    audio_dir = Path(settings.newsletter_audio_dir)
+    if not audio_dir.is_absolute():
+        # Resolve relative paths against the project root (three levels up
+        # from this file: news_agent/pipeline/newsletter.py → project root).
+        project_root = Path(__file__).resolve().parents[2]
+        audio_dir = project_root / audio_dir
+    audio_dir.mkdir(parents=True, exist_ok=True)
+
+    public_base = (settings.public_base_url or "").rstrip("/")
+
     async def _build_audio_for(topic: str, items: list[NewsItem]) -> None:
         if not items:
             return
+        slug = _topic_slug(topic)
+        filename = f"{slug}-briefing-{date_tag}.mp3"
+        final_path = audio_dir / filename
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
             tmp_path = Path(tmp.name)
         try:
@@ -412,11 +443,21 @@ async def build_and_send_newsletter(
                 None, _generate_topic_audio, topic, items, tmp_path,
             )
             if result_path and tmp_path.exists():
-                slug = _topic_slug(topic)
+                data = tmp_path.read_bytes()
+                final_path.write_bytes(data)
+                # The player slug strips the ``.mp3`` suffix from the URL
+                # path.  Browsers / extensions that auto-download any URL
+                # ending in ``.mp3`` won't match this one — the player
+                # endpoint adds the extension back internally when it
+                # looks up the file on disk.
+                player_slug = filename.removesuffix(".mp3")
                 topic_audio[topic] = {
-                    "filename": f"{slug}-briefing-{date_tag}.mp3",
+                    "filename": filename,
                     "content_id": f"audio-{slug}-{date_tag}",
-                    "bytes": tmp_path.read_bytes(),
+                    "bytes": data,
+                    "path": str(final_path),
+                    "url": f"{public_base}/newsletter/audio/{filename}" if public_base else None,
+                    "player_url": f"{public_base}/newsletter/player/{player_slug}" if public_base else None,
                 }
         finally:
             tmp_path.unlink(missing_ok=True)
@@ -434,6 +475,8 @@ async def build_and_send_newsletter(
             t, d, items,
             audio_filename=info["filename"] if info else None,
             audio_content_id=info["content_id"] if info else None,
+            audio_url=info["url"] if info else None,
+            player_url=info.get("player_url") if info else None,
         ))
     html_body = _render_email_html(
         date_str=date_str,
@@ -444,12 +487,13 @@ async def build_and_send_newsletter(
     text_body = _render_email_text(date_str, parts)
 
     attachments: list[tuple] = []
-    for t, _, _items in parts:
-        info = topic_audio.get(t)
-        if info:
-            attachments.append((
-                info["filename"], info["bytes"], "audio/mpeg", info["content_id"],
-            ))
+    if settings.newsletter_attach_audio:
+        for t, _, _items in parts:
+            info = topic_audio.get(t)
+            if info:
+                attachments.append((
+                    info["filename"], info["bytes"], "audio/mpeg", info["content_id"],
+                ))
 
     subject = f"News Digest — {date_str} ({', '.join(t.title() for t in resolved_topics)})"
     send_email(
@@ -467,6 +511,7 @@ async def build_and_send_newsletter(
         "audio_included": bool(topic_audio),
         "audio_topics": sorted(topic_audio.keys()),
         "audio_files": [info["filename"] for info in topic_audio.values()],
+        "audio_urls": [info["url"] for info in topic_audio.values() if info.get("url")],
         "refreshed": refresh,
         "fetch_results": fetch_results,
         "sent_at": datetime.utcnow().isoformat(),
@@ -478,3 +523,231 @@ async def build_and_send_newsletter(
 async def send_newsletter_now() -> dict:
     """Thin wrapper used by the /api/newsletter/send endpoint."""
     return await build_and_send_newsletter()
+
+
+# ── Preview / formatting test ────────────────────────────────────────────────
+
+# A valid ~1 KB silent MPEG-1 Layer III frame.  Used by the preview command
+# so we can exercise the `<audio>` player end-to-end without running TTS.
+# Base64-encoded; decoded on use.
+_SILENT_MP3_B64 = (
+    # Minimal MP3: ID3v2 header + one silent MPEG1 Layer3 frame (~26 ms).
+    # Browsers accept this as a playable audio/mpeg resource.
+    "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQwAAAAAAA"
+    "AAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAAEQAB/f39/f39/f39/f39/f39/f39/f39/f39/"
+    "f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/"
+    "f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/AAAAAAAAAAAAAAAA"
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    "AAAA//syxAADwAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVV"
+    "VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV"
+    "VVVVVVVV//syxEADwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV"
+    "VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV"
+    "VVVVVVVVVVVVVVVV//syxIADwAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVV"
+    "VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV"
+    "VVVVVVVVVVVVVVVVVVVVVVVV"
+)
+
+
+def _dummy_silent_mp3_bytes() -> bytes:
+    """Return a small, valid MP3 payload used for formatting previews.
+
+    The file is real audio (a short silent frame) so every email client and
+    browser's `<audio>` element treats it as playable — it just produces
+    silence.
+    """
+    import base64
+    return base64.b64decode(_SILENT_MP3_B64)
+
+
+def _dummy_items(topic: str) -> list[NewsItem]:
+    """Build a handful of obviously-fake NewsItem rows for the preview email.
+
+    Covers the visual edge cases: bold markdown in digest, tags, sentiment,
+    missing summary, long title, special characters.
+    """
+    now = datetime.utcnow()
+    t = topic.strip() or "preview"
+    return [
+        NewsItem(
+            source="rss",
+            topic=t,
+            title=f"[PREVIEW] Top story about {t.title()} — with **bold** emphasis",
+            url="https://example.com/preview/1",
+            content=f"Long-form body copy about {t} goes here. " * 4,
+            summary=(
+                f"Sample summary one for the <em>{t}</em> topic. "
+                "This is dummy text used to preview newsletter formatting."
+            ),
+            published_at=now,
+            raw_score=0.9,
+            relevance_score=9.0,
+            sentiment="positive",
+            tags=["preview", "formatting", t],
+            key_entities=["Example Corp", "Demo Inc"],
+        ),
+        NewsItem(
+            source="reddit",
+            topic=t,
+            title=f"[PREVIEW] Negative-sentiment sample for {t.title()}",
+            url="https://example.com/preview/2",
+            content="",
+            summary="Sample summary two — showcases negative sentiment styling.",
+            published_at=now,
+            raw_score=0.6,
+            relevance_score=6.5,
+            sentiment="negative",
+            tags=["dummy"],
+        ),
+        NewsItem(
+            source="github",
+            topic=t,
+            title=f"[PREVIEW] Neutral item for {t.title()} (no summary)",
+            url="https://example.com/preview/3",
+            content=(
+                "This item intentionally has no summary so we can verify the "
+                "fallback path that truncates the raw content instead. "
+                * 5
+            ),
+            published_at=now,
+            raw_score=0.3,
+            relevance_score=4.0,
+        ),
+    ]
+
+
+def _dummy_digest(topic: str) -> dict:
+    t = topic.strip() or "preview"
+    return {
+        "headline": f"Preview headline for **{t.title()}**",
+        "bullets": [
+            f"First bullet about **{t}** with bold for emphasis.",
+            "Second bullet covering a supporting point.",
+            "Third bullet to test list rendering across clients.",
+        ],
+    }
+
+
+async def build_and_send_preview_newsletter(
+    *,
+    topics: list[str] | None = None,
+    recipient: str | None = None,
+    include_audio: bool = True,
+    audio_file: Path | str | None = None,
+) -> dict:
+    """Send a preview newsletter with dummy content + a silent MP3.
+
+    Does NOT touch the fetch pipeline, the LLM, or the TTS engine — it's
+    purely a formatting / delivery test.  Everything else (HTML rendering,
+    attachment handling, public-URL embedding) is the same code path the
+    real newsletter uses, so what you see here is what your users get.
+
+    Args:
+        topics: defaults to ["ai", "stocks"].  Two topics reproduces the
+            multi-section layout; pass one for a single-topic view.
+        recipient: override NEWSLETTER_EMAIL_TO.
+        include_audio: embed the dummy audio player / attach the MP3.
+        audio_file: use this MP3 instead of the built-in silent clip.
+            Helpful for verifying a specific file plays in your client.
+
+    Raises EmailError if SMTP isn't configured.
+    """
+    resolved_topics = topics or ["ai", "stocks"]
+    to_addr = recipient or settings.newsletter_email_to
+    if not to_addr:
+        raise EmailError(
+            "No recipient configured — set NEWSLETTER_EMAIL_TO in .env or "
+            "pass recipient= explicitly."
+        )
+
+    # Build dummy items + digests per topic
+    parts: list[tuple[str, dict | None, list[NewsItem]]] = [
+        (t, _dummy_digest(t), _dummy_items(t)) for t in resolved_topics
+    ]
+
+    # Prepare dummy audio (persist to NEWSLETTER_AUDIO_DIR so the public
+    # URL, if configured, actually resolves).
+    audio_dir = Path(settings.newsletter_audio_dir)
+    if not audio_dir.is_absolute():
+        project_root = Path(__file__).resolve().parents[2]
+        audio_dir = project_root / audio_dir
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    public_base = (settings.public_base_url or "").rstrip("/")
+
+    if audio_file is not None:
+        audio_bytes = Path(audio_file).read_bytes()
+    else:
+        audio_bytes = _dummy_silent_mp3_bytes()
+
+    date_tag = datetime.utcnow().strftime("%Y-%m-%d")
+    topic_audio: dict[str, dict] = {}
+    if include_audio:
+        for t in resolved_topics:
+            slug = _topic_slug(t)
+            filename = f"preview-{slug}-briefing-{date_tag}.mp3"
+            final_path = audio_dir / filename
+            final_path.write_bytes(audio_bytes)
+            player_slug = filename.removesuffix(".mp3")
+            topic_audio[t] = {
+                "filename": filename,
+                "content_id": f"audio-preview-{slug}-{date_tag}",
+                "bytes": audio_bytes,
+                "path": str(final_path),
+                "url": f"{public_base}/newsletter/audio/{filename}" if public_base else None,
+                "player_url": f"{public_base}/newsletter/player/{player_slug}" if public_base else None,
+            }
+
+    date_str = datetime.utcnow().strftime("%B %d, %Y")
+    sections: list[str] = []
+    for t, d, items in parts:
+        info = topic_audio.get(t)
+        sections.append(_render_topic_section(
+            t, d, items,
+            audio_filename=info["filename"] if info else None,
+            audio_content_id=info["content_id"] if info else None,
+            audio_url=info["url"] if info else None,
+            player_url=info.get("player_url") if info else None,
+        ))
+
+    html_body = _render_email_html(
+        date_str=date_str,
+        sections=sections,
+        has_audio=bool(topic_audio),
+        audio_topic_count=len(topic_audio),
+    )
+    text_body = _render_email_text(date_str, parts)
+
+    attachments: list[tuple] = []
+    if include_audio and settings.newsletter_attach_audio:
+        for t in resolved_topics:
+            info = topic_audio.get(t)
+            if info:
+                attachments.append((
+                    info["filename"], info["bytes"], "audio/mpeg", info["content_id"],
+                ))
+
+    subject = (
+        f"[PREVIEW] News Digest — {date_str} "
+        f"({', '.join(t.title() for t in resolved_topics)})"
+    )
+    send_email(
+        to=to_addr,
+        subject=subject,
+        html_body=html_body,
+        text_body=text_body,
+        attachments=attachments,
+    )
+
+    return {
+        "mode": "preview",
+        "recipient": to_addr,
+        "topics": resolved_topics,
+        "items_per_topic": {t: len(items) for t, _, items in parts},
+        "audio_included": bool(topic_audio),
+        "audio_files": [info["filename"] for info in topic_audio.values()],
+        "audio_urls": [info["url"] for info in topic_audio.values() if info.get("url")],
+        "audio_attached": include_audio and settings.newsletter_attach_audio,
+        "audio_source": "provided-file" if audio_file else ("silent-dummy" if include_audio else None),
+        "sent_at": datetime.utcnow().isoformat(),
+    }

@@ -1,20 +1,82 @@
-.codex
+# ── Secrets & local config ──────────────────────────────────────────────────
 .env
-data/news.db
-data/news.db-shm
-data/news.db-wal
-data/exports/
-data/vector_index.npz
+.env.local
+.env.*.local
+*.pem
+*.key
+service-account*.json
+gcp-credentials*.json
+
+# ── Python bytecode & build artifacts ───────────────────────────────────────
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
 *.egg-info/
 dist/
 build/
+.eggs/
+pip-wheel-metadata/
+
+# ── Virtual environments ────────────────────────────────────────────────────
 .venv/
 venv/
+env/
+ENV/
+
+# ── Test / coverage / lint caches ───────────────────────────────────────────
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+coverage.xml
+*.cover
+
+# ── Editor / IDE / OS ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Agent / assistant local state ───────────────────────────────────────────
+.claude/
+.cursor/
+.codex
+
+# ── Jupyter ─────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ── Runtime data (DB, embeddings, generated audio, exports) ─────────────────
+# Everything under data/ is produced at runtime and specific to one install.
+# Keep the directory present in git with a .gitkeep if you need it to exist
+# on fresh clones; otherwise the app creates it on first run.
+data/
+
+# Stray audio files elsewhere in the tree (briefings, podcasts, TTS tests)
+*.mp3
+*.m4a
+*.wav
+*.ogg
+
+# ── Local scratch files / notes ─────────────────────────────────────────────
 TODO.md
-test_search.py
-test_stderr.txt
+NOTES.md
+scratch/
+tmp/
+
+# ── One-off scripts not part of the real test suite ─────────────────────────
+# (The real tests live under tests/.  These are ad-hoc smoke scripts the
+# owner keeps in the repo root for manual debugging.)
+/test_search.py
+/test_stderr.txt
+/test_keywords.py
+/test_twitter.py

@@ -33,6 +33,168 @@ _background_tasks: set = set()
 BASE = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 
+# Serve newsletter MP3s so the <audio> player embedded in the daily email
+# can stream them instead of forcing a download.
+#
+# We intentionally do NOT use StaticFiles here — its default
+# Content-Disposition and the .mp3 URL suffix cause some browsers / mail
+# clients to save the file instead of playing it inline.  These two
+# endpoints guarantee:
+#   • Content-Type: audio/mpeg
+#   • Content-Disposition: inline (never attachment)
+#   • HTTP Range support so <audio> can seek/stream progressively
+#   • A /newsletter/player/ landing page the "Play briefing" link can point
+#     at so the URL the user clicks doesn't end in ".mp3" (which some
+#     browsers / extensions auto-download).
+from news_agent.config import settings as _settings  # local import avoids cycle
+
+_PROJECT_ROOT = BASE.parent.parent
+_newsletter_audio_dir = Path(_settings.newsletter_audio_dir)
+if not _newsletter_audio_dir.is_absolute():
+    _newsletter_audio_dir = _PROJECT_ROOT / _newsletter_audio_dir
+_newsletter_audio_dir.mkdir(parents=True, exist_ok=True)
+
+
+def _safe_audio_path(filename: str) -> Path:
+    """Resolve ``filename`` inside the newsletter audio dir, or 404.
+
+    Rejects path-traversal attempts (``..``, absolute paths) and anything
+    that doesn't actually live under the configured audio directory.
+    """
+    if "/" in filename or "\\" in filename or filename.startswith("."):
+        raise HTTPException(404)
+    candidate = (_newsletter_audio_dir / filename).resolve()
+    try:
+        candidate.relative_to(_newsletter_audio_dir.resolve())
+    except ValueError:
+        raise HTTPException(404)
+    if not candidate.is_file():
+        raise HTTPException(404)
+    return candidate
+
+
+def _parse_range(header: str | None, file_size: int) -> tuple[int, int] | None:
+    """Parse an HTTP ``Range: bytes=start-end`` header.  Returns None if
+    the header is missing or malformed; raises HTTPException(416) if the
+    range is unsatisfiable."""
+    if not header or not header.startswith("bytes="):
+        return None
+    try:
+        raw = header.split("=", 1)[1].split(",", 1)[0].strip()
+        start_s, end_s = raw.split("-", 1)
+        start = int(start_s) if start_s else 0
+        end = int(end_s) if end_s else file_size - 1
+    except (ValueError, IndexError):
+        return None
+    if start < 0 or end < start or start >= file_size:
+        raise HTTPException(
+            status_code=416,
+            headers={"Content-Range": f"bytes */{file_size}"},
+        )
+    end = min(end, file_size - 1)
+    return start, end
+
+
+@app.get("/newsletter/audio/{filename}")
+async def serve_newsletter_audio(filename: str, request: Request) -> Response:
+    """Stream a newsletter MP3 inline with Range support.
+
+    The ``Content-Disposition: inline`` header is what convinces browsers
+    and mail-client previewers to play the audio instead of prompting the
+    user to save it.
+    """
+    path = _safe_audio_path(filename)
+    file_size = path.stat().st_size
+    rng = _parse_range(request.headers.get("range"), file_size)
+
+    headers = {
+        "Content-Type": "audio/mpeg",
+        # `inline` is the critical bit.  `filename=` is fine — it just
+        # names the resource, it does not force a download so long as the
+        # disposition is `inline`.
+        "Content-Disposition": f'inline; filename="{filename}"',
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "public, max-age=3600",
+    }
+
+    if rng is None:
+        def _full():
+            with path.open("rb") as f:
+                while chunk := f.read(64 * 1024):
+                    yield chunk
+        headers["Content-Length"] = str(file_size)
+        return StreamingResponse(_full(), status_code=200, headers=headers, media_type="audio/mpeg")
+
+    start, end = rng
+    length = end - start + 1
+
+    def _partial():
+        with path.open("rb") as f:
+            f.seek(start)
+            remaining = length
+            while remaining > 0:
+                chunk = f.read(min(64 * 1024, remaining))
+                if not chunk:
+                    break
+                remaining -= len(chunk)
+                yield chunk
+
+    headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
+    headers["Content-Length"] = str(length)
+    return StreamingResponse(_partial(), status_code=206, headers=headers, media_type="audio/mpeg")
+
+
+@app.get("/newsletter/player/{slug}", response_class=HTMLResponse)
+async def newsletter_audio_player(slug: str) -> HTMLResponse:
+    """Tiny HTML page that plays a briefing inline.
+
+    The email's "Play briefing in browser" link points here.  The URL path
+    intentionally does NOT end in ``.mp3`` — some browsers and browser
+    extensions treat any ``.mp3`` URL opened in a new tab as a download
+    even when the server sends ``Content-Disposition: inline``.  By
+    serving a regular HTML page with an embedded <audio> element that
+    streams from ``/newsletter/audio/<file>.mp3``, we guarantee the click
+    lands on a playable page instead of triggering a save dialog.
+
+    The slug may be the bare stem (preferred, e.g. ``ai-briefing-2026-01-01``)
+    or include the ``.mp3`` extension for backward compatibility.
+    """
+    filename = slug if slug.lower().endswith(".mp3") else f"{slug}.mp3"
+    path = _safe_audio_path(filename)
+    audio_url = f"/newsletter/audio/{path.name}"
+    safe_name = html.escape(path.name)
+    page = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Briefing — {safe_name}</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+             Roboto, sans-serif; background: #f5f5f7; color: #1d1d1f;
+             margin: 0; padding: 48px 16px; display: flex;
+             justify-content: center; }}
+    .card {{ background: #fff; border-radius: 12px; padding: 28px 32px;
+             max-width: 520px; width: 100%;
+             box-shadow: 0 4px 24px rgba(0,0,0,.06); }}
+    h1 {{ margin: 0 0 6px 0; font-size: 18px; }}
+    .meta {{ color: #86868b; font-size: 13px; margin-bottom: 18px;
+             word-break: break-all; }}
+    audio {{ width: 100%; }}
+    .hint {{ margin-top: 16px; font-size: 12px; color: #86868b; }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>&#127911; News briefing</h1>
+    <div class="meta">{safe_name}</div>
+    <audio controls autoplay preload="auto" src="{audio_url}"></audio>
+    <div class="hint">Press play if autoplay is blocked by your browser.</div>
+  </div>
+</body>
+</html>"""
+    return HTMLResponse(page)
+
 # Use jinja2 directly to avoid Python 3.14 cache-key bug in starlette's wrapper
 def _strip_html(text: str) -> str:
     """Remove HTML tags from text (for RSS content that contains markup).
@@ -228,7 +390,10 @@ async def digest_page(hours: float = 24, topic1: str = "", topic2: str = "", lan
 
 class InteractionPayload(BaseModel):
     item_id: str
-    action: str          # "click" | "read" | "star" | "unstar" | "dislike" | "undislike"
+    # "click" | "read" | "upvote" | "unupvote" | "downvote" | "undownvote"
+    # Upvote and downvote are mutually exclusive — _cancel_opposite_vote() below
+    # auto-records the cancel action before writing the new vote.
+    action: str
     read_seconds: float | None = None
 
 
@@ -298,12 +463,18 @@ async def trigger_fetch(keyword: str = "", force: bool = False):
 
 @app.get("/api/fetch/status")
 async def fetch_status(topic: str = "", hours: float = 24):
-    """Return current item count and whether a fetch is running for this topic."""
+    """Return current item count and whether a fetch is running for this topic.
+
+    Counts by the stored `topic` label (what run_keyword_fetch tagged the items
+    with) rather than doing a content search — the UI uses this to poll for
+    "N items have arrived for the keyword I just triggered", so it needs the
+    canonical topic count, not BM25 relevance.
+    """
     count = 0
     if topic:
         async with get_session() as session:
             repo = NewsRepository(session)
-            items = await repo.search(topic, hours=hours)
+            items = await repo.get_recent(topic=topic, hours=hours, limit=500)
             count = len(items)
     return {"running": topic in _keyword_fetching, "count": count}
 

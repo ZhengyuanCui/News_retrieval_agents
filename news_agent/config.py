@@ -168,6 +168,21 @@ class Settings(BaseSettings):
     # via the web UI's "Default Topics" settings panel (UserSettingORM).
     newsletter_topics: list[str] = []
 
+    # Public base URL where the web app is reachable (e.g.
+    # "https://news.example.com").  When set, the newsletter embeds an HTML5
+    # <audio> player that streams the MP3 from
+    # {public_base_url}/newsletter/audio/<filename>, which works in Gmail,
+    # Outlook and other clients that strip cid: and <audio> when served from
+    # an attachment.  Leave empty to fall back to MP3 attachments only.
+    public_base_url: str = ""
+    # Directory where newsletter MP3s are persisted so the web app can
+    # stream them.  Relative paths are resolved against the project root.
+    newsletter_audio_dir: str = "data/newsletter_audio"
+    # Keep attaching the MP3 to the email in addition to embedding the
+    # player URL.  Set False once you've confirmed the URL works to keep
+    # emails small.
+    newsletter_attach_audio: bool = True
+
     # ── SMTP (for newsletter) ─────────────────────────────────────────────────
     # Gmail: host=smtp.gmail.com, port=587, user=your@gmail.com,
     #   password=APP-PASSWORD (16-char app password, not your login password).

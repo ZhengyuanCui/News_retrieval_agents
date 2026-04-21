@@ -44,13 +44,18 @@ def send_email(
     subject: str,
     html_body: str,
     text_body: str | None = None,
-    attachments: list[tuple[str, bytes, str]] | None = None,
+    attachments: list[tuple] | None = None,
     sender: str | None = None,
 ) -> None:
     """Send a multipart HTML email with optional attachments.
 
-    attachments: list of (filename, data, mime_type) tuples. Pass mime_type=""
-    to auto-detect from the filename.
+    attachments: list of either
+      - (filename, data, mime_type), or
+      - (filename, data, mime_type, content_id)
+
+    Pass mime_type="" to auto-detect from the filename.  When a content_id
+    is supplied the HTML body can reference the attachment via cid:<id>
+    (supported by Apple Mail, most webmail clients).
     """
     _assert_configured()
 
@@ -70,14 +75,25 @@ def send_email(
     msg.set_content(text_body or "This email requires an HTML-capable client.")
     msg.add_alternative(html_body, subtype="html")
 
-    for filename, data, mime in attachments or []:
+    for attachment in attachments or []:
+        if len(attachment) == 4:
+            filename, data, mime, content_id = attachment
+        else:
+            filename, data, mime = attachment
+            content_id = None
         if not mime:
             mime, _ = mimetypes.guess_type(filename)
             mime = mime or "application/octet-stream"
         maintype, _, subtype = mime.partition("/")
-        msg.add_attachment(
-            data, maintype=maintype, subtype=subtype or "octet-stream", filename=filename,
-        )
+        kwargs: dict = {
+            "maintype": maintype,
+            "subtype": subtype or "octet-stream",
+            "filename": filename,
+        }
+        if content_id:
+            # RFC 2392: cid: URLs in HTML match the <angle-bracketed> Content-ID.
+            kwargs["cid"] = f"<{content_id}>"
+        msg.add_attachment(data, **kwargs)
 
     host = settings.smtp_host
     port = settings.smtp_port

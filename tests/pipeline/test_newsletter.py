@@ -115,6 +115,49 @@ def test_render_email_html_has_audio_note_when_audio_attached():
     assert "audio briefing is attached" not in without_audio
 
 
+def test_render_email_html_mentions_per_topic_count_when_multiple():
+    sections = [nl._render_topic_section("ai", None, []),
+                nl._render_topic_section("stocks", None, [])]
+    out = nl._render_email_html(
+        date_str="Jan 1, 2026", sections=sections,
+        has_audio=True, audio_topic_count=2,
+    )
+    assert "2 audio briefings are attached" in out
+    assert "one per topic" in out
+
+
+def test_render_topic_section_embeds_audio_block_and_filename():
+    """Each topic section should advertise its own MP3 filename when an
+    audio briefing was generated for that topic."""
+    html_out = nl._render_topic_section(
+        "ai",
+        None,
+        [make_item(title="Item", url="https://a.com/1")],
+        audio_filename="ai-briefing-2026-01-01.mp3",
+        audio_content_id="audio-ai-2026-01-01",
+    )
+    assert "ai-briefing-2026-01-01.mp3" in html_out
+    assert "cid:audio-ai-2026-01-01" in html_out
+    assert "Listen" in html_out
+    assert "Audio briefing" in html_out
+
+
+def test_render_topic_section_has_no_audio_block_when_absent():
+    html_out = nl._render_topic_section(
+        "ai", None, [make_item(title="Item", url="https://a.com/1")],
+    )
+    assert "topic-audio" not in html_out
+    assert "cid:" not in html_out
+
+
+def test_topic_slug_is_filesystem_and_cid_safe():
+    assert nl._topic_slug("AI") == "ai"
+    assert nl._topic_slug("AI & Robotics") == "ai-robotics"
+    assert nl._topic_slug("  stocks/bonds  ") == "stocks-bonds"
+    assert nl._topic_slug("") == "topic"
+    assert nl._topic_slug("!!!") == "topic"
+
+
 def test_parse_digest_handles_plain_and_legacy_formats():
     assert nl._parse_digest(None) is None
     assert nl._parse_digest("") is None
@@ -205,6 +248,103 @@ async def test_build_and_send_uses_ui_saved_topics_when_env_empty(monkeypatch):
     result = await nl.build_and_send_newsletter(refresh=False)
     assert result["topics"] == ["stocks"]
     assert "Stocks item" in captured["html_body"]
+
+
+async def test_build_and_send_generates_audio_per_topic(monkeypatch):
+    """When include_audio is on and multiple topics have items, we generate
+    one MP3 per topic and attach each one separately.  Each topic section
+    in the HTML body references its own audio filename."""
+    from news_agent.config import settings
+    monkeypatch.setattr(settings, "newsletter_email_to", "me@example.com")
+    monkeypatch.setattr(settings, "newsletter_topics", ["ai", "stocks"])
+    monkeypatch.setattr(settings, "newsletter_include_audio", True)
+    monkeypatch.setattr(settings, "llm_api_key", "fake")
+    monkeypatch.setattr(settings, "anthropic_api_key", "")
+
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.upsert_many([
+            make_item(title="AI item", topic="ai", url="https://a.com/ai"),
+            make_item(title="Stocks item", topic="stocks", url="https://s.com/st"),
+        ])
+
+    # Fake out the (synchronous) podcast generator so we don't call any TTS.
+    generated_for: list[str] = []
+
+    def fake_topic_audio(topic, items, output_path):
+        generated_for.append(topic)
+        output_path.write_bytes(f"MP3-{topic}".encode())
+        return output_path
+
+    monkeypatch.setattr(nl, "_generate_topic_audio", fake_topic_audio)
+
+    captured: dict = {}
+    monkeypatch.setattr(nl, "send_email", lambda **kw: captured.update(kw))
+
+    result = await nl.build_and_send_newsletter(refresh=False)
+
+    # One MP3 per topic, both invoked with the correct topic label
+    assert sorted(generated_for) == ["ai", "stocks"]
+    assert result["audio_included"] is True
+    assert sorted(result["audio_topics"]) == ["ai", "stocks"]
+    assert len(result["audio_files"]) == 2
+    assert all(f.endswith(".mp3") for f in result["audio_files"])
+    assert any("ai-briefing-" in f for f in result["audio_files"])
+    assert any("stocks-briefing-" in f for f in result["audio_files"])
+
+    # Each attachment is its own (filename, bytes, mime, cid) tuple
+    attachments = captured["attachments"]
+    assert len(attachments) == 2
+    by_topic = {a[0].split("-")[0]: a for a in attachments}
+    assert set(by_topic.keys()) == {"ai", "stocks"}
+    for topic, (fname, data, mime, cid) in by_topic.items():
+        assert mime == "audio/mpeg"
+        assert data == f"MP3-{topic}".encode()
+        assert cid.startswith(f"audio-{topic}-")
+
+    # Each topic section in the HTML body references its own MP3 filename
+    html_body = captured["html_body"]
+    assert "ai-briefing-" in html_body
+    assert "stocks-briefing-" in html_body
+    # Both cid: references present
+    assert "cid:audio-ai-" in html_body
+    assert "cid:audio-stocks-" in html_body
+    # Top-of-email note acknowledges multiple attachments
+    assert "2 audio briefings are attached" in html_body
+
+
+async def test_build_and_send_skips_audio_for_topics_without_items(monkeypatch):
+    """A topic with zero items should not get an audio attachment, even
+    when other topics in the same newsletter do."""
+    from news_agent.config import settings
+    monkeypatch.setattr(settings, "newsletter_email_to", "me@example.com")
+    monkeypatch.setattr(settings, "newsletter_topics", ["ai", "empty-topic"])
+    monkeypatch.setattr(settings, "newsletter_include_audio", True)
+    monkeypatch.setattr(settings, "llm_api_key", "fake")
+    monkeypatch.setattr(settings, "anthropic_api_key", "")
+
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.upsert_many([
+            make_item(title="AI item", topic="ai", url="https://a.com/ai"),
+        ])
+
+    generated_for: list[str] = []
+
+    def fake_topic_audio(topic, items, output_path):
+        generated_for.append(topic)
+        output_path.write_bytes(b"MP3")
+        return output_path
+
+    monkeypatch.setattr(nl, "_generate_topic_audio", fake_topic_audio)
+
+    captured: dict = {}
+    monkeypatch.setattr(nl, "send_email", lambda **kw: captured.update(kw))
+
+    result = await nl.build_and_send_newsletter(refresh=False)
+    assert generated_for == ["ai"]
+    assert result["audio_topics"] == ["ai"]
+    assert len(captured["attachments"]) == 1
 
 
 async def test_build_and_send_skips_audio_when_no_items(monkeypatch):

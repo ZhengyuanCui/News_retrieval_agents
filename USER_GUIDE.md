@@ -162,8 +162,13 @@ At your configured time (default 07:00 PST) the scheduler:
    - a Claude-generated narrative digest per topic,
    - the same article cards you see at `localhost:8000` (source badges,
      sentiment, tags, direct links),
-   - an MP3 narration attached to the email (OpenAI TTS if `OPENAI_API_KEY`
-     is set, otherwise the free gTTS fallback).
+   - **one MP3 narration per topic** attached to the email (e.g.
+     `ai-briefing-2026-04-20.mp3`, `stocks-briefing-2026-04-20.mp3`). Each
+     topic section in the email shows its audio's filename and a `cid:`
+     link so mail clients that support inline attachments (Apple Mail,
+     many webmail clients) surface a one-click "Listen" button.  OpenAI
+     TTS is used when `OPENAI_API_KEY` is set, otherwise the free gTTS
+     fallback.
 
 Because the fetch + analysis happens inline, the daily job can take several
 minutes to complete — expect the email to arrive slightly after your

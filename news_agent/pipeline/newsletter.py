@@ -87,6 +87,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
                   font-size: 11px; padding: 2px 7px; border-radius: 10px; margin-right: 4px; }
 .audio-note { background: #fff7e6; border: 1px solid #ffd48a; padding: 12px 16px;
               border-radius: 4px; margin: 20px 28px; font-size: 13px; color: #6b4f00; }
+.topic-audio { margin: 0 0 18px 0; padding: 12px 14px; background: #eef6ff;
+               border: 1px solid #cfe4ff; border-radius: 6px;
+               font-size: 13px; color: #0a3d7a; }
+.topic-audio .label { font-weight: 600; margin-right: 6px; }
+.topic-audio a.listen { display: inline-block; margin-top: 6px; padding: 6px 12px;
+                        background: #0071e3; color: #fff !important; text-decoration: none;
+                        border-radius: 4px; font-weight: 600; font-size: 13px; }
+.topic-audio .filename { font-family: ui-monospace, Menlo, Consolas, monospace;
+                         background: #dbeafe; padding: 1px 6px; border-radius: 3px;
+                         font-size: 12px; color: #0a3d7a; }
 .footer { padding: 18px 28px; color: #86868b; font-size: 12px; text-align: center; }
 """
 
@@ -115,7 +125,39 @@ def _render_bullet(text: str) -> str:
     return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
 
 
-def _render_topic_section(topic: str, digest: dict | None, items: list[NewsItem]) -> str:
+def _render_topic_audio(audio_filename: str | None, content_id: str | None) -> str:
+    """Render the per-topic audio player / attachment pointer.
+
+    Most email clients (Gmail, Outlook) strip <audio> tags, so we render a
+    clearly-labeled block that tells the reader which attachment belongs to
+    this topic.  Clients that do render cid: links (Apple Mail, many
+    webmails) get a clickable "Listen" button that jumps to the attachment.
+    """
+    if not audio_filename:
+        return ""
+    filename_html = f'<span class="filename">{html.escape(audio_filename)}</span>'
+    listen_link = (
+        f'<a class="listen" href="cid:{html.escape(content_id)}">'
+        f'&#9654; Listen to this topic</a>'
+        if content_id else ""
+    )
+    return f"""
+    <div class="topic-audio">
+      <span class="label">&#127911; Audio briefing:</span>
+      open the attachment {filename_html} in your mail client.
+      <br>{listen_link}
+    </div>
+    """
+
+
+def _render_topic_section(
+    topic: str,
+    digest: dict | None,
+    items: list[NewsItem],
+    *,
+    audio_filename: str | None = None,
+    audio_content_id: str | None = None,
+) -> str:
     topic_label = html.escape(topic.title())
 
     if digest:
@@ -131,6 +173,8 @@ def _render_topic_section(topic: str, digest: dict | None, items: list[NewsItem]
             '<div class="digest-summary"><div class="headline">'
             "No summary available for this period yet.</div></div>"
         )
+
+    audio_html = _render_topic_audio(audio_filename, audio_content_id)
 
     items_html_parts: list[str] = []
     for item in items:
@@ -173,6 +217,7 @@ def _render_topic_section(topic: str, digest: dict | None, items: list[NewsItem]
     return f"""
     <div class="topic-section">
       <h2 class="topic-title">{topic_label} &middot; {len(items)} items</h2>
+      {audio_html}
       {digest_html}
       {items_html}
     </div>
@@ -184,14 +229,22 @@ def _render_email_html(
     date_str: str,
     sections: list[str],
     has_audio: bool,
+    audio_topic_count: int = 0,
 ) -> str:
-    audio_note = (
-        '<div class="audio-note">'
-        "&#127911; An audio briefing is attached to this email. "
-        "Open the MP3 attachment to listen to today's summary."
-        "</div>"
-        if has_audio else ""
-    )
+    if has_audio:
+        count_text = (
+            f"{audio_topic_count} audio briefings are attached — one per topic. "
+            if audio_topic_count > 1
+            else "An audio briefing is attached to this email. "
+        )
+        audio_note = (
+            '<div class="audio-note">'
+            f"&#127911; {count_text}"
+            "Each topic section below links to its own MP3 attachment."
+            "</div>"
+        )
+    else:
+        audio_note = ""
     body = "\n".join(sections)
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>{_EMAIL_CSS}</style></head>
@@ -251,23 +304,26 @@ async def _gather_topic(topic: str, hours: int) -> tuple[dict | None, list[NewsI
     return _parse_digest(digest_raw), items
 
 
-def _generate_combined_audio(
-    topic_items: list[tuple[str, list[NewsItem]]],
+def _generate_topic_audio(
+    topic: str,
+    items: list[NewsItem],
     output_path: Path,
 ) -> Path | None:
-    """Build a single MP3 covering every topic. Returns path or None on failure."""
+    """Build an MP3 briefing for a single topic. Returns path or None on failure."""
+    if not items:
+        return None
     gen = PodcastGenerator()
-    primary_topic = topic_items[0][0] if topic_items else "news"
-    combined: list[NewsItem] = []
-    for _, items in topic_items:
-        combined.extend(items)
-    if not combined:
-        return None
     try:
-        return gen.generate(combined, primary_topic, output_path)
+        return gen.generate(items, topic, output_path)
     except Exception as e:
-        logger.error("Audio generation failed: %s", e, exc_info=True)
+        logger.error("Audio generation for topic '%s' failed: %s", topic, e, exc_info=True)
         return None
+
+
+def _topic_slug(topic: str) -> str:
+    """Make a topic string safe for filenames and Content-ID values."""
+    slug = re.sub(r"[^A-Za-z0-9_-]+", "-", topic.strip().lower()).strip("-")
+    return slug or "topic"
 
 
 async def build_and_send_newsletter(
@@ -338,35 +394,62 @@ async def build_and_send_newsletter(
     if total_items == 0:
         logger.warning("Newsletter has 0 items across all topics — sending anyway")
 
-    # Audio (optional; synchronous so run in a thread)
-    audio_bytes: bytes | None = None
-    audio_filename = f"news-briefing-{datetime.utcnow():%Y-%m-%d}.mp3"
-    if include_audio and total_items > 0 and (
+    # Audio — one MP3 per topic (synchronous generation, run in threads in parallel)
+    date_tag = datetime.utcnow().strftime("%Y-%m-%d")
+    topic_audio: dict[str, dict] = {}  # topic -> {filename, content_id, bytes}
+    can_generate_audio = include_audio and (
         settings.llm_api_key or settings.anthropic_api_key
-    ):
-        topic_items = [(t, items) for t, _, items in parts if items]
+    )
+
+    async def _build_audio_for(topic: str, items: list[NewsItem]) -> None:
+        if not items:
+            return
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
             tmp_path = Path(tmp.name)
         try:
             loop = asyncio.get_event_loop()
             result_path = await loop.run_in_executor(
-                None, _generate_combined_audio, topic_items, tmp_path,
+                None, _generate_topic_audio, topic, items, tmp_path,
             )
             if result_path and tmp_path.exists():
-                audio_bytes = tmp_path.read_bytes()
+                slug = _topic_slug(topic)
+                topic_audio[topic] = {
+                    "filename": f"{slug}-briefing-{date_tag}.mp3",
+                    "content_id": f"audio-{slug}-{date_tag}",
+                    "bytes": tmp_path.read_bytes(),
+                }
         finally:
             tmp_path.unlink(missing_ok=True)
 
+    if can_generate_audio:
+        await asyncio.gather(*[
+            _build_audio_for(t, items) for t, _, items in parts if items
+        ])
+
     date_str = datetime.utcnow().strftime("%B %d, %Y")
-    sections = [_render_topic_section(t, d, items) for t, d, items in parts]
+    sections: list[str] = []
+    for t, d, items in parts:
+        info = topic_audio.get(t)
+        sections.append(_render_topic_section(
+            t, d, items,
+            audio_filename=info["filename"] if info else None,
+            audio_content_id=info["content_id"] if info else None,
+        ))
     html_body = _render_email_html(
-        date_str=date_str, sections=sections, has_audio=audio_bytes is not None,
+        date_str=date_str,
+        sections=sections,
+        has_audio=bool(topic_audio),
+        audio_topic_count=len(topic_audio),
     )
     text_body = _render_email_text(date_str, parts)
 
-    attachments: list[tuple[str, bytes, str]] = []
-    if audio_bytes:
-        attachments.append((audio_filename, audio_bytes, "audio/mpeg"))
+    attachments: list[tuple] = []
+    for t, _, _items in parts:
+        info = topic_audio.get(t)
+        if info:
+            attachments.append((
+                info["filename"], info["bytes"], "audio/mpeg", info["content_id"],
+            ))
 
     subject = f"News Digest — {date_str} ({', '.join(t.title() for t in resolved_topics)})"
     send_email(
@@ -381,7 +464,9 @@ async def build_and_send_newsletter(
         "recipient": to_addr,
         "topics": resolved_topics,
         "items": total_items,
-        "audio_included": audio_bytes is not None,
+        "audio_included": bool(topic_audio),
+        "audio_topics": sorted(topic_audio.keys()),
+        "audio_files": [info["filename"] for info in topic_audio.values()],
         "refreshed": refresh,
         "fetch_results": fetch_results,
         "sent_at": datetime.utcnow().isoformat(),

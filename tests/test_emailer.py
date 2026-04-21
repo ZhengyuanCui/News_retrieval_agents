@@ -85,6 +85,41 @@ def test_send_email_ssl_path(monkeypatch):
     smtp_mock.send_message.assert_called_once()
 
 
+def test_send_email_attaches_content_id_when_provided(monkeypatch):
+    """4-tuple attachments (filename, data, mime, content_id) must set a
+    Content-ID header so cid:<id> references in the HTML body resolve."""
+    from news_agent.config import settings
+    monkeypatch.setattr(settings, "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(settings, "smtp_port", 587)
+    monkeypatch.setattr(settings, "smtp_user", "bot@example.com")
+    monkeypatch.setattr(settings, "smtp_password", "pw")
+    monkeypatch.setattr(settings, "smtp_use_tls", True)
+    monkeypatch.setattr(settings, "newsletter_email_from", "")
+
+    smtp_mock = MagicMock()
+    smtp_cm = MagicMock()
+    smtp_cm.__enter__.return_value = smtp_mock
+    smtp_cm.__exit__.return_value = False
+
+    with patch("news_agent.emailer.smtplib.SMTP", return_value=smtp_cm):
+        send_email(
+            to="me@example.com",
+            subject="Test",
+            html_body='<p><a href="cid:audio-ai-2026">listen</a></p>',
+            attachments=[
+                ("ai-briefing.mp3", b"MP3", "audio/mpeg", "audio-ai-2026"),
+                ("plain.mp3", b"MP3", "audio/mpeg"),  # legacy 3-tuple
+            ],
+        )
+
+    sent_msg = smtp_mock.send_message.call_args[0][0]
+    payloads = {p.get_filename(): p for p in sent_msg.iter_attachments()}
+    assert "ai-briefing.mp3" in payloads and "plain.mp3" in payloads
+    assert payloads["ai-briefing.mp3"]["Content-ID"] == "<audio-ai-2026>"
+    # Legacy 3-tuple attachment keeps no Content-ID
+    assert payloads["plain.mp3"]["Content-ID"] is None
+
+
 def test_send_email_auth_error_wrapped(monkeypatch):
     """SMTPAuthenticationError is converted to a friendly EmailError."""
     import smtplib

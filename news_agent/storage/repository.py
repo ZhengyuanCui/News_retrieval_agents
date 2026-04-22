@@ -68,6 +68,7 @@ class NewsRepository:
                 # Analysis-owned fields (summary, relevance_score, sentiment, tags,
                 # key_entities) are intentionally excluded here — they are only written
                 # by LLMAnalyzer, never overwritten by a plain re-fetch.
+                # is_starred is also excluded — preserve user stars.
             },
         )
         await self.session.execute(stmt)

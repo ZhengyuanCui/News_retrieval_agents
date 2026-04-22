@@ -32,9 +32,8 @@ dependencies = [
     "beautifulsoup4>=4.12.0",
     "lxml>=5.0.0",
 
-    # Pipeline — deduplication, ranking, spam classification, language detection
+    # Pipeline - deduplication + language detection
     "sentence-transformers>=3.0.0",
-    "transformers>=4.40.0",          # mshenoda/roberta-spam classifier pipeline
     "scikit-learn>=1.4.0",
     "numpy>=1.26.0",
     "langdetect>=1.0.9",
@@ -47,14 +46,15 @@ dependencies = [
     # Scheduling
     "apscheduler>=3.10.0",
 
-    # Podcast / newsletter TTS (OpenAI TTS primary, gTTS free fallback)
+    # Podcast TTS
     "openai>=1.30.0",
-    "gtts>=2.5.0",
 
     # Web UI
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "jinja2>=3.1.0",
+    "python-multipart>=0.0.12",
+    "aiofiles>=24.0.0",
 ]
 
 [project.optional-dependencies]

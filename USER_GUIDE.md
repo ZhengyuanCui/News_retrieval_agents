@@ -12,18 +12,19 @@ The scheduler starts automatically with the server — no second process needed.
 
 ### Main page (`/`)
 
-The app is a single-page two-panel digest. Use URL params `?topic1=ai&topic2=stocks` to preload two topics side by side, or set them in the ⚙ settings dialog.
-
 | Element | How to use |
 |---|---|
-| **Topic panels** | Type any keyword in the panel header input and press Enter to fetch news for that topic. Results are retrieved from the DB via hybrid BM25 + semantic search (RRF merge); keywords without enough coverage in the DB trigger a live background fetch that streams new items into the panel as they arrive. |
-| **⚙ Settings** | Open the gear icon to save default topics for both panels. Defaults persist in `localStorage` **and** server-side (`user_settings` table) so the newsletter scheduler can read them. Clicking **Save & Apply** does *not* reload the panels. Clear both fields and save to reset. |
-| **Hours selector** | Filter items by how recently they were published (10 min → 72 h). |
-| **🌐 Language filter** | Choose which languages to display (defaults to all). Non-English YouTube videos are excluded at collection time. |
-| **👍 / 👎 Vote buttons** | Teach the ranker what you want more or less of. Upvote and downvote are mutually exclusive — switching auto-cancels the previous vote. Votes drive `UserPreferenceORM` scores that boost/demote future items by tag, source, and entity. |
-| **Card expand** | Click a card to expand and see the full content plus the source link. |
-| **🎙 Podcast** | Generate a spoken audio briefing for the current panel's news (OpenAI TTS if `OPENAI_API_KEY` is set, otherwise gTTS). |
-| **Send test now** (in ⚙ Settings) | Email the newsletter for your default topics right now — useful to verify SMTP setup. |
+| **Topic panels** | Type any keyword in the panel header input and press Enter to fetch news for that topic |
+| **⚙ Settings** | Open the gear icon to save default topics — restored on every visit. Clear both fields and save to reset to empty start |
+| **Hours selector** | Filter items by how recently they were published (10 min → 72 h) |
+| **Star button ★** | Star items to bookmark them; starred items are preserved across fetches |
+| **Card expand** | Click a card to expand and see full content and source link |
+| **🎙 Podcast** | Generate a spoken audio briefing from the current panel's news |
+| **Send test now** (in ⚙ Settings) | Email the newsletter for your default topics right now — useful to verify SMTP setup |
+
+### Search page (`/search`)
+
+Type any keyword in the search bar. Results are retrieved from the database using hybrid BM25 + semantic search (RRF merge). For keywords not already in the database, the system fetches live from Google News, Bing News, Reddit, YouTube, and GitHub for that keyword and streams results as they arrive.
 
 ---
 
@@ -119,16 +120,6 @@ python -m news_agent.cli newsletter --no-refresh        # skip fetch; use cached
 python -m news_agent.cli newsletter --to me@example.com
 python -m news_agent.cli newsletter --topics "ai,stocks" --hours 48
 python -m news_agent.cli newsletter --no-audio          # skip MP3 attachment
-```
-
-For **layout / formatting iteration** without paying the fetch+analysis cost,
-use the preview variant instead:
-
-```bash
-python -m news_agent.cli newsletter-preview                        # dummy content + tiny silent MP3
-python -m news_agent.cli newsletter-preview --dump-html out.html   # also save HTML for browser inspection
-python -m news_agent.cli newsletter-preview --audio-file clip.mp3  # attach your own MP3 instead of the silent clip
-python -m news_agent.cli newsletter-preview --no-audio             # skip audio entirely
 ```
 
 Topics are resolved in this order:

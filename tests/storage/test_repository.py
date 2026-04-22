@@ -5,7 +5,8 @@ Pattern: write in one session (commits on exit), then read in a fresh session
 so the ORM SELECT sees fully committed data.
 
 Tests cover: get_recent(), prune_old_items(), update_analysis_many() field
-protection, get_unanalyzed(), upsert idempotency, and get_stats().
+protection, get_unanalyzed(), set_starred() / get_starred_ids(), upsert
+idempotency, and get_stats().
 """
 from __future__ import annotations
 

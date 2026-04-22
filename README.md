@@ -354,8 +354,6 @@ news-agent newsletter --to <email>       Fetch → analyze → email newsletter 
 news-agent newsletter --no-refresh       Skip the fetch; send using cached DB items
 news-agent newsletter --no-audio         Skip the MP3 attachment
 news-agent newsletter --topics "ai,stocks" --hours 48
-news-agent newsletter-preview            Formatting-only preview (dummy content, silent MP3)
-news-agent newsletter-preview --dump-html /tmp/preview.html   Save rendered HTML for browser inspection
 news-agent newsletter-preview            Send a dummy-content preview email (no fetch / LLM / TTS)
 news-agent newsletter-preview --no-audio                   Preview HTML layout only
 news-agent newsletter-preview --audio-file briefing.mp3    Preview with your own MP3

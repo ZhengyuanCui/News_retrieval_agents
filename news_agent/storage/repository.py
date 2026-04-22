@@ -28,13 +28,31 @@ def _fts_escape(query: str) -> str:
     return " ".join(f'"{w}"' for w in words) if words else '""'
 
 
-def _rrf_merge(ranked_lists: list[list[str]], k: int = 60) -> list[str]:
+def _rrf_merge(
+    ranked_lists: list[list[str]],
+    k: int = 60,
+    weights: list[float] | None = None,
+) -> list[str]:
     """Reciprocal Rank Fusion: merge ranked ID lists, rewarding IDs that rank
-    highly in multiple lists. k=60 is the standard RRF constant."""
+    highly in multiple lists. k=60 is the standard RRF constant.
+
+    weights: optional per-list multiplier applied to each list's RRF score.
+    None → all lists weighted equally (legacy behaviour). Passing e.g.
+    [1.0, 0.0] reduces to the first list only. Any scaled pair (c, c) is
+    equivalent to None up to a constant factor and produces the same order.
+    Must have the same length as ranked_lists if provided.
+    """
+    if weights is not None and len(weights) != len(ranked_lists):
+        raise ValueError(
+            f"weights length {len(weights)} != ranked_lists length {len(ranked_lists)}"
+        )
     scores: dict[str, float] = {}
-    for ranked in ranked_lists:
+    for i, ranked in enumerate(ranked_lists):
+        w = 1.0 if weights is None else float(weights[i])
+        if w == 0.0:
+            continue  # skip entirely to avoid adding zero-weighted ids into dict
         for rank, id_ in enumerate(ranked):
-            scores[id_] = scores.get(id_, 0.0) + 1.0 / (k + rank + 1)
+            scores[id_] = scores.get(id_, 0.0) + w * (1.0 / (k + rank + 1))
     return sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
 
 
@@ -202,6 +220,7 @@ class NewsRepository:
         limit: int = 60,
         languages: list[str] | None = None,
         min_relevance: float = 4.0,
+        hybrid_alpha: float | None = None,
     ) -> list[NewsItem]:
         """Content-based search using BM25 + semantic (RRF merge).
 
@@ -212,6 +231,13 @@ class NewsRepository:
 
         Items scored below min_relevance by the LLM are excluded; un-analyzed
         items (NULL relevance_score) are always included.
+
+        hybrid_alpha in [0, 1] controls the BM25 vs semantic blend:
+          1.0 → BM25-only (tickers, proper nouns)
+          0.5 → balanced (default; equivalent to legacy unweighted RRF)
+          0.0 → semantic-only (paraphrase, concepts)
+        None → use settings.default_hybrid_alpha. Values outside [0, 1] are
+        clamped silently.
         """
         since = datetime.utcnow() - timedelta(hours=hours)
         max_age = datetime.utcnow() - timedelta(days=7)
@@ -238,7 +264,12 @@ class NewsRepository:
             self.bm25_search(query, limit=limit * 2),
             semantic_search(query, top_k=limit * 3, expand=expand),
         )
-        candidate_ids = _rrf_merge([bm25_ids, vector_ids])
+        if hybrid_alpha is None:
+            hybrid_alpha = settings.default_hybrid_alpha
+        alpha = max(0.0, min(1.0, float(hybrid_alpha)))
+        candidate_ids = _rrf_merge(
+            [bm25_ids, vector_ids], weights=[alpha, 1.0 - alpha]
+        )
 
         rows = []
         if candidate_ids:

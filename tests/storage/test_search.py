@@ -225,3 +225,116 @@ async def test_search_respects_hours_window():
     result_ids = [r.id for r in results]
     assert recent.id in result_ids, "Recent article should be in 24h window"
     assert old.id not in result_ids, "200h-old article should be outside 24h window"
+
+
+# ── hybrid_alpha knob (T1-C) ──────────────────────────────────────────────────
+
+class TestRrfMergeWeights:
+    def test_weights_none_matches_legacy(self):
+        """No weights argument must reproduce the pre-T1-C behaviour exactly."""
+        a = ["x", "y", "z"]
+        b = ["y", "z", "w"]
+        assert _rrf_merge([a, b]) == _rrf_merge([a, b], weights=None)
+
+    def test_equal_weights_match_none(self):
+        """Equal non-zero weights are a constant factor on all scores → same order."""
+        a = ["x", "y", "z"]
+        b = ["y", "w", "x"]
+        assert _rrf_merge([a, b], weights=[1.0, 1.0]) == _rrf_merge([a, b])
+        assert _rrf_merge([a, b], weights=[0.5, 0.5]) == _rrf_merge([a, b])
+
+    def test_alpha_one_is_bm25_only(self):
+        """weights=[1, 0] must yield BM25's order, ignoring the vector list."""
+        bm25 = ["bm1", "bm2", "bm3"]
+        vec  = ["vec1", "vec2", "vec3"]
+        merged = _rrf_merge([bm25, vec], weights=[1.0, 0.0])
+        assert merged == bm25
+
+    def test_alpha_zero_is_semantic_only(self):
+        """weights=[0, 1] must yield the semantic order, ignoring BM25."""
+        bm25 = ["bm1", "bm2", "bm3"]
+        vec  = ["vec1", "vec2", "vec3"]
+        merged = _rrf_merge([bm25, vec], weights=[0.0, 1.0])
+        assert merged == vec
+
+    def test_weights_length_mismatch_raises(self):
+        with pytest.raises(ValueError):
+            _rrf_merge([["a"], ["b"]], weights=[1.0])
+        with pytest.raises(ValueError):
+            _rrf_merge([["a"], ["b"]], weights=[1.0, 0.5, 0.3])
+
+    def test_skewed_weights_promote_one_list(self):
+        """The top-ranked id of a heavily-weighted list must outrank the top-ranked
+        id of a lightly-weighted list when they are disjoint.
+
+        (We deliberately don't assert merged[0] here because a "shared" id at
+        rank 1 of both lists can still edge out the weighted leader; that is
+        the expected fused-ranking behaviour. The property this test pins down
+        is a strict comparison between the two list leaders.)
+        """
+        bm25 = ["heavy_top", "bm_filler_1", "bm_filler_2"]
+        vec  = ["vec_top", "vec_filler_1", "vec_filler_2"]
+        merged = _rrf_merge([bm25, vec], weights=[0.9, 0.1])
+        assert merged.index("heavy_top") < merged.index("vec_top")
+        merged_flipped = _rrf_merge([bm25, vec], weights=[0.1, 0.9])
+        assert merged_flipped.index("vec_top") < merged_flipped.index("heavy_top")
+
+
+@pytest.mark.asyncio
+async def test_search_alpha_out_of_range_is_clamped(monkeypatch):
+    """search(hybrid_alpha=...) must clamp to [0, 1] silently, not raise."""
+    from news_agent.storage.database import get_session, init_db
+    from news_agent.storage.repository import NewsRepository
+
+    await init_db()
+    item = make_item(
+        url="https://example.com/clamp-test",
+        title="NVDA surges on strong guidance",
+        content="NVDA posted a blowout quarter and raised guidance.",
+        published_at=hours_ago(2),
+    )
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.upsert(item)
+        # Out-of-range values must not raise and must still return sane results.
+        r_hi = await repo.search("NVDA", hours=24, limit=10, hybrid_alpha=5.0)
+        r_lo = await repo.search("NVDA", hours=24, limit=10, hybrid_alpha=-3.0)
+        r_one = await repo.search("NVDA", hours=24, limit=10, hybrid_alpha=1.0)
+        r_zero = await repo.search("NVDA", hours=24, limit=10, hybrid_alpha=0.0)
+
+    # Clamped: 5.0 → 1.0, -3.0 → 0.0, so the result sets should match the
+    # already-clamped boundary calls on the same index state.
+    assert [i.id for i in r_hi] == [i.id for i in r_one]
+    assert [i.id for i in r_lo] == [i.id for i in r_zero]
+
+
+@pytest.mark.asyncio
+async def test_search_alpha_none_uses_default(monkeypatch):
+    """hybrid_alpha=None must fall back to settings.default_hybrid_alpha and
+    produce the same ranking as passing that value explicitly."""
+    from news_agent.config import settings
+    from news_agent.storage.database import get_session, init_db
+    from news_agent.storage.repository import NewsRepository
+
+    monkeypatch.setattr(settings, "default_hybrid_alpha", 0.5)
+
+    await init_db()
+    items = [
+        make_item(
+            url=f"https://example.com/alpha-none-{i}",
+            title=f"Claude Sonnet update {i}",
+            content="Anthropic released another Claude Sonnet revision with tweaks.",
+            published_at=hours_ago(i + 1),
+        )
+        for i in range(3)
+    ]
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        for it in items:
+            await repo.upsert(it)
+        r_default = await repo.search("Claude Sonnet", hours=24, limit=10)
+        r_explicit = await repo.search(
+            "Claude Sonnet", hours=24, limit=10, hybrid_alpha=0.5
+        )
+
+    assert [i.id for i in r_default] == [i.id for i in r_explicit]

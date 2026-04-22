@@ -148,6 +148,16 @@ class Settings(BaseSettings):
     batch_size: int = 15
     max_items_per_source: int = 50
 
+    # ── Search ────────────────────────────────────────────────────────────────
+    # Blend factor for hybrid BM25 + semantic RRF fusion. 1.0 = pure BM25
+    # (keyword-dominant; good for tickers, proper nouns). 0.0 = pure semantic
+    # (good for paraphrases, concepts). 0.5 reproduces the legacy unweighted
+    # RRF behaviour. Per-request override via /api/panel?alpha=... .
+    default_hybrid_alpha: float = 0.5
+    # When T2-A (smart filter) detects a ticker-like query, this alpha is used
+    # instead of default_hybrid_alpha. Unused until T2-A lands.
+    ticker_alpha: float = 0.75
+
     # ── Personalization ───────────────────────────────────────────────────────
     # When True, a user downvote inserts a row in DismissedItemORM and the item
     # is hidden from get_recent() / search() across sessions and re-fetches.

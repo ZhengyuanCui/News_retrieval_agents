@@ -617,8 +617,18 @@ async def digest_stream(topic: str, hours: float = 24):
 
 
 @app.get("/api/panel", response_class=HTMLResponse)
-async def panel_fragment(topic: str = "", hours: float = 24, langs: str = ""):
-    """Return just the news-list inner HTML for a single panel (used for live updates)."""
+async def panel_fragment(
+    topic: str = "",
+    hours: float = 24,
+    langs: str = "",
+    alpha: float | None = None,
+):
+    """Return just the news-list inner HTML for a single panel (used for live updates).
+
+    `alpha` (0..1) overrides the hybrid BM25/semantic blend for this request.
+    Out-of-range values are clamped in NewsRepository.search. None leaves the
+    configured default_hybrid_alpha in effect.
+    """
     import asyncio
     from news_agent.collectors.rss import _resolve_url
 
@@ -637,7 +647,9 @@ async def panel_fragment(topic: str = "", hours: float = 24, langs: str = ""):
     async with get_session() as session:
         repo = NewsRepository(session)
         if topic:
-            items = await repo.search(topic, hours=search_hours, languages=languages)
+            items = await repo.search(
+                topic, hours=search_hours, languages=languages, hybrid_alpha=alpha,
+            )
         else:
             items = await repo.get_recent(hours=hours, limit=60, languages=languages)
         prefs = await get_preference_scores(session)

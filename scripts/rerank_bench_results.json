@@ -1,0 +1,1540 @@
+{
+  "fixture_meta": {
+    "generated_at": "2026-04-22T04:16:18.467408+00:00",
+    "llm_model": "anthropic/claude-haiku-4-5-20251001",
+    "n_queries": 100,
+    "candidates_per_query": 40,
+    "corpus_source": "data/news.db",
+    "corpus_size": 6571,
+    "label_positive_rate": 0.3302,
+    "label_count_positive": 1321,
+    "label_count_total": 4000,
+    "queries_short_on_bm25_candidates_padded": 0,
+    "approx_cost_usd": 0.3939,
+    "tokens_in": 347857,
+    "tokens_out": 9200,
+    "notes": "Queries authored by spike operator. Candidates retrieved via SQLite FTS5 BM25 (title+content) from parent data/news.db. Items with insufficient BM25 hits padded with random items from the corpus; such padded items will mostly be labeled 0, which is desirable (adds negatives). Labeler: single-call-per-batch, 10 items/call, temperature=0. Parse failures on an API error are retried once, then default to label=0 for the whole batch."
+  },
+  "eval_n_queries": 91,
+  "dropped_queries": [
+    "Why is Apple's iPhone demand slowing in China?",
+    "Why did Boeing face another 737 MAX incident?",
+    "What did the European Union decide about AI regulation?",
+    "Why did Microsoft invest in OpenAI?",
+    "Lilian Weng",
+    "Stability AI",
+    "INTC foundry",
+    "BA Boeing 737 MAX",
+    "SNOW Snowflake"
+  ],
+  "buckets_n": {
+    "nl": 36,
+    "entity": 28,
+    "ticker": 17,
+    "time": 10
+  },
+  "results": [
+    {
+      "model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+      "load_time_s": 7.855661837999833,
+      "n_queries": 91,
+      "mean_ndcg@10": 0.7783558974387376,
+      "mean_mrr@10": 0.9092621664050236,
+      "latency_ms": {
+        "cold": 302.0199600000524,
+        "warm_n": 90,
+        "warm_median": 329.02810049995423,
+        "warm_p95": 464.33787055018456,
+        "warm_p99": 831.5979101701487,
+        "warm_mean": 346.488132044447
+      },
+      "per_bucket_mean_ndcg@10": {
+        "nl": 0.7312960948634127,
+        "entity": 0.861999619929286,
+        "ticker": 0.6782089245622874,
+        "time": 0.8838186176263365
+      },
+      "per_query": [
+        {
+          "query": "What did OpenAI announce about GPT-5?",
+          "bucket": "nl",
+          "ndcg@10": 0.7167674835027338,
+          "mrr@10": 1.0,
+          "latency_ms": 302.0199600000524,
+          "n_positive": 17
+        },
+        {
+          "query": "How is Anthropic improving Claude's coding ability?",
+          "bucket": "nl",
+          "ndcg@10": 0.6180396628416764,
+          "mrr@10": 1.0,
+          "latency_ms": 370.710415999838,
+          "n_positive": 17
+        },
+        {
+          "query": "What are the latest developments in AI safety research?",
+          "bucket": "nl",
+          "ndcg@10": 0.8611375561264455,
+          "mrr@10": 1.0,
+          "latency_ms": 300.07228299973576,
+          "n_positive": 21
+        },
+        {
+          "query": "Why did Nvidia's stock price rise recently?",
+          "bucket": "nl",
+          "ndcg@10": 0.9266360779006398,
+          "mrr@10": 1.0,
+          "latency_ms": 827.2098070001448,
+          "n_positive": 19
+        },
+        {
+          "query": "How are Federal Reserve rate decisions affecting markets?",
+          "bucket": "nl",
+          "ndcg@10": 0.9363792118010483,
+          "mrr@10": 1.0,
+          "latency_ms": 779.7736719999193,
+          "n_positive": 15
+        },
+        {
+          "query": "What is happening with the war in Ukraine?",
+          "bucket": "nl",
+          "ndcg@10": 0.7791714369672127,
+          "mrr@10": 1.0,
+          "latency_ms": 784.6927900000082,
+          "n_positive": 10
+        },
+        {
+          "query": "How is inflation affecting the US economy?",
+          "bucket": "nl",
+          "ndcg@10": 0.8414929602590189,
+          "mrr@10": 1.0,
+          "latency_ms": 867.1016540001801,
+          "n_positive": 12
+        },
+        {
+          "query": "What are researchers saying about mechanistic interpretability?",
+          "bucket": "nl",
+          "ndcg@10": 0.8701249883466594,
+          "mrr@10": 1.0,
+          "latency_ms": 248.84742299991558,
+          "n_positive": 11
+        },
+        {
+          "query": "Why are tech stocks selling off?",
+          "bucket": "nl",
+          "ndcg@10": 0.45527503704699285,
+          "mrr@10": 0.5,
+          "latency_ms": 355.93706600002406,
+          "n_positive": 9
+        },
+        {
+          "query": "How does retrieval-augmented generation work?",
+          "bucket": "nl",
+          "ndcg@10": 0.4935232796777481,
+          "mrr@10": 1.0,
+          "latency_ms": 323.80426600002465,
+          "n_positive": 6
+        },
+        {
+          "query": "What did Google DeepMind publish recently on reasoning models?",
+          "bucket": "nl",
+          "ndcg@10": 0.6105858728157116,
+          "mrr@10": 1.0,
+          "latency_ms": 364.5151139999143,
+          "n_positive": 6
+        },
+        {
+          "query": "How is the Chinese economy performing?",
+          "bucket": "nl",
+          "ndcg@10": 0.8579809428223729,
+          "mrr@10": 1.0,
+          "latency_ms": 292.71542200012846,
+          "n_positive": 10
+        },
+        {
+          "query": "What are the risks of superintelligent AI according to researchers?",
+          "bucket": "nl",
+          "ndcg@10": 0.8643145546088338,
+          "mrr@10": 1.0,
+          "latency_ms": 262.9154159999416,
+          "n_positive": 15
+        },
+        {
+          "query": "How is Tesla handling production issues?",
+          "bucket": "nl",
+          "ndcg@10": 0.9197207891481877,
+          "mrr@10": 1.0,
+          "latency_ms": 252.99349400029314,
+          "n_positive": 2
+        },
+        {
+          "query": "What is happening with Elon Musk and Twitter/X?",
+          "bucket": "nl",
+          "ndcg@10": 0.361879195385413,
+          "mrr@10": 1.0,
+          "latency_ms": 338.77653699983057,
+          "n_positive": 8
+        },
+        {
+          "query": "Why are oil prices rising?",
+          "bucket": "nl",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 265.70101900006193,
+          "n_positive": 22
+        },
+        {
+          "query": "What are experts saying about a possible recession?",
+          "bucket": "nl",
+          "ndcg@10": 0.5462169152524983,
+          "mrr@10": 1.0,
+          "latency_ms": 237.48297600013757,
+          "n_positive": 7
+        },
+        {
+          "query": "How are AI chips affecting semiconductor supply?",
+          "bucket": "nl",
+          "ndcg@10": 0.9363792118010483,
+          "mrr@10": 1.0,
+          "latency_ms": 230.60095500022726,
+          "n_positive": 18
+        },
+        {
+          "query": "What is the status of US-China trade relations?",
+          "bucket": "nl",
+          "ndcg@10": 0.6325414799409712,
+          "mrr@10": 1.0,
+          "latency_ms": 453.4945870000229,
+          "n_positive": 10
+        },
+        {
+          "query": "How is climate change affecting global agriculture?",
+          "bucket": "nl",
+          "ndcg@10": 0.5413996682199069,
+          "mrr@10": 1.0,
+          "latency_ms": 190.3568469997481,
+          "n_positive": 4
+        },
+        {
+          "query": "What are the latest breakthroughs in large language models?",
+          "bucket": "nl",
+          "ndcg@10": 0.7183627972686238,
+          "mrr@10": 1.0,
+          "latency_ms": 327.34807199994975,
+          "n_positive": 22
+        },
+        {
+          "query": "Why did the cryptocurrency market crash?",
+          "bucket": "nl",
+          "ndcg@10": 0.40179981797758063,
+          "mrr@10": 0.3333333333333333,
+          "latency_ms": 296.59042399998725,
+          "n_positive": 3
+        },
+        {
+          "query": "How are startups raising money in this funding environment?",
+          "bucket": "nl",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 289.5674879996477,
+          "n_positive": 24
+        },
+        {
+          "query": "What did Andrej Karpathy say about training neural networks?",
+          "bucket": "nl",
+          "ndcg@10": 0.9674679834891693,
+          "mrr@10": 1.0,
+          "latency_ms": 370.25464899988947,
+          "n_positive": 3
+        },
+        {
+          "query": "Why is Meta investing so heavily in AI infrastructure?",
+          "bucket": "nl",
+          "ndcg@10": 0.6830838076905165,
+          "mrr@10": 1.0,
+          "latency_ms": 234.8132639999676,
+          "n_positive": 14
+        },
+        {
+          "query": "What is the current state of autonomous vehicles?",
+          "bucket": "nl",
+          "ndcg@10": 0.9216017310213245,
+          "mrr@10": 1.0,
+          "latency_ms": 282.54105700034415,
+          "n_positive": 37
+        },
+        {
+          "query": "How are layoffs reshaping the tech industry?",
+          "bucket": "nl",
+          "ndcg@10": 0.8727377840451935,
+          "mrr@10": 1.0,
+          "latency_ms": 331.5821030000734,
+          "n_positive": 7
+        },
+        {
+          "query": "What is Sam Altman's latest plan for OpenAI?",
+          "bucket": "nl",
+          "ndcg@10": 0.7849818707050383,
+          "mrr@10": 1.0,
+          "latency_ms": 312.2193789999983,
+          "n_positive": 15
+        },
+        {
+          "query": "Which AI models lead on coding benchmarks?",
+          "bucket": "nl",
+          "ndcg@10": 0.6339753813071974,
+          "mrr@10": 1.0,
+          "latency_ms": 400.3621189999649,
+          "n_positive": 12
+        },
+        {
+          "query": "How is quantum computing progressing commercially?",
+          "bucket": "nl",
+          "ndcg@10": 0.8268133666517739,
+          "mrr@10": 1.0,
+          "latency_ms": 235.67215200000646,
+          "n_positive": 21
+        },
+        {
+          "query": "What are the implications of the latest arXiv paper on mixture of experts?",
+          "bucket": "nl",
+          "ndcg@10": 0.0,
+          "mrr@10": 0.0,
+          "latency_ms": 309.8228220001147,
+          "n_positive": 1
+        },
+        {
+          "query": "How are US banks performing this quarter?",
+          "bucket": "nl",
+          "ndcg@10": 0.6238470455881187,
+          "mrr@10": 1.0,
+          "latency_ms": 317.9219930002546,
+          "n_positive": 6
+        },
+        {
+          "query": "What does Yann LeCun think about current LLMs?",
+          "bucket": "nl",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 381.23020200009705,
+          "n_positive": 1
+        },
+        {
+          "query": "Why is Amazon's cloud business slowing?",
+          "bucket": "nl",
+          "ndcg@10": 0.49818925746641274,
+          "mrr@10": 0.5,
+          "latency_ms": 311.6354649996538,
+          "n_positive": 3
+        },
+        {
+          "query": "What is happening with SpaceX's Starship program?",
+          "bucket": "nl",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 345.7396979997611,
+          "n_positive": 17
+        },
+        {
+          "query": "How is generative AI changing software development?",
+          "bucket": "nl",
+          "ndcg@10": 0.624232247406789,
+          "mrr@10": 1.0,
+          "latency_ms": 278.22822500002076,
+          "n_positive": 15
+        },
+        {
+          "query": "OpenAI",
+          "bucket": "entity",
+          "ndcg@10": 0.8899541168509599,
+          "mrr@10": 1.0,
+          "latency_ms": 273.1842990001496,
+          "n_positive": 39
+        },
+        {
+          "query": "Anthropic Claude",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 218.35211600000548,
+          "n_positive": 37
+        },
+        {
+          "query": "Google DeepMind",
+          "bucket": "entity",
+          "ndcg@10": 0.727329844310522,
+          "mrr@10": 1.0,
+          "latency_ms": 260.2828090002731,
+          "n_positive": 11
+        },
+        {
+          "query": "Meta AI research",
+          "bucket": "entity",
+          "ndcg@10": 0.9305687780632227,
+          "mrr@10": 1.0,
+          "latency_ms": 270.4198440001164,
+          "n_positive": 20
+        },
+        {
+          "query": "Mistral AI",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 305.56303399998797,
+          "n_positive": 3
+        },
+        {
+          "query": "Hugging Face",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 265.8477420000054,
+          "n_positive": 2
+        },
+        {
+          "query": "Sam Altman",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 241.22432100011792,
+          "n_positive": 22
+        },
+        {
+          "query": "Dario Amodei",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 232.51002200004223,
+          "n_positive": 19
+        },
+        {
+          "query": "Andrej Karpathy",
+          "bucket": "entity",
+          "ndcg@10": 0.9999999999999999,
+          "mrr@10": 1.0,
+          "latency_ms": 313.75278299992715,
+          "n_positive": 5
+        },
+        {
+          "query": "Yann LeCun",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 336.59519299999374,
+          "n_positive": 2
+        },
+        {
+          "query": "Neel Nanda interpretability",
+          "bucket": "entity",
+          "ndcg@10": 0.6627430629764571,
+          "mrr@10": 0.5,
+          "latency_ms": 330.7590550002715,
+          "n_positive": 8
+        },
+        {
+          "query": "Federal Reserve",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 257.83867399968585,
+          "n_positive": 39
+        },
+        {
+          "query": "European Central Bank",
+          "bucket": "entity",
+          "ndcg@10": 0.627507133061656,
+          "mrr@10": 1.0,
+          "latency_ms": 289.9044830001003,
+          "n_positive": 10
+        },
+        {
+          "query": "Boston Dynamics",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 399.8509479997665,
+          "n_positive": 13
+        },
+        {
+          "query": "Waymo robotaxi",
+          "bucket": "entity",
+          "ndcg@10": 0.7222954974312067,
+          "mrr@10": 1.0,
+          "latency_ms": 263.8119690000167,
+          "n_positive": 18
+        },
+        {
+          "query": "Figure humanoid robot",
+          "bucket": "entity",
+          "ndcg@10": 0.9266360779006398,
+          "mrr@10": 1.0,
+          "latency_ms": 214.73536199982846,
+          "n_positive": 24
+        },
+        {
+          "query": "Runway generative video",
+          "bucket": "entity",
+          "ndcg@10": 0.6961622681399229,
+          "mrr@10": 1.0,
+          "latency_ms": 307.0030349999797,
+          "n_positive": 13
+        },
+        {
+          "query": "Cohere enterprise AI",
+          "bucket": "entity",
+          "ndcg@10": 0.6154062275862391,
+          "mrr@10": 1.0,
+          "latency_ms": 351.88860400012345,
+          "n_positive": 15
+        },
+        {
+          "query": "arXiv machine learning",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 288.3042690000366,
+          "n_positive": 32
+        },
+        {
+          "query": "reinforcement learning from human feedback",
+          "bucket": "entity",
+          "ndcg@10": 0.6920788373899057,
+          "mrr@10": 1.0,
+          "latency_ms": 335.8550230000219,
+          "n_positive": 7
+        },
+        {
+          "query": "retrieval-augmented generation",
+          "bucket": "entity",
+          "ndcg@10": 0.5462169152524983,
+          "mrr@10": 1.0,
+          "latency_ms": 295.55193099986354,
+          "n_positive": 7
+        },
+        {
+          "query": "mechanistic interpretability",
+          "bucket": "entity",
+          "ndcg@10": 0.8701249883466594,
+          "mrr@10": 1.0,
+          "latency_ms": 386.68184200014366,
+          "n_positive": 10
+        },
+        {
+          "query": "AI alignment",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 309.30015400008415,
+          "n_positive": 18
+        },
+        {
+          "query": "mixture of experts models",
+          "bucket": "entity",
+          "ndcg@10": 0.35620718710802235,
+          "mrr@10": 0.16666666666666666,
+          "latency_ms": 358.5898879996421,
+          "n_positive": 1
+        },
+        {
+          "query": "multimodal foundation models",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 383.0039829999805,
+          "n_positive": 22
+        },
+        {
+          "query": "open source LLM",
+          "bucket": "entity",
+          "ndcg@10": 0.9363792118010483,
+          "mrr@10": 1.0,
+          "latency_ms": 465.09792100005143,
+          "n_positive": 14
+        },
+        {
+          "query": "diffusion models",
+          "bucket": "entity",
+          "ndcg@10": 0.9363792118010483,
+          "mrr@10": 1.0,
+          "latency_ms": 331.24690500017095,
+          "n_positive": 11
+        },
+        {
+          "query": "self-driving cars",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 292.3974410000483,
+          "n_positive": 32
+        },
+        {
+          "query": "NVDA earnings",
+          "bucket": "ticker",
+          "ndcg@10": 0.6131471927654585,
+          "mrr@10": 1.0,
+          "latency_ms": 330.7081289999587,
+          "n_positive": 2
+        },
+        {
+          "query": "TSLA stock",
+          "bucket": "ticker",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 379.2507379998824,
+          "n_positive": 40
+        },
+        {
+          "query": "AAPL iPhone sales",
+          "bucket": "ticker",
+          "ndcg@10": 0.84860265890399,
+          "mrr@10": 1.0,
+          "latency_ms": 316.4973830002964,
+          "n_positive": 10
+        },
+        {
+          "query": "MSFT cloud revenue",
+          "bucket": "ticker",
+          "ndcg@10": 0.13012668333070063,
+          "mrr@10": 0.14285714285714285,
+          "latency_ms": 399.9934309999844,
+          "n_positive": 4
+        },
+        {
+          "query": "GOOGL advertising",
+          "bucket": "ticker",
+          "ndcg@10": 0.5143371794949735,
+          "mrr@10": 0.3333333333333333,
+          "latency_ms": 356.1829459999899,
+          "n_positive": 4
+        },
+        {
+          "query": "AMZN AWS growth",
+          "bucket": "ticker",
+          "ndcg@10": 0.4080731812712916,
+          "mrr@10": 0.3333333333333333,
+          "latency_ms": 360.5332110000745,
+          "n_positive": 12
+        },
+        {
+          "query": "META Reality Labs",
+          "bucket": "ticker",
+          "ndcg@10": 0.5112590391895957,
+          "mrr@10": 1.0,
+          "latency_ms": 268.2760759998928,
+          "n_positive": 6
+        },
+        {
+          "query": "AMD MI300 chip",
+          "bucket": "ticker",
+          "ndcg@10": 0.5,
+          "mrr@10": 0.3333333333333333,
+          "latency_ms": 393.8087810001889,
+          "n_positive": 1
+        },
+        {
+          "query": "NFLX subscribers",
+          "bucket": "ticker",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 313.39455699981045,
+          "n_positive": 21
+        },
+        {
+          "query": "BRK.B Warren Buffett",
+          "bucket": "ticker",
+          "ndcg@10": 0.9674679834891693,
+          "mrr@10": 1.0,
+          "latency_ms": 325.49150800014104,
+          "n_positive": 3
+        },
+        {
+          "query": "JPM Jamie Dimon",
+          "bucket": "ticker",
+          "ndcg@10": 0.9217868789962073,
+          "mrr@10": 1.0,
+          "latency_ms": 424.00072700002056,
+          "n_positive": 3
+        },
+        {
+          "query": "GS Goldman Sachs",
+          "bucket": "ticker",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 290.3981140002543,
+          "n_positive": 11
+        },
+        {
+          "query": "COIN Coinbase crypto",
+          "bucket": "ticker",
+          "ndcg@10": 0.5384109300791363,
+          "mrr@10": 1.0,
+          "latency_ms": 463.4089200003473,
+          "n_positive": 20
+        },
+        {
+          "query": "PLTR Palantir",
+          "bucket": "ticker",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 370.1339089998328,
+          "n_positive": 40
+        },
+        {
+          "query": "ORCL Oracle cloud",
+          "bucket": "ticker",
+          "ndcg@10": 0.7041249493150387,
+          "mrr@10": 1.0,
+          "latency_ms": 351.69684199991025,
+          "n_positive": 7
+        },
+        {
+          "query": "UBER rideshare",
+          "bucket": "ticker",
+          "ndcg@10": 0.5831502144054364,
+          "mrr@10": 0.5,
+          "latency_ms": 400.6330170000183,
+          "n_positive": 7
+        },
+        {
+          "query": "DIS Disney streaming",
+          "bucket": "ticker",
+          "ndcg@10": 0.28906482631788766,
+          "mrr@10": 0.1,
+          "latency_ms": 360.1684799996292,
+          "n_positive": 1
+        },
+        {
+          "query": "AI news this week",
+          "bucket": "time",
+          "ndcg@10": 0.9363792118010483,
+          "mrr@10": 1.0,
+          "latency_ms": 447.3847790000036,
+          "n_positive": 20
+        },
+        {
+          "query": "latest stock market moves today",
+          "bucket": "time",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 369.12953799992465,
+          "n_positive": 31
+        },
+        {
+          "query": "earnings reports this quarter",
+          "bucket": "time",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 352.0337569998446,
+          "n_positive": 34
+        },
+        {
+          "query": "tech news yesterday",
+          "bucket": "time",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 365.6129989999499,
+          "n_positive": 36
+        },
+        {
+          "query": "AI research papers published last month",
+          "bucket": "time",
+          "ndcg@10": 0.5142842514302276,
+          "mrr@10": 1.0,
+          "latency_ms": 340.5474249998406,
+          "n_positive": 12
+        },
+        {
+          "query": "breaking news in markets today",
+          "bucket": "time",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 290.5794989997048,
+          "n_positive": 28
+        },
+        {
+          "query": "what happened in AI last week",
+          "bucket": "time",
+          "ndcg@10": 0.9052116356304493,
+          "mrr@10": 1.0,
+          "latency_ms": 365.82709699996485,
+          "n_positive": 17
+        },
+        {
+          "query": "Federal Reserve announcement today",
+          "bucket": "time",
+          "ndcg@10": 0.8579809428223729,
+          "mrr@10": 1.0,
+          "latency_ms": 389.22405600033017,
+          "n_positive": 16
+        },
+        {
+          "query": "crypto market this week",
+          "bucket": "time",
+          "ndcg@10": 0.7721596254947203,
+          "mrr@10": 1.0,
+          "latency_ms": 357.70620400035114,
+          "n_positive": 20
+        },
+        {
+          "query": "major tech announcements this month",
+          "bucket": "time",
+          "ndcg@10": 0.8521705090845473,
+          "mrr@10": 1.0,
+          "latency_ms": 448.5252549998222,
+          "n_positive": 21
+        }
+      ]
+    },
+    {
+      "model": "mixedbread-ai/mxbai-rerank-xsmall-v1",
+      "load_time_s": 2.0717075480001768,
+      "n_queries": 91,
+      "mean_ndcg@10": 0.8109830960123755,
+      "mean_mrr@10": 0.9234432234432235,
+      "latency_ms": {
+        "cold": 1157.7235029999429,
+        "warm_n": 90,
+        "warm_median": 1019.2848164999759,
+        "warm_p95": 1812.9402026999742,
+        "warm_p99": 3201.023757159826,
+        "warm_mean": 1164.1694684110967
+      },
+      "per_bucket_mean_ndcg@10": {
+        "nl": 0.7681101721761001,
+        "entity": 0.8785553261663233,
+        "ticker": 0.7176248090463957,
+        "time": 0.9348324652340791
+      },
+      "per_query": [
+        {
+          "query": "What did OpenAI announce about GPT-5?",
+          "bucket": "nl",
+          "ndcg@10": 0.721801830382049,
+          "mrr@10": 1.0,
+          "latency_ms": 1157.7235029999429,
+          "n_positive": 17
+        },
+        {
+          "query": "How is Anthropic improving Claude's coding ability?",
+          "bucket": "nl",
+          "ndcg@10": 0.7222954974312067,
+          "mrr@10": 1.0,
+          "latency_ms": 968.8944129998163,
+          "n_positive": 17
+        },
+        {
+          "query": "What are the latest developments in AI safety research?",
+          "bucket": "nl",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 1160.678870999618,
+          "n_positive": 21
+        },
+        {
+          "query": "Why did Nvidia's stock price rise recently?",
+          "bucket": "nl",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 1085.4730120004206,
+          "n_positive": 19
+        },
+        {
+          "query": "How are Federal Reserve rate decisions affecting markets?",
+          "bucket": "nl",
+          "ndcg@10": 0.914856882358379,
+          "mrr@10": 1.0,
+          "latency_ms": 1217.089390000183,
+          "n_positive": 15
+        },
+        {
+          "query": "What is happening with the war in Ukraine?",
+          "bucket": "nl",
+          "ndcg@10": 0.8512360941594274,
+          "mrr@10": 1.0,
+          "latency_ms": 1005.0851070000135,
+          "n_positive": 10
+        },
+        {
+          "query": "How is inflation affecting the US economy?",
+          "bucket": "nl",
+          "ndcg@10": 0.9363792118010483,
+          "mrr@10": 1.0,
+          "latency_ms": 1093.5065360004046,
+          "n_positive": 12
+        },
+        {
+          "query": "What are researchers saying about mechanistic interpretability?",
+          "bucket": "nl",
+          "ndcg@10": 0.8701249883466594,
+          "mrr@10": 1.0,
+          "latency_ms": 804.8588850001579,
+          "n_positive": 11
+        },
+        {
+          "query": "Why are tech stocks selling off?",
+          "bucket": "nl",
+          "ndcg@10": 0.5296346973744204,
+          "mrr@10": 1.0,
+          "latency_ms": 1117.2232030003215,
+          "n_positive": 9
+        },
+        {
+          "query": "How does retrieval-augmented generation work?",
+          "bucket": "nl",
+          "ndcg@10": 0.7316362001126298,
+          "mrr@10": 1.0,
+          "latency_ms": 1382.6437640000222,
+          "n_positive": 6
+        },
+        {
+          "query": "What did Google DeepMind publish recently on reasoning models?",
+          "bucket": "nl",
+          "ndcg@10": 0.7707802224715161,
+          "mrr@10": 1.0,
+          "latency_ms": 1311.0122359998968,
+          "n_positive": 6
+        },
+        {
+          "query": "How is the Chinese economy performing?",
+          "bucket": "nl",
+          "ndcg@10": 0.8389574121760602,
+          "mrr@10": 1.0,
+          "latency_ms": 1165.7588949997262,
+          "n_positive": 10
+        },
+        {
+          "query": "What are the risks of superintelligent AI according to researchers?",
+          "bucket": "nl",
+          "ndcg@10": 0.7799082337019198,
+          "mrr@10": 0.5,
+          "latency_ms": 845.0008949998846,
+          "n_positive": 15
+        },
+        {
+          "query": "How is Tesla handling production issues?",
+          "bucket": "nl",
+          "ndcg@10": 0.8772153153380493,
+          "mrr@10": 1.0,
+          "latency_ms": 839.0053260000059,
+          "n_positive": 2
+        },
+        {
+          "query": "What is happening with Elon Musk and Twitter/X?",
+          "bucket": "nl",
+          "ndcg@10": 0.2529427027676572,
+          "mrr@10": 1.0,
+          "latency_ms": 1230.345584999668,
+          "n_positive": 8
+        },
+        {
+          "query": "Why are oil prices rising?",
+          "bucket": "nl",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 1219.861151999794,
+          "n_positive": 22
+        },
+        {
+          "query": "What are experts saying about a possible recession?",
+          "bucket": "nl",
+          "ndcg@10": 0.8936633189697702,
+          "mrr@10": 1.0,
+          "latency_ms": 830.3375979999146,
+          "n_positive": 7
+        },
+        {
+          "query": "How are AI chips affecting semiconductor supply?",
+          "bucket": "nl",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 824.464213000283,
+          "n_positive": 18
+        },
+        {
+          "query": "What is the status of US-China trade relations?",
+          "bucket": "nl",
+          "ndcg@10": 0.7007731679885374,
+          "mrr@10": 1.0,
+          "latency_ms": 998.9665130001413,
+          "n_positive": 10
+        },
+        {
+          "query": "How is climate change affecting global agriculture?",
+          "bucket": "nl",
+          "ndcg@10": 0.9999999999999998,
+          "mrr@10": 1.0,
+          "latency_ms": 631.840461000138,
+          "n_positive": 4
+        },
+        {
+          "query": "What are the latest breakthroughs in large language models?",
+          "bucket": "nl",
+          "ndcg@10": 0.8006937664098821,
+          "mrr@10": 1.0,
+          "latency_ms": 1000.4948020000484,
+          "n_positive": 22
+        },
+        {
+          "query": "Why did the cryptocurrency market crash?",
+          "bucket": "nl",
+          "ndcg@10": 0.6173196815056893,
+          "mrr@10": 1.0,
+          "latency_ms": 1239.9880940001822,
+          "n_positive": 3
+        },
+        {
+          "query": "How are startups raising money in this funding environment?",
+          "bucket": "nl",
+          "ndcg@10": 0.914856882358379,
+          "mrr@10": 1.0,
+          "latency_ms": 1803.0978570000116,
+          "n_positive": 24
+        },
+        {
+          "query": "What did Andrej Karpathy say about training neural networks?",
+          "bucket": "nl",
+          "ndcg@10": 0.7653606369886218,
+          "mrr@10": 1.0,
+          "latency_ms": 6504.031590000068,
+          "n_positive": 3
+        },
+        {
+          "query": "Why is Meta investing so heavily in AI infrastructure?",
+          "bucket": "nl",
+          "ndcg@10": 0.7034066032439746,
+          "mrr@10": 1.0,
+          "latency_ms": 2792.7868339997985,
+          "n_positive": 14
+        },
+        {
+          "query": "What is the current state of autonomous vehicles?",
+          "bucket": "nl",
+          "ndcg@10": 0.933745776545611,
+          "mrr@10": 1.0,
+          "latency_ms": 2128.680040999825,
+          "n_positive": 37
+        },
+        {
+          "query": "How are layoffs reshaping the tech industry?",
+          "bucket": "nl",
+          "ndcg@10": 1.0000000000000002,
+          "mrr@10": 1.0,
+          "latency_ms": 1616.764109000087,
+          "n_positive": 7
+        },
+        {
+          "query": "What is Sam Altman's latest plan for OpenAI?",
+          "bucket": "nl",
+          "ndcg@10": 0.6320787427864671,
+          "mrr@10": 0.5,
+          "latency_ms": 1776.5651639997486,
+          "n_positive": 15
+        },
+        {
+          "query": "Which AI models lead on coding benchmarks?",
+          "bucket": "nl",
+          "ndcg@10": 0.5302442049991306,
+          "mrr@10": 0.5,
+          "latency_ms": 2614.176075999694,
+          "n_positive": 12
+        },
+        {
+          "query": "How is quantum computing progressing commercially?",
+          "bucket": "nl",
+          "ndcg@10": 0.9052116356304493,
+          "mrr@10": 1.0,
+          "latency_ms": 1320.6486859999131,
+          "n_positive": 21
+        },
+        {
+          "query": "What are the implications of the latest arXiv paper on mixture of experts?",
+          "bucket": "nl",
+          "ndcg@10": 0.0,
+          "mrr@10": 0.0,
+          "latency_ms": 1656.131646999711,
+          "n_positive": 1
+        },
+        {
+          "query": "How are US banks performing this quarter?",
+          "bucket": "nl",
+          "ndcg@10": 0.8696762340896294,
+          "mrr@10": 1.0,
+          "latency_ms": 1820.9930309999436,
+          "n_positive": 6
+        },
+        {
+          "query": "What does Yann LeCun think about current LLMs?",
+          "bucket": "nl",
+          "ndcg@10": 0.0,
+          "mrr@10": 0.0,
+          "latency_ms": 1719.5201859999543,
+          "n_positive": 1
+        },
+        {
+          "query": "Why is Amazon's cloud business slowing?",
+          "bucket": "nl",
+          "ndcg@10": 0.786472491992557,
+          "mrr@10": 1.0,
+          "latency_ms": 1109.9576279998473,
+          "n_positive": 3
+        },
+        {
+          "query": "What is happening with SpaceX's Starship program?",
+          "bucket": "nl",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 1141.3417250000748,
+          "n_positive": 17
+        },
+        {
+          "query": "How is generative AI changing software development?",
+          "bucket": "nl",
+          "ndcg@10": 0.8006937664098821,
+          "mrr@10": 1.0,
+          "latency_ms": 1005.3261439998096,
+          "n_positive": 15
+        },
+        {
+          "query": "OpenAI",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 724.5040540001355,
+          "n_positive": 39
+        },
+        {
+          "query": "Anthropic Claude",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 715.3994330001296,
+          "n_positive": 37
+        },
+        {
+          "query": "Google DeepMind",
+          "bucket": "entity",
+          "ndcg@10": 0.715550648768261,
+          "mrr@10": 1.0,
+          "latency_ms": 820.8983839999746,
+          "n_positive": 11
+        },
+        {
+          "query": "Meta AI research",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 930.0110369999857,
+          "n_positive": 20
+        },
+        {
+          "query": "Mistral AI",
+          "bucket": "entity",
+          "ndcg@10": 0.9674679834891693,
+          "mrr@10": 1.0,
+          "latency_ms": 978.8084279998657,
+          "n_positive": 3
+        },
+        {
+          "query": "Hugging Face",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 873.8279059998604,
+          "n_positive": 2
+        },
+        {
+          "query": "Sam Altman",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 856.4026430003651,
+          "n_positive": 22
+        },
+        {
+          "query": "Dario Amodei",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 823.5935349998726,
+          "n_positive": 19
+        },
+        {
+          "query": "Andrej Karpathy",
+          "bucket": "entity",
+          "ndcg@10": 0.9999999999999999,
+          "mrr@10": 1.0,
+          "latency_ms": 1065.167769999789,
+          "n_positive": 5
+        },
+        {
+          "query": "Yann LeCun",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 1432.2218010001961,
+          "n_positive": 2
+        },
+        {
+          "query": "Neel Nanda interpretability",
+          "bucket": "entity",
+          "ndcg@10": 0.6368547259115426,
+          "mrr@10": 1.0,
+          "latency_ms": 1042.3693869997805,
+          "n_positive": 8
+        },
+        {
+          "query": "Federal Reserve",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 894.4589820002875,
+          "n_positive": 39
+        },
+        {
+          "query": "European Central Bank",
+          "bucket": "entity",
+          "ndcg@10": 0.7222954974312067,
+          "mrr@10": 1.0,
+          "latency_ms": 1115.0100519998887,
+          "n_positive": 10
+        },
+        {
+          "query": "Boston Dynamics",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 1437.261676000162,
+          "n_positive": 13
+        },
+        {
+          "query": "Waymo robotaxi",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 929.2818559997613,
+          "n_positive": 18
+        },
+        {
+          "query": "Figure humanoid robot",
+          "bucket": "entity",
+          "ndcg@10": 0.933745776545611,
+          "mrr@10": 1.0,
+          "latency_ms": 735.4131990000496,
+          "n_positive": 24
+        },
+        {
+          "query": "Runway generative video",
+          "bucket": "entity",
+          "ndcg@10": 0.791726719367984,
+          "mrr@10": 1.0,
+          "latency_ms": 926.7070880000574,
+          "n_positive": 13
+        },
+        {
+          "query": "Cohere enterprise AI",
+          "bucket": "entity",
+          "ndcg@10": 0.35294615824339615,
+          "mrr@10": 0.5,
+          "latency_ms": 896.0476259999268,
+          "n_positive": 15
+        },
+        {
+          "query": "arXiv machine learning",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 701.3420709999991,
+          "n_positive": 32
+        },
+        {
+          "query": "reinforcement learning from human feedback",
+          "bucket": "entity",
+          "ndcg@10": 0.6174111208209191,
+          "mrr@10": 1.0,
+          "latency_ms": 874.1037429999778,
+          "n_positive": 7
+        },
+        {
+          "query": "retrieval-augmented generation",
+          "bucket": "entity",
+          "ndcg@10": 0.6836550817096437,
+          "mrr@10": 1.0,
+          "latency_ms": 920.1349650002157,
+          "n_positive": 7
+        },
+        {
+          "query": "mechanistic interpretability",
+          "bucket": "entity",
+          "ndcg@10": 0.7720617383222416,
+          "mrr@10": 1.0,
+          "latency_ms": 1035.2908410000055,
+          "n_positive": 10
+        },
+        {
+          "query": "AI alignment",
+          "bucket": "entity",
+          "ndcg@10": 0.9363792118010483,
+          "mrr@10": 1.0,
+          "latency_ms": 793.6257169999408,
+          "n_positive": 18
+        },
+        {
+          "query": "mixture of experts models",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 1055.7133509996675,
+          "n_positive": 1
+        },
+        {
+          "query": "multimodal foundation models",
+          "bucket": "entity",
+          "ndcg@10": 0.7215194105726964,
+          "mrr@10": 1.0,
+          "latency_ms": 878.5692900000868,
+          "n_positive": 22
+        },
+        {
+          "query": "open source LLM",
+          "bucket": "entity",
+          "ndcg@10": 0.8115558478722845,
+          "mrr@10": 1.0,
+          "latency_ms": 1288.9217389997611,
+          "n_positive": 14
+        },
+        {
+          "query": "diffusion models",
+          "bucket": "entity",
+          "ndcg@10": 0.9363792118010483,
+          "mrr@10": 1.0,
+          "latency_ms": 1154.3577399997957,
+          "n_positive": 11
+        },
+        {
+          "query": "self-driving cars",
+          "bucket": "entity",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 760.6851400000778,
+          "n_positive": 32
+        },
+        {
+          "query": "NVDA earnings",
+          "bucket": "ticker",
+          "ndcg@10": 0.8175295903539447,
+          "mrr@10": 1.0,
+          "latency_ms": 1019.8339029998351,
+          "n_positive": 2
+        },
+        {
+          "query": "TSLA stock",
+          "bucket": "ticker",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 1001.3500300001397,
+          "n_positive": 40
+        },
+        {
+          "query": "AAPL iPhone sales",
+          "bucket": "ticker",
+          "ndcg@10": 0.7859162856301584,
+          "mrr@10": 1.0,
+          "latency_ms": 874.0679540001111,
+          "n_positive": 10
+        },
+        {
+          "query": "MSFT cloud revenue",
+          "bucket": "ticker",
+          "ndcg@10": 0.6366824387328316,
+          "mrr@10": 1.0,
+          "latency_ms": 1129.8967030002132,
+          "n_positive": 4
+        },
+        {
+          "query": "GOOGL advertising",
+          "bucket": "ticker",
+          "ndcg@10": 0.9828920819566876,
+          "mrr@10": 1.0,
+          "latency_ms": 1183.4924999998293,
+          "n_positive": 4
+        },
+        {
+          "query": "AMZN AWS growth",
+          "bucket": "ticker",
+          "ndcg@10": 0.6785038377365555,
+          "mrr@10": 1.0,
+          "latency_ms": 1012.98129099996,
+          "n_positive": 12
+        },
+        {
+          "query": "META Reality Labs",
+          "bucket": "ticker",
+          "ndcg@10": 0.6967728672917265,
+          "mrr@10": 1.0,
+          "latency_ms": 766.0776530001385,
+          "n_positive": 6
+        },
+        {
+          "query": "AMD MI300 chip",
+          "bucket": "ticker",
+          "ndcg@10": 0.0,
+          "mrr@10": 0.0,
+          "latency_ms": 944.2743409999821,
+          "n_positive": 1
+        },
+        {
+          "query": "NFLX subscribers",
+          "bucket": "ticker",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 870.6108370001857,
+          "n_positive": 21
+        },
+        {
+          "query": "BRK.B Warren Buffett",
+          "bucket": "ticker",
+          "ndcg@10": 0.5582260599851663,
+          "mrr@10": 0.3333333333333333,
+          "latency_ms": 946.6274350002095,
+          "n_positive": 3
+        },
+        {
+          "query": "JPM Jamie Dimon",
+          "bucket": "ticker",
+          "ndcg@10": 0.9066276098484506,
+          "mrr@10": 1.0,
+          "latency_ms": 1167.3477829999683,
+          "n_positive": 3
+        },
+        {
+          "query": "GS Goldman Sachs",
+          "bucket": "ticker",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 880.039565000061,
+          "n_positive": 11
+        },
+        {
+          "query": "COIN Coinbase crypto",
+          "bucket": "ticker",
+          "ndcg@10": 0.7097402150304355,
+          "mrr@10": 1.0,
+          "latency_ms": 1001.0523860000831,
+          "n_positive": 20
+        },
+        {
+          "query": "PLTR Palantir",
+          "bucket": "ticker",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 1058.1404839999777,
+          "n_positive": 40
+        },
+        {
+          "query": "ORCL Oracle cloud",
+          "bucket": "ticker",
+          "ndcg@10": 0.26505310129300313,
+          "mrr@10": 0.5,
+          "latency_ms": 989.3055229999845,
+          "n_positive": 7
+        },
+        {
+          "query": "UBER rideshare",
+          "bucket": "ticker",
+          "ndcg@10": 0.7748248586952257,
+          "mrr@10": 1.0,
+          "latency_ms": 1051.86803100014,
+          "n_positive": 7
+        },
+        {
+          "query": "DIS Disney streaming",
+          "bucket": "ticker",
+          "ndcg@10": 0.38685280723454163,
+          "mrr@10": 0.2,
+          "latency_ms": 902.7156429997376,
+          "n_positive": 1
+        },
+        {
+          "query": "AI news this week",
+          "bucket": "time",
+          "ndcg@10": 0.9363792118010483,
+          "mrr@10": 1.0,
+          "latency_ms": 1085.2099499998076,
+          "n_positive": 20
+        },
+        {
+          "query": "latest stock market moves today",
+          "bucket": "time",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 1122.101079999993,
+          "n_positive": 31
+        },
+        {
+          "query": "earnings reports this quarter",
+          "bucket": "time",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 1025.288731999808,
+          "n_positive": 34
+        },
+        {
+          "query": "tech news yesterday",
+          "bucket": "time",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 1034.501051999996,
+          "n_positive": 36
+        },
+        {
+          "query": "AI research papers published last month",
+          "bucket": "time",
+          "ndcg@10": 0.6870165078530993,
+          "mrr@10": 1.0,
+          "latency_ms": 1044.7054010001011,
+          "n_positive": 12
+        },
+        {
+          "query": "breaking news in markets today",
+          "bucket": "time",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 952.7850760000547,
+          "n_positive": 28
+        },
+        {
+          "query": "what happened in AI last week",
+          "bucket": "time",
+          "ndcg@10": 0.9363792118010483,
+          "mrr@10": 1.0,
+          "latency_ms": 1018.7357300001167,
+          "n_positive": 17
+        },
+        {
+          "query": "Federal Reserve announcement today",
+          "bucket": "time",
+          "ndcg@10": 0.8521705090845473,
+          "mrr@10": 1.0,
+          "latency_ms": 983.9801449998049,
+          "n_positive": 16
+        },
+        {
+          "query": "crypto market this week",
+          "bucket": "time",
+          "ndcg@10": 1.0,
+          "mrr@10": 1.0,
+          "latency_ms": 999.5453359997555,
+          "n_positive": 20
+        },
+        {
+          "query": "major tech announcements this month",
+          "bucket": "time",
+          "ndcg@10": 0.9363792118010483,
+          "mrr@10": 1.0,
+          "latency_ms": 1066.0384699999668,
+          "n_positive": 21
+        }
+      ]
+    }
+  ]
+}

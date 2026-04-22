@@ -5,6 +5,8 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 
+from pydantic import BaseModel
+
 from news_agent.models import NewsItem
 
 logger = logging.getLogger(__name__)
@@ -13,6 +15,7 @@ logger = logging.getLogger(__name__)
 class BaseCollector(ABC):
     source_name: str = "base"
     default_topics: list[str] = []
+    StateSchema: type[BaseModel] | None = None
     rate_limit_delay: float = 1.0  # seconds between requests
 
     def __init__(self, topics: list[str] | None = None) -> None:
@@ -28,6 +31,35 @@ class BaseCollector(ABC):
     async def fetch_keyword(self, keyword: str) -> list[NewsItem]:
         """Fetch items matching an arbitrary keyword. Override in subclasses that support it."""
         return []
+
+    async def load_state(self) -> BaseModel | dict | None:
+        """Load validated collector state from persistent storage."""
+        if self.StateSchema is None:
+            return None
+        from news_agent.storage import get_session
+        from news_agent.storage.repository import NewsRepository
+
+        async with get_session() as session:
+            repo = NewsRepository(session)
+            row = await repo.get_collector_state(self.source_name)
+        payload = row.state if row and row.state else {}
+        return self.StateSchema.model_validate(payload)
+
+    async def save_state(self, state: BaseModel | dict) -> BaseModel | dict:
+        """Validate and persist collector state."""
+        if self.StateSchema is None:
+            return state
+        validated = state if isinstance(state, self.StateSchema) else self.StateSchema.model_validate(state)
+        from news_agent.storage import get_session
+        from news_agent.storage.repository import NewsRepository
+
+        async with get_session() as session:
+            repo = NewsRepository(session)
+            await repo.update_collector_state(
+                source=self.source_name,
+                state=validated.model_dump(mode="json"),
+            )
+        return validated
 
     def is_enabled(self) -> bool:
         """Check if this collector is enabled via config."""

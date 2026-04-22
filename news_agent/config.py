@@ -171,6 +171,12 @@ class Settings(BaseSettings):
     # future ranking scores without hiding the downvoted item itself.
     dismiss_on_downvote: bool = True
 
+    # ── Cost tracking ─────────────────────────────────────────────────────────
+    # In-memory ring buffer of per-LLM-call token/cost/latency records exposed
+    # via /api/cost/summary.  Disable to skip litellm callback registration.
+    cost_tracker_max_entries: int = 10_000
+    cost_tracker_enabled: bool = True
+
     # ── Storage ───────────────────────────────────────────────────────────────
     database_url: str = "sqlite+aiosqlite:///data/news.db"
     retention_days: int = 30

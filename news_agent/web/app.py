@@ -813,6 +813,17 @@ async def get_stats():
         return await repo.get_stats()
 
 
+@app.get("/api/cost/summary")
+async def cost_summary(hours: float | None = None):
+    """Return LLM spend & latency summary for the rolling window.
+
+    hours=None → all-time (capped by cost_tracker_max_entries).
+    hours=24   → last 24h.
+    """
+    from news_agent.pipeline.cost import get_tracker
+    return get_tracker().summary(hours=hours)
+
+
 @app.get("/api/debug/topic/{topic}")
 async def debug_topic(topic: str, hours: float = 24):
     """Diagnostic: show item count, analysis state, and digest status for a topic."""

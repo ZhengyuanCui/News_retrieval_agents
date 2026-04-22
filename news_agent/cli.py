@@ -408,6 +408,111 @@ def newsletter_preview(
     asyncio.run(_run())
 
 
+# ── debug-alpha ───────────────────────────────────────────────────────────────
+
+@main.command("debug-alpha")
+@click.argument("query")
+@click.option("--hours", default=168, show_default=True, help="Look back N hours")
+@click.option("--limit", default=10, show_default=True, help="Results to print per alpha")
+@click.option(
+    "--alphas",
+    default="1.0,0.5,0.0",
+    show_default=True,
+    help="Comma-separated hybrid_alpha values to compare",
+)
+def debug_alpha(query: str, hours: int, limit: int, alphas: str):
+    """Compare hybrid BM25/semantic rankings at different alpha values.
+
+    Bypasses the web layer and any post-RRF re-rankers, so you see the raw
+    effect of the hybrid_alpha knob on NewsRepository.search() ordering.
+
+    \b
+      alpha=1.0 → BM25-only (exact keyword / ticker matches)
+      alpha=0.5 → balanced (legacy unweighted RRF)
+      alpha=0.0 → semantic-only (paraphrase / concepts)
+
+    Example:
+
+    \b
+      news-agent debug-alpha NVDA --hours 720
+      news-agent debug-alpha "interest rate cuts" --alphas 1.0,0.7,0.3,0.0
+    """
+    from news_agent.storage import init_db, get_session
+    from news_agent.storage.repository import NewsRepository
+
+    try:
+        alpha_values = [float(a.strip()) for a in alphas.split(",") if a.strip()]
+    except ValueError:
+        console.print(f"[red]--alphas must be comma-separated floats, got: {alphas!r}[/]")
+        sys.exit(2)
+    if not alpha_values:
+        console.print("[red]--alphas produced no values[/]")
+        sys.exit(2)
+
+    async def _run():
+        await init_db()
+        results: dict[float, list] = {}
+        async with get_session() as session:
+            repo = NewsRepository(session)
+            for a in alpha_values:
+                items = await repo.search(
+                    query, hours=hours, limit=limit, hybrid_alpha=a,
+                )
+                results[a] = items[:limit]
+
+        # Give every id seen across any column a stable colour so you can
+        # scan the table vertically and see which items move where.
+        palette = ["cyan", "magenta", "green", "yellow", "blue", "red", "white"]
+        colour_for: dict[str, str] = {}
+        for items in results.values():
+            for it in items:
+                if it.id not in colour_for:
+                    colour_for[it.id] = palette[len(colour_for) % len(palette)]
+
+        table = Table(title=f'Hybrid alpha sweep — query="{query}" hours={hours}')
+        table.add_column("Rank", justify="right", style="dim")
+        for a in alpha_values:
+            table.add_column(f"α={a}", overflow="fold")
+
+        for rank in range(limit):
+            row = [str(rank + 1)]
+            for a in alpha_values:
+                items = results[a]
+                if rank >= len(items):
+                    row.append("[dim]—[/]")
+                    continue
+                it = items[rank]
+                colour = colour_for[it.id]
+                title = it.title[:64] + ("…" if len(it.title) > 64 else "")
+                row.append(f"[{colour}]{title}[/]\n[dim]{it.source}[/]")
+            table.add_row(*row)
+        console.print(table)
+
+        # Jaccard overlap between top-N sets (membership change, ignoring order).
+        # Helps answer "did the knob actually change anything?"
+        def _jaccard(a_list, b_list) -> float:
+            a_ids = {i.id for i in a_list}
+            b_ids = {i.id for i in b_list}
+            if not a_ids and not b_ids:
+                return 1.0
+            return len(a_ids & b_ids) / len(a_ids | b_ids)
+
+        if len(alpha_values) >= 2:
+            console.print("\n[bold]Top-{n} set overlap (Jaccard):[/]".format(n=limit))
+            for i in range(len(alpha_values)):
+                for j in range(i + 1, len(alpha_values)):
+                    a1, a2 = alpha_values[i], alpha_values[j]
+                    j_ = _jaccard(results[a1], results[a2])
+                    marker = (
+                        "[green](different)[/]" if j_ < 0.8
+                        else "[yellow](mostly same)[/]" if j_ < 1.0
+                        else "[dim](identical)[/]"
+                    )
+                    console.print(f"  α={a1} vs α={a2}: {j_:.2f}  {marker}")
+
+    asyncio.run(_run())
+
+
 # ── sources ───────────────────────────────────────────────────────────────────
 
 @main.command()

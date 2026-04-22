@@ -511,6 +511,8 @@ async def digest_stream(topic: str, hours: float = 24):
 
     async def event_stream():
         from news_agent.pipeline.analyzer import LLMAnalyzer, is_question
+        from news_agent.pipeline.query_router import QueryFilters, extract_filters
+        from news_agent.config import settings as _settings
 
         if not _has_llm_key():
             yield f"data: {_json.dumps({'t': 'No LLM API key configured. Set LLM_API_KEY or ANTHROPIC_API_KEY in .env.'})}\n\n"
@@ -522,12 +524,26 @@ async def digest_stream(topic: str, hours: float = 24):
         # semantically relevant articles and answer the question directly.
         # Q&A responses are not cached — they're always generated fresh.
         if is_question(topic):
+            filters = QueryFilters()
+            qa_alpha = None
+            if _settings.smart_filter_enabled:
+                filters = await extract_filters(topic)
+                if filters.is_ticker:
+                    qa_alpha = _settings.ticker_alpha
             # Use at least 168h so Q&A has enough context, but respect longer
             # ranges chosen by the user (e.g. 30-day slider).
-            qa_hours = max(hours, 168)
+            qa_hours = max(filters.hours or hours, 168)
             async with get_session() as session:
                 repo = NewsRepository(session)
-                items = await repo.search(topic, hours=qa_hours, limit=20)
+                items = await repo.search(
+                    topic,
+                    hours=qa_hours,
+                    limit=20,
+                    hybrid_alpha=qa_alpha,
+                    filters=filters if filters.has_constraints() else None,
+                )
+                if not items and filters.has_constraints():
+                    items = await repo.search(topic, hours=qa_hours, limit=20, hybrid_alpha=qa_alpha)
             if not items:
                 yield f"data: {_json.dumps({'t': 'No relevant news found to answer this question.'})}\n\n"
                 yield f"data: {_json.dumps({'done': True})}\n\n"
@@ -631,12 +647,21 @@ async def panel_fragment(
     """
     import asyncio
     from news_agent.collectors.rss import _resolve_url
+    from news_agent.config import settings as _settings
+    from news_agent.pipeline.query_router import QueryFilters, extract_filters
 
     languages = _parse_languages(langs)
     from news_agent.pipeline.analyzer import is_question as _is_question
+    filters = QueryFilters()
+    effective_alpha = alpha
+    if topic and _settings.smart_filter_enabled:
+        filters = await extract_filters(topic)
+        if filters.is_ticker and effective_alpha is None:
+            effective_alpha = _settings.ticker_alpha
+    requested_hours = filters.hours or hours
     # For question queries match the same window used by the Q&A digest stream
     # so the news list and the summary always draw from the same article set.
-    effective_hours = max(hours, 168) if topic and _is_question(topic) else hours
+    effective_hours = max(requested_hours, 168) if topic and _is_question(topic) else requested_hours
     widened_hours: float | None = None  # set when the window was auto-expanded
 
     # Always search at least 72h so episodic sources (curated YouTube channels,
@@ -648,8 +673,19 @@ async def panel_fragment(
         repo = NewsRepository(session)
         if topic:
             items = await repo.search(
-                topic, hours=search_hours, languages=languages, hybrid_alpha=alpha,
+                topic,
+                hours=search_hours,
+                languages=languages,
+                hybrid_alpha=effective_alpha,
+                filters=filters if filters.has_constraints() else None,
             )
+            if not items and filters.has_constraints():
+                items = await repo.search(
+                    topic,
+                    hours=search_hours,
+                    languages=languages,
+                    hybrid_alpha=effective_alpha,
+                )
         else:
             items = await repo.get_recent(hours=hours, limit=60, languages=languages)
         prefs = await get_preference_scores(session)

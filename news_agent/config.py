@@ -157,6 +157,8 @@ class Settings(BaseSettings):
     # When T2-A (smart filter) detects a ticker-like query, this alpha is used
     # instead of default_hybrid_alpha. Unused until T2-A lands.
     ticker_alpha: float = 0.75
+    smart_filter_enabled: bool = False
+    smart_filter_timeout_seconds: float = 3.0
 
     # ── Personalization ───────────────────────────────────────────────────────
     # When True, a user downvote inserts a row in DismissedItemORM and the item

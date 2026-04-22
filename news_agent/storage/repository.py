@@ -9,7 +9,15 @@ from sqlalchemy import delete, select, text, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from news_agent.models import CollectorStateORM, DigestORM, NewsItem, NewsItemORM, UserSettingORM
+from news_agent.config import settings
+from news_agent.models import (
+    CollectorStateORM,
+    DigestORM,
+    DismissedItemORM,
+    NewsItem,
+    NewsItemORM,
+    UserSettingORM,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +109,37 @@ class NewsRepository:
         result = await self.session.get(NewsItemORM, item_id)
         return result is not None
 
+    # ── Dismissal / tombstones ────────────────────────────────────────────────
+
+    async def dismiss(self, item_id: str, reason: str | None = "downvote") -> None:
+        """Insert a tombstone so the item is hidden from get_recent/search.
+        Idempotent — dismissing an already-dismissed item is a no-op."""
+        stmt = sqlite_insert(DismissedItemORM).values(
+            item_id=item_id,
+            dismissed_at=datetime.utcnow(),
+            reason=reason,
+        )
+        stmt = stmt.on_conflict_do_nothing(index_elements=["item_id"])
+        await self.session.execute(stmt)
+
+    async def undismiss(self, item_id: str) -> None:
+        """Remove the tombstone so the item is visible again.
+        Idempotent — no-op if not dismissed."""
+        await self.session.execute(
+            delete(DismissedItemORM).where(DismissedItemORM.item_id == item_id)
+        )
+
+    async def is_dismissed(self, item_id: str) -> bool:
+        result = await self.session.get(DismissedItemORM, item_id)
+        return result is not None
+
+    def _dismissed_subquery(self):
+        """Scalar subquery of tombstoned item_ids, for NOT IN filters.
+        Returns None when the feature is flagged off so the filter is skipped."""
+        if not settings.dismiss_on_downvote:
+            return None
+        return select(DismissedItemORM.item_id).scalar_subquery()
+
     async def get_recent(
         self,
         hours: float = 24,
@@ -124,6 +163,9 @@ class NewsRepository:
             q = q.where(NewsItemORM.is_duplicate == False)  # noqa: E712
         if languages:
             q = q.where(NewsItemORM.language.in_(languages))
+        dismissed = self._dismissed_subquery()
+        if dismissed is not None:
+            q = q.where(NewsItemORM.id.notin_(dismissed))
         q = q.order_by(
             # Most recently fetched batch first — newly retrieved items appear at top
             # before analysis fills in their relevance scores.
@@ -185,6 +227,9 @@ class NewsRepository:
         ]
         if languages:
             base_where.append(NewsItemORM.language.in_(languages))
+        dismissed = self._dismissed_subquery()
+        if dismissed is not None:
+            base_where.append(NewsItemORM.id.notin_(dismissed))
 
         # Hybrid BM25 + semantic with RRF merge. BM25 catches exact keyword/ticker
         # matches; semantic catches paraphrases and related concepts.

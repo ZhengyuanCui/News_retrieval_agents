@@ -237,6 +237,71 @@ async def test_upvote_cancels_existing_downvote(client, isolated_db):
     assert "upvote" in actions
 
 
+# ── Tombstones via /api/interaction (T1-A / issue #1) ─────────────────────────
+
+@pytest.mark.asyncio
+async def test_interaction_downvote_inserts_tombstone(client, isolated_db):
+    from news_agent.storage.database import get_session
+    from news_agent.storage.repository import NewsRepository
+
+    item = make_item(url="https://example.com/downvote-tombstone", published_at=hours_ago(1))
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.upsert(item)
+
+    resp = await client.post(
+        "/api/interaction",
+        json={"item_id": item.id, "action": "downvote"},
+    )
+    assert resp.status_code == 200
+
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        assert await repo.is_dismissed(item.id) is True
+
+
+@pytest.mark.asyncio
+async def test_interaction_upvote_clears_existing_tombstone(client, isolated_db):
+    """Upvoting a previously-downvoted item must un-tombstone it so the user
+    sees it again — matches the existing vote mutual-exclusion semantics."""
+    from news_agent.storage.database import get_session
+    from news_agent.storage.repository import NewsRepository
+
+    item = make_item(url="https://example.com/upvote-untombstone", published_at=hours_ago(1))
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.upsert(item)
+
+    await client.post("/api/interaction", json={"item_id": item.id, "action": "downvote"})
+    async with get_session() as session:
+        assert await NewsRepository(session).is_dismissed(item.id) is True
+
+    await client.post("/api/interaction", json={"item_id": item.id, "action": "upvote"})
+    async with get_session() as session:
+        assert await NewsRepository(session).is_dismissed(item.id) is False
+
+
+@pytest.mark.asyncio
+async def test_interaction_undownvote_clears_tombstone(client, isolated_db):
+    """Explicit undownvote (user clicks the already-active downvote button to
+    toggle it off) must also clear the tombstone."""
+    from news_agent.storage.database import get_session
+    from news_agent.storage.repository import NewsRepository
+
+    item = make_item(url="https://example.com/undownvote-untombstone", published_at=hours_ago(1))
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.upsert(item)
+
+    await client.post("/api/interaction", json={"item_id": item.id, "action": "downvote"})
+    async with get_session() as session:
+        assert await NewsRepository(session).is_dismissed(item.id) is True
+
+    await client.post("/api/interaction", json={"item_id": item.id, "action": "undownvote"})
+    async with get_session() as session:
+        assert await NewsRepository(session).is_dismissed(item.id) is False
+
+
 @pytest.mark.asyncio
 async def test_downvote_does_not_cancel_if_already_unupvoted(client, isolated_db):
     """If upvote was already cancelled (unupvote), downvoting should not add another unupvote."""

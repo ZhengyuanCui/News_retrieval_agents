@@ -338,3 +338,190 @@ async def test_search_alpha_none_uses_default(monkeypatch):
         )
 
     assert [i.id for i in r_default] == [i.id for i in r_explicit]
+
+
+# ── top-K gating before RRF (T1-D) ────────────────────────────────────────────
+
+class TestRrfTopKGating:
+    """The `search()` method must gate each per-retriever rank list to at most
+    `settings.search_rrf_top_k` entries before they reach `_rrf_merge`. This
+    keeps the fusion balanced when one retriever (usually the expanded
+    semantic list) returns many more hits than the other."""
+
+    def test_default_cap_is_200(self):
+        from news_agent.config import settings
+        assert settings.search_rrf_top_k == 200
+
+    @pytest.mark.asyncio
+    async def test_gating_caps_oversized_lists(self, monkeypatch):
+        """With cap=3, 10-item stub lists must be sliced to 3 before fusion."""
+        from news_agent.config import settings
+        from news_agent.storage.database import get_session, init_db
+        from news_agent.storage.repository import NewsRepository
+        import news_agent.storage.repository as repo_mod
+        import news_agent.pipeline.vector_search as vec_mod
+
+        await init_db()
+        monkeypatch.setattr(settings, "search_rrf_top_k", 3)
+
+        captured: list[list[list[str]]] = []
+        real = repo_mod._rrf_merge
+
+        def spy(lists, **kw):
+            captured.append([list(x) for x in lists])
+            return real(lists, **kw)
+
+        monkeypatch.setattr(repo_mod, "_rrf_merge", spy)
+
+        async def bm25_stub(self, query, limit=10):
+            return [f"a{i}" for i in range(10)]
+
+        async def vec_stub(query, top_k=10, expand=False):
+            return [f"b{i}" for i in range(10)]
+
+        monkeypatch.setattr(NewsRepository, "bm25_search", bm25_stub)
+        monkeypatch.setattr(vec_mod, "semantic_search", vec_stub)
+
+        async with get_session() as session:
+            repo = NewsRepository(session)
+            await repo.search("anything", hours=24, limit=20)
+
+        assert len(captured) == 1
+        bm25_gated, vector_gated = captured[0]
+        assert bm25_gated == ["a0", "a1", "a2"]
+        assert vector_gated == ["b0", "b1", "b2"]
+
+    @pytest.mark.asyncio
+    async def test_gating_is_noop_when_lists_are_short(self, monkeypatch):
+        """With cap=100, 5-item lists must pass through unchanged."""
+        from news_agent.config import settings
+        from news_agent.storage.database import get_session, init_db
+        from news_agent.storage.repository import NewsRepository
+        import news_agent.storage.repository as repo_mod
+        import news_agent.pipeline.vector_search as vec_mod
+
+        await init_db()
+        monkeypatch.setattr(settings, "search_rrf_top_k", 100)
+
+        captured: list[list[list[str]]] = []
+        real = repo_mod._rrf_merge
+
+        def spy(lists, **kw):
+            captured.append([list(x) for x in lists])
+            return real(lists, **kw)
+
+        monkeypatch.setattr(repo_mod, "_rrf_merge", spy)
+
+        async def bm25_stub(self, query, limit=10):
+            return [f"a{i}" for i in range(5)]
+
+        async def vec_stub(query, top_k=10, expand=False):
+            return [f"b{i}" for i in range(5)]
+
+        monkeypatch.setattr(NewsRepository, "bm25_search", bm25_stub)
+        monkeypatch.setattr(vec_mod, "semantic_search", vec_stub)
+
+        async with get_session() as session:
+            repo = NewsRepository(session)
+            await repo.search("anything", hours=24, limit=20)
+
+        assert len(captured) == 1
+        bm25_gated, vector_gated = captured[0]
+        assert bm25_gated == [f"a{i}" for i in range(5)]
+        assert vector_gated == [f"b{i}" for i in range(5)]
+
+    @pytest.mark.asyncio
+    async def test_gating_config_of_zero_is_clamped_to_one(self, monkeypatch):
+        """cap=0 must not silently empty the fused list; the implementation
+        floors the gate at 1 so fusion still runs with one id per list."""
+        from news_agent.config import settings
+        from news_agent.storage.database import get_session, init_db
+        from news_agent.storage.repository import NewsRepository
+        import news_agent.storage.repository as repo_mod
+        import news_agent.pipeline.vector_search as vec_mod
+
+        await init_db()
+        monkeypatch.setattr(settings, "search_rrf_top_k", 0)
+
+        captured: list[list[list[str]]] = []
+        real = repo_mod._rrf_merge
+
+        def spy(lists, **kw):
+            captured.append([list(x) for x in lists])
+            return real(lists, **kw)
+
+        monkeypatch.setattr(repo_mod, "_rrf_merge", spy)
+
+        async def bm25_stub(self, query, limit=10):
+            return [f"a{i}" for i in range(10)]
+
+        async def vec_stub(query, top_k=10, expand=False):
+            return [f"b{i}" for i in range(10)]
+
+        monkeypatch.setattr(NewsRepository, "bm25_search", bm25_stub)
+        monkeypatch.setattr(vec_mod, "semantic_search", vec_stub)
+
+        async with get_session() as session:
+            repo = NewsRepository(session)
+            await repo.search("anything", hours=24, limit=20)
+
+        assert len(captured) == 1
+        bm25_gated, vector_gated = captured[0]
+        assert bm25_gated == ["a0"]
+        assert vector_gated == ["b0"]
+
+    @pytest.mark.asyncio
+    async def test_hybrid_alpha_still_honoured_under_gating(self, monkeypatch):
+        """Gating must not flatten the effect of hybrid_alpha. With a cap that
+        still includes all ids, the two end-of-spectrum alpha values should
+        produce different orderings of the same candidate set."""
+        from news_agent.config import settings
+        from news_agent.storage.database import get_session, init_db
+        from news_agent.storage.repository import NewsRepository
+        import news_agent.pipeline.vector_search as vec_mod
+
+        await init_db()
+        monkeypatch.setattr(settings, "search_rrf_top_k", 5)
+
+        items = [
+            make_item(
+                url=f"https://example.com/gate-alpha-{i}",
+                title=f"Anthropic Claude Sonnet update {i}",
+                content=(
+                    "Anthropic released yet another Claude Sonnet revision "
+                    f"with tweaks number {i}."
+                ),
+                published_at=hours_ago(i + 1),
+            )
+            for i in range(5)
+        ]
+        ordered_ids = [it.id for it in items]
+
+        async def bm25_stub(self, query, limit=10):
+            return list(ordered_ids)
+
+        async def vec_stub(query, top_k=10, expand=False):
+            return list(reversed(ordered_ids))
+
+        monkeypatch.setattr(NewsRepository, "bm25_search", bm25_stub)
+        monkeypatch.setattr(vec_mod, "semantic_search", vec_stub)
+
+        async with get_session() as session:
+            repo = NewsRepository(session)
+            for it in items:
+                await repo.upsert(it)
+            r_bm25 = await repo.search(
+                "Claude Sonnet", hours=24, limit=10, hybrid_alpha=1.0
+            )
+            r_vec = await repo.search(
+                "Claude Sonnet", hours=24, limit=10, hybrid_alpha=0.0
+            )
+
+        ids_bm25 = [i.id for i in r_bm25]
+        ids_vec = [i.id for i in r_vec]
+        assert ids_bm25 != ids_vec, (
+            "alpha=1.0 and alpha=0.0 must produce different orderings "
+            "even with gating applied"
+        )
+        assert ids_bm25 == ordered_ids
+        assert ids_vec == list(reversed(ordered_ids))

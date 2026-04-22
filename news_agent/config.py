@@ -157,6 +157,11 @@ class Settings(BaseSettings):
     # When T2-A (smart filter) detects a ticker-like query, this alpha is used
     # instead of default_hybrid_alpha. Unused until T2-A lands.
     ticker_alpha: float = 0.75
+    # Per-list cap on BM25 / semantic result sets before RRF fusion. Prevents
+    # an expanded semantic list from dominating the fused ranking and keeps
+    # _rrf_merge's dict size bounded regardless of upstream behaviour. 200
+    # comfortably exceeds the default limit*3 semantic top_k with headroom.
+    search_rrf_top_k: int = 200
 
     # ── Personalization ───────────────────────────────────────────────────────
     # When True, a user downvote inserts a row in DismissedItemORM and the item

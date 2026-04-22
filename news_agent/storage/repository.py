@@ -264,11 +264,18 @@ class NewsRepository:
             self.bm25_search(query, limit=limit * 2),
             semantic_search(query, top_k=limit * 3, expand=expand),
         )
+        # Gate each list to at most search_rrf_top_k before fusion. Prevents an
+        # expanded semantic list (expand=True fires multiple rounds in
+        # vector_search) from dominating RRF; read at call time so tests can
+        # monkeypatch. max(1, ...) guards against a misconfigured 0 or negative.
+        gate = max(1, settings.search_rrf_top_k)
+        bm25_gated = bm25_ids[:gate]
+        vector_gated = vector_ids[:gate]
         if hybrid_alpha is None:
             hybrid_alpha = settings.default_hybrid_alpha
         alpha = max(0.0, min(1.0, float(hybrid_alpha)))
         candidate_ids = _rrf_merge(
-            [bm25_ids, vector_ids], weights=[alpha, 1.0 - alpha]
+            [bm25_gated, vector_gated], weights=[alpha, 1.0 - alpha]
         )
 
         rows = []

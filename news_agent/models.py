@@ -152,6 +152,7 @@ class CollectorStateORM(Base):
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     items_fetched: Mapped[int] = mapped_column(default=0)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    state: Mapped[dict] = mapped_column(JSON, default=dict)
     youtube_quota_used: Mapped[int] = mapped_column(default=0)
     youtube_quota_reset_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
 

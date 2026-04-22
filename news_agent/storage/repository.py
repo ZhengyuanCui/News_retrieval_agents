@@ -375,6 +375,7 @@ class NewsRepository:
         last_error: str | None = None,
         items_fetched: int = 0,
         is_enabled: bool | None = None,
+        state: dict | None = None,
     ) -> None:
         existing = await self.session.get(CollectorStateORM, source)
         if existing is None:
@@ -388,6 +389,11 @@ class NewsRepository:
             existing.items_fetched = (existing.items_fetched or 0) + items_fetched
         if is_enabled is not None:
             existing.is_enabled = is_enabled
+        if state is not None:
+            existing.state = state
+
+    async def get_collector_state(self, source: str) -> CollectorStateORM | None:
+        return await self.session.get(CollectorStateORM, source)
 
     async def get_all_collector_states(self) -> list[CollectorStateORM]:
         result = await self.session.execute(select(CollectorStateORM))

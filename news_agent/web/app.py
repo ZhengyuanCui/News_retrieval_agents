@@ -424,6 +424,15 @@ async def log_interaction(payload: InteractionPayload):
     async with get_session() as session:
         await _cancel_opposite_vote(session, payload.item_id, payload.action)
         await record_interaction(session, payload.item_id, payload.action, payload.read_seconds)
+        # Tombstone lifecycle: downvote hides the item across re-fetches;
+        # upvote / undownvote clears the tombstone. Respects the feature flag.
+        if _settings.dismiss_on_downvote:
+            from news_agent.storage.repository import NewsRepository as _Repo
+            repo = _Repo(session)
+            if payload.action == "downvote":
+                await repo.dismiss(payload.item_id, reason="downvote")
+            elif payload.action in ("upvote", "undownvote"):
+                await repo.undismiss(payload.item_id)
         await recompute_preferences(session)
     return {"ok": True}
 

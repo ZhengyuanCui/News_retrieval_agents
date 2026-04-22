@@ -284,3 +284,108 @@ async def test_get_all_collector_states_returns_all():
         states = await repo.get_all_collector_states()
     sources = {s.source for s in states}
     assert {"src_a", "src_b", "src_c"}.issubset(sources)
+
+
+# ── dismissed_items tombstones (T1-A / issue #1) ──────────────────────────────
+
+@pytest.mark.asyncio
+async def test_dismiss_inserts_tombstone_row():
+    from news_agent.models import DismissedItemORM
+    from sqlalchemy import select
+
+    item = make_item(url="https://example.com/dismiss-row", published_at=hours_ago(1))
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.upsert(item)
+        await repo.dismiss(item.id, reason="downvote")
+        result = await session.execute(
+            select(DismissedItemORM).where(DismissedItemORM.item_id == item.id)
+        )
+        row = result.scalar_one_or_none()
+    assert row is not None
+    assert row.item_id == item.id
+    assert row.reason == "downvote"
+    assert row.dismissed_at is not None
+
+
+@pytest.mark.asyncio
+async def test_dismiss_is_idempotent():
+    """Dismissing an already-dismissed item must not raise or create duplicates."""
+    from news_agent.models import DismissedItemORM
+    from sqlalchemy import func, select
+
+    item = make_item(url="https://example.com/dismiss-idempotent", published_at=hours_ago(1))
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.upsert(item)
+        await repo.dismiss(item.id)
+        await repo.dismiss(item.id)
+        await repo.dismiss(item.id)
+        count = await session.execute(
+            select(func.count()).select_from(DismissedItemORM).where(DismissedItemORM.item_id == item.id)
+        )
+    assert count.scalar() == 1
+
+
+@pytest.mark.asyncio
+async def test_get_recent_excludes_dismissed_items():
+    a = make_item(url="https://example.com/recent-a", published_at=hours_ago(1))
+    b = make_item(url="https://example.com/recent-b", published_at=hours_ago(1))
+    c = make_item(url="https://example.com/recent-c", published_at=hours_ago(1))
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        for it in (a, b, c):
+            await repo.upsert(it)
+        await repo.dismiss(b.id)
+        items = await repo.get_recent(hours=24)
+    ids = {i.id for i in items}
+    assert a.id in ids
+    assert c.id in ids
+    assert b.id not in ids
+
+
+@pytest.mark.asyncio
+async def test_dismissed_item_stays_hidden_after_reupsert():
+    """Core regression: re-fetching a dismissed item (same id via same
+    source+url) must NOT make it reappear in get_recent."""
+    item = make_item(url="https://example.com/sticky-dismiss", published_at=hours_ago(1))
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.upsert(item)
+        await repo.dismiss(item.id)
+        # Simulate the scheduler re-fetching the same article from the feed:
+        # same source+url → same sha256(source:url)[:16] id → same upsert target.
+        await repo.upsert(item)
+        assert await repo.is_dismissed(item.id) is True
+        items = await repo.get_recent(hours=24)
+    assert item.id not in {i.id for i in items}
+
+
+@pytest.mark.asyncio
+async def test_undismiss_restores_item_to_get_recent():
+    item = make_item(url="https://example.com/undismiss", published_at=hours_ago(1))
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.upsert(item)
+        await repo.dismiss(item.id)
+        assert await repo.is_dismissed(item.id) is True
+        await repo.undismiss(item.id)
+        assert await repo.is_dismissed(item.id) is False
+        items = await repo.get_recent(hours=24)
+    assert item.id in {i.id for i in items}
+
+
+@pytest.mark.asyncio
+async def test_dismiss_feature_flag_off_preserves_legacy_behaviour(monkeypatch):
+    """With dismiss_on_downvote=False the NOT IN subquery is skipped and a
+    dismissed item is still returned (the flag is an emergency escape hatch)."""
+    from news_agent.config import settings as _cfg
+
+    monkeypatch.setattr(_cfg, "dismiss_on_downvote", False)
+    item = make_item(url="https://example.com/flag-off", published_at=hours_ago(1))
+    async with get_session() as session:
+        repo = NewsRepository(session)
+        await repo.upsert(item)
+        await repo.dismiss(item.id)
+        items = await repo.get_recent(hours=24)
+    assert item.id in {i.id for i in items}

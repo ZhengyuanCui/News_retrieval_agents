@@ -148,6 +148,14 @@ class Settings(BaseSettings):
     batch_size: int = 15
     max_items_per_source: int = 50
 
+    # ── Personalization ───────────────────────────────────────────────────────
+    # When True, a user downvote inserts a row in DismissedItemORM and the item
+    # is hidden from get_recent() / search() across sessions and re-fetches.
+    # Upvoting (or explicitly un-downvoting) a dismissed item clears its tombstone.
+    # Set False to preserve legacy behaviour where downvotes only influenced
+    # future ranking scores without hiding the downvoted item itself.
+    dismiss_on_downvote: bool = True
+
     # ── Storage ───────────────────────────────────────────────────────────────
     database_url: str = "sqlite+aiosqlite:///data/news.db"
     retention_days: int = 30

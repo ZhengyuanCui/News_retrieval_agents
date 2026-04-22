@@ -154,3 +154,18 @@ class CollectorStateORM(Base):
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     youtube_quota_used: Mapped[int] = mapped_column(default=0)
     youtube_quota_reset_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
+
+class DismissedItemORM(Base):
+    """Tombstone for items the user has explicitly dismissed (e.g. via downvote).
+
+    Keyed by item_id so a re-fetch of the same (source, url) pair — which
+    re-upserts the same sha256(source:url)[:16] id — stays hidden. This closes
+    the loop on downvotes that otherwise only reshape future ranking but
+    never suppress the dismissed item itself.
+    """
+    __tablename__ = "dismissed_items"
+
+    item_id: Mapped[str] = mapped_column(String(16), primary_key=True)
+    dismissed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    reason: Mapped[str | None] = mapped_column(String(32), nullable=True)  # "downvote" | "manual" | ...

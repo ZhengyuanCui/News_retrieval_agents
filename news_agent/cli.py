@@ -279,9 +279,18 @@ def status():
 @click.option("--topics", default="", help="Comma-separated topics (default: use saved UI topics / NEWSLETTER_TOPICS)")
 @click.option("--to", "recipient", default="", help="Recipient email (default: NEWSLETTER_EMAIL_TO)")
 @click.option("--hours", default=None, type=int, help="Look back N hours (default: NEWSLETTER_HOURS_LOOKBACK)")
+@click.option("--format", "podcast_format", default=None, type=click.Choice(["dialogue", "monologue"]),
+              help="Audio format for generated briefings")
 @click.option("--no-audio", is_flag=True, help="Skip the MP3 audio attachment")
 @click.option("--no-refresh", is_flag=True, help="Skip the live fetch; send using items already in the DB")
-def newsletter(topics: str, recipient: str, hours: int | None, no_audio: bool, no_refresh: bool):
+def newsletter(
+    topics: str,
+    recipient: str,
+    hours: int | None,
+    podcast_format: str | None,
+    no_audio: bool,
+    no_refresh: bool,
+):
     """Build and email a newsletter right now (manual trigger / test).
 
     By default this fetches fresh news for every topic and waits for LLM
@@ -303,6 +312,7 @@ def newsletter(topics: str, recipient: str, hours: int | None, no_audio: bool, n
                 hours=hours,
                 include_audio=not no_audio,
                 refresh=not no_refresh,
+                podcast_format=podcast_format,
             )
         rprint(f"\n[bold green]Sent![/] {result}")
 

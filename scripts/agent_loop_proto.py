@@ -371,6 +371,18 @@ def _format_cost(cost: float | None) -> str:
     return "unknown" if cost is None else f"${cost:.4f}"
 
 
+def _unknown_cost_if_fallback(default: float = 0.0) -> float | None:
+    """Return a measured cost only for live LLM mode.
+
+    Fallback mode is intentionally local/heuristic, so it does not produce a
+    trustworthy dollar figure. In those paths we render cost as unknown rather
+    than pretending the cost was measured and happened to be zero.
+    """
+    if not settings.__dict__.get("_agent_loop_live_llm", False):
+        return None
+    return default
+
+
 def _average_cost(results: list[dict], name: str) -> float | None:
     values = [row["variants"][name]["cost_usd"] for row in results]
     if any(v is None for v in values):
@@ -468,7 +480,11 @@ async def _single_shot_answer(backend: RetrievalBackend, question: str, hours: f
     items = await _retrieve_items(backend, question, hours=max(hours, DEFAULT_HOURS), limit=limit)
     top_items = items[:20]
     if not top_items:
-        return {"answer": "No relevant news articles found to answer this question.", "items": [], "queries": [question]}, 0.0
+        return {
+            "answer": "No relevant news articles found to answer this question.",
+            "items": [],
+            "queries": [question],
+        }, _unknown_cost_if_fallback()
     prompt = QA_PROMPT.format(question=question, n=len(top_items), items_text=_items_text(top_items))
     answer, cost = await _call_text(_main_model(), _main_api_key(), prompt, max_tokens=800)
     return {"answer": answer or _fallback_answer(question, top_items), "items": top_items, "queries": [question]}, cost
@@ -526,7 +542,11 @@ async def _loop_answer(
 
     final_items = collected[:mode.final_limit]
     if not final_items:
-        return {"answer": "No relevant news articles found to answer this question.", "items": [], "queries": tried_queries}, total_cost
+        return {
+            "answer": "No relevant news articles found to answer this question.",
+            "items": [],
+            "queries": tried_queries,
+        }, total_cost
 
     prompt = QA_PROMPT.format(question=question, n=len(final_items), items_text=_items_text(final_items))
     answer, answer_cost = await _call_text(_main_model(), _main_api_key(), prompt, max_tokens=1000)

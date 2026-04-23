@@ -56,3 +56,20 @@ def test_fallback_mode_marks_cost_unknown():
     assert summary["avg_cost_usd"]["balanced"] is None
     assert summary["recommendation"] == "quality-only result; rerun with --live-llm for cost-based decision"
     assert "unknown" in table
+
+
+def test_no_evidence_fallback_marks_current_cost_unknown():
+    mod = _load_module()
+    setattr(mod.settings, "_agent_loop_live_llm", False)
+
+    result = mod.asyncio.run(
+        mod._single_shot_answer(
+            mod.RetrievalBackend(label=mod.LOCAL_RETRIEVAL_LABEL, db_path=Path("/tmp/does-not-exist.db")),
+            "Q",
+            24,
+            10,
+        )
+    )
+
+    _, cost = result
+    assert cost is None

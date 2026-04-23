@@ -5,6 +5,7 @@ from datetime import datetime
 
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from news_agent.collectors.base import BaseCollector
@@ -96,6 +97,12 @@ CHANNEL_TOPICS: dict[str, str] = {
 class YouTubeCollector(BaseCollector):
     source_name = "youtube"
     rate_limit_delay = 0.5
+
+    class YouTubeState(BaseModel):
+        youtube_quota_used: int = 0
+        youtube_quota_reset_date: str | None = None
+
+    StateSchema = YouTubeState
 
     def is_enabled(self) -> bool:
         return settings.youtube_enabled and bool(settings.youtube_api_key)

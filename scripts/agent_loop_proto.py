@@ -283,16 +283,30 @@ def _fallback_judge(variants: dict[str, dict]) -> dict[str, Any]:
     }
 
 
+def _combine_cost_status(current: str, new: str) -> str:
+    if current == new:
+        return current
+    if "partial" in {current, new}:
+        return "partial"
+    if "measured" in {current, new} and "fallback" in {current, new}:
+        return "partial"
+    if current == "not_needed":
+        return new
+    if new == "not_needed":
+        return current
+    return new
+
+
 async def _call_json(
     model: str,
     api_key: str | None,
     prompt: str,
     *,
     fallback_payload: dict[str, Any] | None = None,
-) -> tuple[dict, float | None]:
+) -> tuple[dict, float, str]:
     global _LLM_UNAVAILABLE
     if _LLM_UNAVAILABLE or not settings.__dict__.get("_agent_loop_live_llm", False):
-        return fallback_payload or _fallback_plan(prompt), None
+        return fallback_payload or _fallback_plan(prompt), 0.0, "fallback"
     litellm = _litellm_module()
     base_messages = [{"role": "user", "content": prompt}]
     for attempt in range(2):
@@ -321,10 +335,10 @@ async def _call_json(
             break
         content = response.choices[0].message.content or ""
         try:
-            return _parse_json_object(content), _messages_cost(model, messages, content)
+            return _parse_json_object(content), _messages_cost(model, messages, content), "measured"
         except json.JSONDecodeError:
             continue
-    return fallback_payload or _fallback_plan(prompt), None
+    return fallback_payload or _fallback_plan(prompt), 0.0, "fallback"
 
 
 async def _call_text(
@@ -333,10 +347,10 @@ async def _call_text(
     prompt: str,
     *,
     max_tokens: int = 900,
-) -> tuple[str | None, float | None]:
+) -> tuple[str | None, float, str]:
     global _LLM_UNAVAILABLE
     if _LLM_UNAVAILABLE or not settings.__dict__.get("_agent_loop_live_llm", False):
-        return None, None
+        return None, 0.0, "fallback"
     litellm = _litellm_module()
     messages = [{"role": "user", "content": prompt}]
     try:
@@ -352,42 +366,22 @@ async def _call_text(
         )
     except Exception:
         _LLM_UNAVAILABLE = True
-        return None, None
+        return None, 0.0, "fallback"
     content = response.choices[0].message.content or ""
-    return content, _messages_cost(model, messages, content)
+    return content, _messages_cost(model, messages, content), "measured"
 
 
-def _merge_cost(total: float | None, part: float | None) -> float | None:
-    if total is None or part is None:
-        return None
-    return total + part
+def _round_cost(cost: float) -> float:
+    return round(cost, 6)
 
 
-def _round_cost(cost: float | None) -> float | None:
-    return None if cost is None else round(cost, 6)
+def _format_cost(cost: float, status: str) -> str:
+    suffix = "" if status == "measured" else f" [{status}]"
+    return f"${cost:.4f}{suffix}"
 
 
-def _format_cost(cost: float | None) -> str:
-    return "unknown" if cost is None else f"${cost:.4f}"
-
-
-def _unknown_cost_if_fallback(default: float = 0.0) -> float | None:
-    """Return a measured cost only for live LLM mode.
-
-    Fallback mode is intentionally local/heuristic, so it does not produce a
-    trustworthy dollar figure. In those paths we render cost as unknown rather
-    than pretending the cost was measured and happened to be zero.
-    """
-    if not settings.__dict__.get("_agent_loop_live_llm", False):
-        return None
-    return default
-
-
-def _average_cost(results: list[dict], name: str) -> float | None:
-    values = [row["variants"][name]["cost_usd"] for row in results]
-    if any(v is None for v in values):
-        return None
-    return mean(values)
+def _average_cost(results: list[dict], name: str) -> float:
+    return mean(row["variants"][name]["cost_usd"] for row in results)
 
 
 def _items_text(items: list[NewsItem]) -> str:
@@ -476,7 +470,12 @@ async def _retrieve_items(
     return items[:limit]
 
 
-async def _single_shot_answer(backend: RetrievalBackend, question: str, hours: float, limit: int) -> tuple[dict, float]:
+async def _single_shot_answer(
+    backend: RetrievalBackend,
+    question: str,
+    hours: float,
+    limit: int,
+) -> tuple[dict, float, str]:
     items = await _retrieve_items(backend, question, hours=max(hours, DEFAULT_HOURS), limit=limit)
     top_items = items[:20]
     if not top_items:
@@ -484,10 +483,10 @@ async def _single_shot_answer(backend: RetrievalBackend, question: str, hours: f
             "answer": "No relevant news articles found to answer this question.",
             "items": [],
             "queries": [question],
-        }, _unknown_cost_if_fallback()
+        }, 0.0, "not_needed"
     prompt = QA_PROMPT.format(question=question, n=len(top_items), items_text=_items_text(top_items))
-    answer, cost = await _call_text(_main_model(), _main_api_key(), prompt, max_tokens=800)
-    return {"answer": answer or _fallback_answer(question, top_items), "items": top_items, "queries": [question]}, cost
+    answer, cost, cost_status = await _call_text(_main_model(), _main_api_key(), prompt, max_tokens=800)
+    return {"answer": answer or _fallback_answer(question, top_items), "items": top_items, "queries": [question]}, cost, cost_status
 
 
 async def _loop_answer(
@@ -495,10 +494,11 @@ async def _loop_answer(
     question: str,
     hours: float,
     mode: LoopMode,
-) -> tuple[dict, float | None]:
+) -> tuple[dict, float, str]:
     planner_model = settings.analysis_model
     planner_key = _analysis_key()
-    total_cost: float | None = 0.0 if settings.__dict__.get("_agent_loop_live_llm", False) else None
+    total_cost = 0.0
+    cost_status = "not_needed"
     tried_queries = [question]
     collected = await _retrieve_items(
         backend,
@@ -509,7 +509,7 @@ async def _loop_answer(
 
     for iteration in range(1, mode.iterations + 1):
         evidence_titles = "\n".join(f"- {item.title}" for item in collected[:12]) or "- none yet"
-        plan, step_cost = await _call_json(
+        plan, step_cost, step_status = await _call_json(
             planner_model,
             planner_key,
             PLANNER_PROMPT.format(
@@ -523,7 +523,8 @@ async def _loop_answer(
             ),
             fallback_payload=_fallback_plan(question),
         )
-        total_cost = _merge_cost(total_cost, step_cost)
+        total_cost += step_cost
+        cost_status = _combine_cost_status(cost_status, step_status)
         next_queries = [
             q.strip() for q in plan.get("next_queries", [])
             if isinstance(q, str) and q.strip() and q.strip() not in tried_queries
@@ -546,21 +547,22 @@ async def _loop_answer(
             "answer": "No relevant news articles found to answer this question.",
             "items": [],
             "queries": tried_queries,
-        }, total_cost
+        }, total_cost, cost_status
 
     prompt = QA_PROMPT.format(question=question, n=len(final_items), items_text=_items_text(final_items))
-    answer, answer_cost = await _call_text(_main_model(), _main_api_key(), prompt, max_tokens=1000)
-    total_cost = _merge_cost(total_cost, answer_cost)
-    return {"answer": answer or _fallback_answer(question, final_items), "items": final_items, "queries": tried_queries}, total_cost
+    answer, answer_cost, answer_status = await _call_text(_main_model(), _main_api_key(), prompt, max_tokens=1000)
+    total_cost += answer_cost
+    cost_status = _combine_cost_status(cost_status, answer_status)
+    return {"answer": answer or _fallback_answer(question, final_items), "items": final_items, "queries": tried_queries}, total_cost, cost_status
 
 
 async def evaluate_question(backend: RetrievalBackend, question: str, hours: float, limit: int) -> dict:
-    current, current_cost = await _single_shot_answer(backend, question, hours, limit)
-    balanced, balanced_cost = await _loop_answer(backend, question, hours, MODES["balanced"])
-    deep, deep_cost = await _loop_answer(backend, question, hours, MODES["deep"])
+    current, current_cost, current_cost_status = await _single_shot_answer(backend, question, hours, limit)
+    balanced, balanced_cost, balanced_cost_status = await _loop_answer(backend, question, hours, MODES["balanced"])
+    deep, deep_cost, deep_cost_status = await _loop_answer(backend, question, hours, MODES["deep"])
     variants = {"current": current, "balanced": balanced, "deep": deep}
 
-    judge_payload, judge_cost = await _call_json(
+    judge_payload, judge_cost, judge_cost_status = await _call_json(
         settings.analysis_model,
         _analysis_key(),
         JUDGE_PROMPT.format(
@@ -574,6 +576,7 @@ async def evaluate_question(backend: RetrievalBackend, question: str, hours: flo
     if set(judge_payload.get("scores", {}).keys()) != {"current", "balanced", "deep"}:
         judge_payload = _fallback_judge(variants)
         judge_cost = 0.0
+        judge_cost_status = "fallback"
 
     return {
         "question": question,
@@ -583,6 +586,7 @@ async def evaluate_question(backend: RetrievalBackend, question: str, hours: flo
                 "queries": current["queries"],
                 "sources": len(current["items"]),
                 "cost_usd": _round_cost(current_cost),
+                "cost_status": current_cost_status,
                 "answer": current["answer"],
                 **judge_payload["scores"]["current"],
             },
@@ -590,6 +594,7 @@ async def evaluate_question(backend: RetrievalBackend, question: str, hours: flo
                 "queries": balanced["queries"],
                 "sources": len(balanced["items"]),
                 "cost_usd": _round_cost(balanced_cost),
+                "cost_status": balanced_cost_status,
                 "answer": balanced["answer"],
                 **judge_payload["scores"]["balanced"],
             },
@@ -597,11 +602,13 @@ async def evaluate_question(backend: RetrievalBackend, question: str, hours: flo
                 "queries": deep["queries"],
                 "sources": len(deep["items"]),
                 "cost_usd": _round_cost(deep_cost),
+                "cost_status": deep_cost_status,
                 "answer": deep["answer"],
                 **judge_payload["scores"]["deep"],
             },
         },
         "judge_cost_usd": _round_cost(judge_cost),
+        "judge_cost_status": judge_cost_status,
         "winner": judge_payload["winner"],
         "judge_summary": judge_payload["summary"],
     }
@@ -619,12 +626,24 @@ def summarize(results: list[dict]) -> dict:
         "wins": dict(wins),
         "avg_scores": {name: round(avg_score(name), 3) for name in ("current", "balanced", "deep")},
         "avg_cost_usd": {name: _round_cost(_average_cost(results, name)) for name in ("current", "balanced", "deep")},
+        "cost_status": {
+            name: (
+                "partial"
+                if any(row["variants"][name]["cost_status"] == "partial" for row in results)
+                else "fallback"
+                if any(row["variants"][name]["cost_status"] == "fallback" for row in results)
+                else "not_needed"
+                if all(row["variants"][name]["cost_status"] == "not_needed" for row in results)
+                else "measured"
+            )
+            for name in ("current", "balanced", "deep")
+        },
         "evidence_mode": LOCAL_RETRIEVAL_LABEL,
         "llm_mode": "live" if settings.__dict__.get("_agent_loop_live_llm", False) else "fallback",
     }
     balanced_wins = wins.get("balanced", 0)
     balanced_cost = summary["avg_cost_usd"]["balanced"]
-    if balanced_cost is None:
+    if summary["cost_status"]["balanced"] != "measured":
         summary["recommendation"] = "quality-only result; rerun with --live-llm for cost-based decision"
     elif balanced_wins >= 6 and balanced_cost <= 0.05:
         summary["recommendation"] = "ship balanced (BM25-only evidence in this environment)"
@@ -645,9 +664,9 @@ def markdown_table(results: list[dict], summary: dict) -> str:
     for row in results:
         lines.append(
             f"| {row['question']} | "
-            f"{row['variants']['current']['score']}/5 ({_format_cost(row['variants']['current']['cost_usd'])}) | "
-            f"{row['variants']['balanced']['score']}/5 ({_format_cost(row['variants']['balanced']['cost_usd'])}) | "
-            f"{row['variants']['deep']['score']}/5 ({_format_cost(row['variants']['deep']['cost_usd'])}) | "
+            f"{row['variants']['current']['score']}/5 ({_format_cost(row['variants']['current']['cost_usd'], row['variants']['current']['cost_status'])}) | "
+            f"{row['variants']['balanced']['score']}/5 ({_format_cost(row['variants']['balanced']['cost_usd'], row['variants']['balanced']['cost_status'])}) | "
+            f"{row['variants']['deep']['score']}/5 ({_format_cost(row['variants']['deep']['cost_usd'], row['variants']['deep']['cost_status'])}) | "
             f"{row['winner']} |"
         )
     lines.extend(
@@ -655,7 +674,7 @@ def markdown_table(results: list[dict], summary: dict) -> str:
             "",
             f"LLM mode: {summary['llm_mode']}",
             f"Average scores: current={summary['avg_scores']['current']}, balanced={summary['avg_scores']['balanced']}, deep={summary['avg_scores']['deep']}",
-            f"Average cost/question: current={_format_cost(summary['avg_cost_usd']['current'])}, balanced={_format_cost(summary['avg_cost_usd']['balanced'])}, deep={_format_cost(summary['avg_cost_usd']['deep'])}",
+            f"Average cost/question: current={_format_cost(summary['avg_cost_usd']['current'], summary['cost_status']['current'])}, balanced={_format_cost(summary['avg_cost_usd']['balanced'], summary['cost_status']['balanced'])}, deep={_format_cost(summary['avg_cost_usd']['deep'], summary['cost_status']['deep'])}",
             f"Recommendation: {summary['recommendation']}",
         ]
     )

@@ -30,9 +30,9 @@ def test_fallback_mode_marks_cost_unknown():
         {
             "winner": "tie",
             "variants": {
-                "current": {"score": 1, "cost_usd": None},
-                "balanced": {"score": 4, "cost_usd": None},
-                "deep": {"score": 4, "cost_usd": None},
+                "current": {"score": 1, "cost_usd": 0.0, "cost_status": "fallback"},
+                "balanced": {"score": 4, "cost_usd": 0.0, "cost_status": "fallback"},
+                "deep": {"score": 4, "cost_usd": 0.0, "cost_status": "fallback"},
             },
         }
     ]
@@ -44,18 +44,19 @@ def test_fallback_mode_marks_cost_unknown():
                 "question": "Q",
                 "winner": "tie",
                 "variants": {
-                    "current": {"score": 1, "cost_usd": None},
-                    "balanced": {"score": 4, "cost_usd": None},
-                    "deep": {"score": 4, "cost_usd": None},
+                    "current": {"score": 1, "cost_usd": 0.0, "cost_status": "fallback"},
+                    "balanced": {"score": 4, "cost_usd": 0.0, "cost_status": "fallback"},
+                    "deep": {"score": 4, "cost_usd": 0.0, "cost_status": "fallback"},
                 },
             }
         ],
         summary,
     )
 
-    assert summary["avg_cost_usd"]["balanced"] is None
+    assert summary["avg_cost_usd"]["balanced"] == 0.0
+    assert summary["cost_status"]["balanced"] == "fallback"
     assert summary["recommendation"] == "quality-only result; rerun with --live-llm for cost-based decision"
-    assert "unknown" in table
+    assert "[fallback]" in table
 
 
 def test_no_evidence_fallback_marks_current_cost_unknown():
@@ -71,5 +72,6 @@ def test_no_evidence_fallback_marks_current_cost_unknown():
         )
     )
 
-    _, cost = result
-    assert cost is None
+    _, cost, cost_status = result
+    assert cost == 0.0
+    assert cost_status == "not_needed"

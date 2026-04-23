@@ -29,12 +29,44 @@ from news_agent.config import settings
 from news_agent.models import NewsItem
 
 RESULTS_OUT = Path(__file__).resolve().parent / "agent_loop_results.json"
-DB_PATH = Path(__file__).resolve().parents[1] / "data" / "news.db"
 DEFAULT_HOURS = 168
 DEFAULT_SEARCH_LIMIT = 20
-LLM_TIMEOUT_SECONDS = 5
+LLM_TIMEOUT_SECONDS = 30
 LOCAL_RETRIEVAL_LABEL = "BM25-only local SQLite evidence"
-_LLM_UNAVAILABLE = False
+MAIN_WORKSPACE_DB = Path("/mnt/c/ZhengyuanCui/Projects/News_retrieval_agents/data/news.db")
+STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "around",
+    "between",
+    "by",
+    "did",
+    "does",
+    "for",
+    "from",
+    "how",
+    "in",
+    "into",
+    "is",
+    "it",
+    "latest",
+    "last",
+    "new",
+    "of",
+    "on",
+    "or",
+    "recent",
+    "right",
+    "the",
+    "their",
+    "this",
+    "to",
+    "what",
+    "week",
+    "with",
+}
 
 DEFAULT_QUESTIONS = [
     "What changed this week in OpenAI's model roadmap?",
@@ -304,8 +336,7 @@ async def _call_json(
     *,
     fallback_payload: dict[str, Any] | None = None,
 ) -> tuple[dict, float, str]:
-    global _LLM_UNAVAILABLE
-    if _LLM_UNAVAILABLE or not settings.__dict__.get("_agent_loop_live_llm", False):
+    if not settings.__dict__.get("_agent_loop_live_llm", False):
         return fallback_payload or _fallback_plan(prompt), 0.0, "fallback"
     litellm = _litellm_module()
     base_messages = [{"role": "user", "content": prompt}]
@@ -331,7 +362,6 @@ async def _call_json(
                 timeout=LLM_TIMEOUT_SECONDS,
             )
         except Exception:
-            _LLM_UNAVAILABLE = True
             break
         content = response.choices[0].message.content or ""
         try:
@@ -348,8 +378,7 @@ async def _call_text(
     *,
     max_tokens: int = 900,
 ) -> tuple[str | None, float, str]:
-    global _LLM_UNAVAILABLE
-    if _LLM_UNAVAILABLE or not settings.__dict__.get("_agent_loop_live_llm", False):
+    if not settings.__dict__.get("_agent_loop_live_llm", False):
         return None, 0.0, "fallback"
     litellm = _litellm_module()
     messages = [{"role": "user", "content": prompt}]
@@ -365,7 +394,6 @@ async def _call_text(
             timeout=LLM_TIMEOUT_SECONDS,
         )
     except Exception:
-        _LLM_UNAVAILABLE = True
         return None, 0.0, "fallback"
     content = response.choices[0].message.content or ""
     return content, _messages_cost(model, messages, content), "measured"
@@ -406,9 +434,19 @@ def _dedupe_items(items: list[NewsItem]) -> list[NewsItem]:
     return deduped
 
 
-def _fts_escape(query: str) -> str:
-    words = re.findall(r"\w+", query)
-    return " ".join(f'"{w}"' for w in words) if words else '""'
+def _default_db_path() -> Path:
+    return MAIN_WORKSPACE_DB
+
+
+def _bm25_query(query: str) -> str:
+    words = re.findall(r"\w+", query.lower())
+    filtered = [word for word in words if len(word) > 2 and word not in STOPWORDS]
+    deduped: list[str] = []
+    for word in filtered:
+        if word not in deduped:
+            deduped.append(word)
+    terms = deduped[:8] or words[:6]
+    return " OR ".join(f'"{word}"' for word in terms) if terms else '""'
 
 
 async def _retrieve_items(
@@ -438,7 +476,7 @@ async def _retrieve_items(
             ORDER BY bm25(news_items_fts), ni.published_at DESC
             LIMIT ?
             """,
-            (_fts_escape(query), cutoff.isoformat(sep=" "), limit * 2),
+            (_bm25_query(query), cutoff.isoformat(sep=" "), limit * 2),
         ).fetchall()
     finally:
         conn.close()
@@ -694,7 +732,7 @@ async def main() -> None:
     args = parse_args()
     setattr(settings, "_agent_loop_live_llm", bool(args.live_llm))
     questions = load_questions(args.questions_file)
-    backend = RetrievalBackend(label=LOCAL_RETRIEVAL_LABEL, db_path=DB_PATH)
+    backend = RetrievalBackend(label=LOCAL_RETRIEVAL_LABEL, db_path=_default_db_path())
     rows = []
     for index, question in enumerate(questions, start=1):
         print(f"[{index}/{len(questions)}] {question}", flush=True)

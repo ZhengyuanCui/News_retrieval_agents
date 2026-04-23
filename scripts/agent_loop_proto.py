@@ -32,9 +32,8 @@ RESULTS_OUT = Path(__file__).resolve().parent / "agent_loop_results.json"
 DB_PATH = Path(__file__).resolve().parents[1] / "data" / "news.db"
 DEFAULT_HOURS = 168
 DEFAULT_SEARCH_LIMIT = 20
-LLM_TIMEOUT_SECONDS = 5
+LLM_TIMEOUT_SECONDS = 30
 LOCAL_RETRIEVAL_LABEL = "BM25-only local SQLite evidence"
-_LLM_UNAVAILABLE = False
 
 DEFAULT_QUESTIONS = [
     "What changed this week in OpenAI's model roadmap?",
@@ -304,8 +303,7 @@ async def _call_json(
     *,
     fallback_payload: dict[str, Any] | None = None,
 ) -> tuple[dict, float, str]:
-    global _LLM_UNAVAILABLE
-    if _LLM_UNAVAILABLE or not settings.__dict__.get("_agent_loop_live_llm", False):
+    if not settings.__dict__.get("_agent_loop_live_llm", False):
         return fallback_payload or _fallback_plan(prompt), 0.0, "fallback"
     litellm = _litellm_module()
     base_messages = [{"role": "user", "content": prompt}]
@@ -331,7 +329,6 @@ async def _call_json(
                 timeout=LLM_TIMEOUT_SECONDS,
             )
         except Exception:
-            _LLM_UNAVAILABLE = True
             break
         content = response.choices[0].message.content or ""
         try:
@@ -348,8 +345,7 @@ async def _call_text(
     *,
     max_tokens: int = 900,
 ) -> tuple[str | None, float, str]:
-    global _LLM_UNAVAILABLE
-    if _LLM_UNAVAILABLE or not settings.__dict__.get("_agent_loop_live_llm", False):
+    if not settings.__dict__.get("_agent_loop_live_llm", False):
         return None, 0.0, "fallback"
     litellm = _litellm_module()
     messages = [{"role": "user", "content": prompt}]
@@ -365,7 +361,6 @@ async def _call_text(
             timeout=LLM_TIMEOUT_SECONDS,
         )
     except Exception:
-        _LLM_UNAVAILABLE = True
         return None, 0.0, "fallback"
     content = response.choices[0].message.content or ""
     return content, _messages_cost(model, messages, content), "measured"

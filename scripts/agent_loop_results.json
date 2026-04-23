@@ -1,0 +1,698 @@
+{
+  "questions": [
+    "What changed this week in OpenAI's model roadmap?",
+    "How is Anthropic positioning Claude against OpenAI right now?",
+    "What is new in AI chip competition between Nvidia, AMD, and hyperscalers?",
+    "What are the biggest recent AI infrastructure cost stories?",
+    "How are regulators responding to frontier-model safety concerns?",
+    "What happened recently with open-weight model releases?",
+    "How are Microsoft, Google, and Amazon differentiating their AI platforms?",
+    "What is the latest on AI agent products and research loops?",
+    "How are publishers and media companies reacting to generative AI deals?",
+    "What changed in the last week around robotics plus foundation models?"
+  ],
+  "summary": {
+    "wins": {
+      "tie": 10
+    },
+    "avg_scores": {
+      "current": 1.2,
+      "balanced": 1.2,
+      "deep": 1.2
+    },
+    "avg_cost_usd": {
+      "current": 0.0,
+      "balanced": 0.001795,
+      "deep": 0.004662
+    },
+    "cost_status": {
+      "current": "not_needed",
+      "balanced": "measured",
+      "deep": "measured"
+    },
+    "evidence_mode": "BM25-only local SQLite evidence",
+    "llm_mode": "live",
+    "recommendation": "kill full loop; consider only query expansion (BM25-only evidence in this environment)"
+  },
+  "results": [
+    {
+      "question": "What changed this week in OpenAI's model roadmap?",
+      "evidence_mode": "BM25-only local SQLite evidence",
+      "variants": {
+        "current": {
+          "queries": [
+            "What changed this week in OpenAI's model roadmap?"
+          ],
+          "sources": 0,
+          "cost_usd": 0.0,
+          "cost_status": "not_needed",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 3,
+          "reason": "Honest acknowledgment of lack of information, but provides no value to the user. Direct and factually grounded (nothing false stated), but zero coverage of the question."
+        },
+        "balanced": {
+          "queries": [
+            "What changed this week in OpenAI's model roadmap?",
+            "OpenAI model roadmap updates this week",
+            "OpenAI new model announcements latest news",
+            "OpenAI roadmap changes 2024 latest updates",
+            "OpenAI GPT model releases this week news",
+            "OpenAI announcements this week GPT-4 o1 model updates",
+            "site:openai.com model roadmap latest 2024"
+          ],
+          "sources": 0,
+          "cost_usd": 0.001736,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 3,
+          "reason": "Same as current\u2014honest but unhelpful. No speculation or errors, but fails to address the question or suggest alternatives."
+        },
+        "deep": {
+          "queries": [
+            "What changed this week in OpenAI's model roadmap?",
+            "OpenAI model roadmap updates 2024",
+            "OpenAI GPT release schedule changes",
+            "OpenAI new models announcement this week",
+            "OpenAI roadmap changes latest news",
+            "OpenAI model updates this week 2024",
+            "OpenAI API changes announcements recent",
+            "OpenAI roadmap blog post this week",
+            "OpenAI DevDay announcements model updates",
+            "site:openai.com model roadmap changes",
+            "OpenAI roadmap changes this week reddit hacker news",
+            "OpenAI model updates announcement latest news",
+            "OpenAI GPT-4 turbo o1 release schedule changes",
+            "OpenAI roadmap changes December 2024 January 2025",
+            "OpenAI model deprecation timeline announcements",
+            "OpenAI o1 o3 release date updates news"
+          ],
+          "sources": 0,
+          "cost_usd": 0.004085,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 3,
+          "reason": "Identical response to the others. While truthful, it provides no additional depth, context, or attempt to help the user find relevant information."
+        }
+      },
+      "judge_cost_usd": 0.001398,
+      "judge_cost_status": "measured",
+      "winner": "tie",
+      "judge_summary": "All three answers are identical and equally uninformative. Each correctly states that no relevant news was found, avoiding speculation and false claims. However, none attempt to clarify the timeframe, suggest where to find such information, or acknowledge uncertainty about what 'this week' means. A stronger response would offer to search with different parameters or ask for clarification about the relevant time period."
+    },
+    {
+      "question": "How is Anthropic positioning Claude against OpenAI right now?",
+      "evidence_mode": "BM25-only local SQLite evidence",
+      "variants": {
+        "current": {
+          "queries": [
+            "How is Anthropic positioning Claude against OpenAI right now?"
+          ],
+          "sources": 0,
+          "cost_usd": 0.0,
+          "cost_status": "not_needed",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No information provided. While honest about lack of sources, this fails to answer the question or offer any useful context."
+        },
+        "balanced": {
+          "queries": [
+            "How is Anthropic positioning Claude against OpenAI right now?",
+            "Claude AI capabilities comparison OpenAI GPT 2024",
+            "Anthropic company strategy positioning market differentiation",
+            "Anthropic Claude competitive advantages vs OpenAI 2024",
+            "Anthropic marketing messaging Claude differentiation strategy",
+            "Anthropic Claude recent announcements product launches 2024",
+            "Anthropic safety alignment positioning versus OpenAI competitive messaging"
+          ],
+          "sources": 0,
+          "cost_usd": 0.001782,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No information provided. Identical to current answer - acknowledges missing sources but provides no value to the user."
+        },
+        "deep": {
+          "queries": [
+            "How is Anthropic positioning Claude against OpenAI right now?",
+            "Anthropic Claude competitive advantages vs OpenAI GPT 2024",
+            "Anthropic marketing strategy positioning Claude",
+            "Claude vs ChatGPT performance benchmarks comparison",
+            "Anthropic Claude product announcements 2024 competitive positioning",
+            "Claude API pricing strategy vs OpenAI GPT-4 comparison",
+            "Anthropic executive statements Claude market differentiation strategy",
+            "Anthropic Claude safety alignment differentiation competitive messaging 2024",
+            "Claude enterprise adoption market share vs OpenAI ChatGPT business",
+            "Anthropic funding strategy market positioning Claude ecosystem partnerships",
+            "Anthropic Claude 3.5 Sonnet release announcement competitive claims vs GPT-4o",
+            "Anthropic constitutional AI safety positioning market differentiation 2024",
+            "Claude long context window 200k tokens competitive advantage messaging",
+            "Anthropic Claude market share growth 2024 vs OpenAI competitive position",
+            "Anthropic CEO Dario Amodei statements Claude differentiation strategy 2024",
+            "Claude adoption enterprise customers case studies competitive advantages",
+            "Anthropic Claude vs OpenAI competitive analysis industry reports 2024",
+            "Anthropic Claude market positioning messaging vs ChatGPT differentiation",
+            "Claude adoption growth metrics market share comparison OpenAI 2024"
+          ],
+          "sources": 0,
+          "cost_usd": 0.004882,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No information provided. Same limitation as other answers - no attempt to provide context, background, or alternative information."
+        }
+      },
+      "judge_cost_usd": 0.001304,
+      "judge_cost_status": "measured",
+      "winner": "tie",
+      "judge_summary": "All three answers are equally unhelpful, providing identical responses that acknowledge missing news articles but offer no substantive information. None attempt to provide general knowledge about the companies' positioning, recent developments, or strategic differences. A useful answer would either provide available information about competitive positioning or offer context about known differences in their approaches (safety focus, model capabilities, business models, etc.)."
+    },
+    {
+      "question": "What is new in AI chip competition between Nvidia, AMD, and hyperscalers?",
+      "evidence_mode": "BM25-only local SQLite evidence",
+      "variants": {
+        "current": {
+          "queries": [
+            "What is new in AI chip competition between Nvidia, AMD, and hyperscalers?"
+          ],
+          "sources": 0,
+          "cost_usd": 0.0,
+          "cost_status": "not_needed",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No information provided. While honest about lack of sources, fails to answer the question or offer any useful context."
+        },
+        "balanced": {
+          "queries": [
+            "What is new in AI chip competition between Nvidia, AMD, and hyperscalers?",
+            "Nvidia AMD AI chip market share 2024 competition",
+            "Google Tesla custom AI chips hyperscaler competition",
+            "latest AI chip announcements Nvidia H100 H200 AMD MI300 2024",
+            "hyperscaler custom chips competition Google TPU Meta Amazon Trainium",
+            "Nvidia AMD AI accelerator performance benchmarks 2024",
+            "hyperscaler in-house chip development strategy competition"
+          ],
+          "sources": 0,
+          "cost_usd": 0.001982,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No information provided. While honest about lack of sources, fails to answer the question or offer any useful context."
+        },
+        "deep": {
+          "queries": [
+            "What is new in AI chip competition between Nvidia, AMD, and hyperscalers?",
+            "Nvidia GPU market share AI chips 2024",
+            "AMD EPYC Instinct chip competition hyperscalers",
+            "Google TPU Amazon Trainium chip development",
+            "Nvidia H100 H200 GPU supply chain 2024 2025",
+            "AMD MI300 MI325 performance benchmarks vs Nvidia",
+            "Microsoft Intel custom AI chip Gaudi competition",
+            "Nvidia CUDA dominance AI chip ecosystem lock-in 2024",
+            "Hyperscaler custom silicon strategy Tesla Dojo Meta training chips",
+            "AI chip supply shortage allocation Nvidia H100 H200 2024 2025",
+            "Nvidia competitive threats open source AI chips 2024 2025",
+            "AI chip pricing cost per performance Nvidia AMD hyperscaler comparison",
+            "Qualcomm Broadcom networking chips AI infrastructure competition",
+            "Nvidia Blackwell chip 2024 2025 release date competition",
+            "AMD MI325X vs Nvidia H200 performance benchmarks enterprise AI",
+            "Hyperscaler in-house chip development strategy 2024 2025 alternatives to Nvidia"
+          ],
+          "sources": 0,
+          "cost_usd": 0.005233,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No information provided. While honest about lack of sources, fails to answer the question or offer any useful context."
+        }
+      },
+      "judge_cost_usd": 0.001249,
+      "judge_cost_status": "measured",
+      "winner": "tie",
+      "judge_summary": "All three answers are identical and provide no useful information. While honesty about source limitations is preferable to fabrication, none of the responses attempt to provide any factual information, context, or general knowledge about AI chip competition. A useful response would acknowledge the limitation while offering what general knowledge is available about recent trends in this competitive space."
+    },
+    {
+      "question": "What are the biggest recent AI infrastructure cost stories?",
+      "evidence_mode": "BM25-only local SQLite evidence",
+      "variants": {
+        "current": {
+          "queries": [
+            "What are the biggest recent AI infrastructure cost stories?"
+          ],
+          "sources": 0,
+          "cost_usd": 0.0,
+          "cost_status": "not_needed",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No answer provided. While honest about lack of information, this fails to address the question or offer any useful content."
+        },
+        "balanced": {
+          "queries": [
+            "What are the biggest recent AI infrastructure cost stories?",
+            "AI data center infrastructure spending costs 2024",
+            "major tech companies AI compute expenses billions",
+            "OpenAI Microsoft Google AI infrastructure investment costs 2024",
+            "AI chip shortage GPU costs data center expenses"
+          ],
+          "sources": 0,
+          "cost_usd": 0.00175,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No answer provided. While honest about lack of information, this fails to address the question or offer any useful content."
+        },
+        "deep": {
+          "queries": [
+            "What are the biggest recent AI infrastructure cost stories?",
+            "AI data center infrastructure spending costs 2024",
+            "GPU chip shortage AI training expenses",
+            "OpenAI Anthropic Microsoft AI compute infrastructure investment",
+            "AI infrastructure costs billions 2024 OpenAI Anthropic Google",
+            "semiconductor shortage GPU prices AI training costs",
+            "data center energy costs AI models environmental impact",
+            "AI infrastructure cost breakdown training vs inference 2024",
+            "Nvidia H100 GPU pricing AI compute costs per token",
+            "xAI Tesla Grok infrastructure spending vs OpenAI Claude",
+            "AI infrastructure cost crisis 2024 2025 latest news",
+            "major AI companies infrastructure spending announcements recent",
+            "AI compute costs rising expensive training models news",
+            "AI infrastructure cost bubble concerns venture capital funding 2024",
+            "Meta Amazon Microsoft AI infrastructure capex spending announcements",
+            "AI model training costs comparison efficiency improvements 2024",
+            "AI infrastructure cost crisis scaling laws diminishing returns 2024",
+            "OpenAI Microsoft billion dollar AI infrastructure deals latest",
+            "AI chip manufacturing bottleneck cost implications TSMC Samsung 2024"
+          ],
+          "sources": 0,
+          "cost_usd": 0.004645,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No answer provided. While honest about lack of information, this fails to address the question or offer any useful content."
+        }
+      },
+      "judge_cost_usd": 0.001332,
+      "judge_cost_status": "measured",
+      "winner": "tie",
+      "judge_summary": "All three responses are identical and equally unhelpful. Each simply states that no relevant news articles were found, providing zero value to the user. While transparency about information limitations is preferable to fabrication, a better response would acknowledge the limitation while offering alternatives (e.g., suggesting how to search, noting when the knowledge cutoff is, or asking for clarification). None of the answers meet basic usefulness standards."
+    },
+    {
+      "question": "How are regulators responding to frontier-model safety concerns?",
+      "evidence_mode": "BM25-only local SQLite evidence",
+      "variants": {
+        "current": {
+          "queries": [
+            "How are regulators responding to frontier-model safety concerns?"
+          ],
+          "sources": 0,
+          "cost_usd": 0.0,
+          "cost_status": "not_needed",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No information provided. While honest about lack of sources, this fails to answer the question or provide any useful content."
+        },
+        "balanced": {
+          "queries": [
+            "How are regulators responding to frontier-model safety concerns?",
+            "regulatory frameworks frontier AI model safety requirements",
+            "government policy responses large language model risks",
+            "AI safety regulation EU AI Act executive orders",
+            "frontier AI model oversight government agencies 2024",
+            "NIST AI Risk Management Framework frontier models regulatory guidance",
+            "UK AI Bill frontier AI model safety requirements regulators"
+          ],
+          "sources": 0,
+          "cost_usd": 0.001822,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No information provided. Identical to current answer\u2014acknowledges limitation but offers no value to the user."
+        },
+        "deep": {
+          "queries": [
+            "How are regulators responding to frontier-model safety concerns?",
+            "regulatory frameworks frontier AI model safety requirements",
+            "government agencies oversight large language models safety",
+            "international coordination AI safety regulation standards",
+            "EU AI Act frontier model safety requirements regulators",
+            "US executive order AI safety regulation frontier models",
+            "NIST AI safety standards frontier model testing requirements",
+            "UK AI Bill frontier model safety guardrails regulator powers",
+            "China AI regulation frontier model safety requirements governance",
+            "industry self-regulation frontier AI safety standards versus government mandates",
+            "frontier AI model safety auditing requirements regulators enforcement mechanisms",
+            "AI safety incident reporting requirements regulators frontier models",
+            "regulatory gaps frontier model safety concerns 2024",
+            "AI safety incident reporting requirements regulators frontier models enforcement",
+            "frontier AI model safety auditing certification requirements 2024",
+            "regulatory coordination AI safety frontier models NIST UK EU China",
+            "frontier AI model safety regulatory enforcement actions penalties 2024",
+            "AI safety incident disclosure requirements regulators frontier models liability",
+            "frontier model safety guardrails compliance verification regulator oversight mechanisms"
+          ],
+          "sources": 0,
+          "cost_usd": 0.004583,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No information provided. Same as other answers\u2014no attempt to provide context, background, or alternative information."
+        }
+      },
+      "judge_cost_usd": 0.001422,
+      "judge_cost_status": "measured",
+      "winner": "tie",
+      "judge_summary": "All three answers are identical and equally unhelpful. Each simply states that no relevant news articles were found, providing zero substantive content. None attempt to offer background context, acknowledge what regulatory efforts exist, or suggest where information might be found. For a question about current regulatory responses to frontier AI safety, even a brief explanation of known regulatory initiatives (EU AI Act, executive orders, industry standards) would be preferable to a blank response. The answers are factually honest but fail on usefulness and coverage."
+    },
+    {
+      "question": "What happened recently with open-weight model releases?",
+      "evidence_mode": "BM25-only local SQLite evidence",
+      "variants": {
+        "current": {
+          "queries": [
+            "What happened recently with open-weight model releases?"
+          ],
+          "sources": 0,
+          "cost_usd": 0.0,
+          "cost_status": "not_needed",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No information provided. While honest about lack of data, this fails to be useful to the user."
+        },
+        "balanced": {
+          "queries": [
+            "What happened recently with open-weight model releases?",
+            "open-weight AI model releases 2024",
+            "recent open source language model announcements",
+            "open-weight model releases Meta Llama Mistral 2024",
+            "recent open-source AI model benchmarks performance"
+          ],
+          "sources": 0,
+          "cost_usd": 0.00161,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No information provided. While honest about lack of data, this fails to be useful to the user."
+        },
+        "deep": {
+          "queries": [
+            "What happened recently with open-weight model releases?",
+            "open-weight model releases 2024",
+            "recent open source language model releases",
+            "Meta Llama Mistral open-weight models latest",
+            "open-weight model releases Q4 2024 Llama 3.2",
+            "Mistral 7B Grok open source model releases",
+            "open-weight AI models benchmark performance 2024",
+            "open-weight model releases December 2024 January 2025",
+            "Llama 3.2 Mistral Grok benchmark comparison recent",
+            "open source AI model licensing commercial use 2024",
+            "open-weight model releases news January 2025",
+            "Llama Mistral Grok Qwen latest release announcements",
+            "open-source AI model training efficiency improvements 2024",
+            "open-weight model releases news this week",
+            "latest open source LLM announcements 2025",
+            "open-weight AI model licensing commercial restrictions",
+            "open-weight model releases news today this week",
+            "Llama 3.3 Qwen 2.5 open source release announcement",
+            "open-weight AI model commercial availability restrictions 2025"
+          ],
+          "sources": 0,
+          "cost_usd": 0.004608,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No information provided. While honest about lack of data, this fails to be useful to the user."
+        }
+      },
+      "judge_cost_usd": 0.001386,
+      "judge_cost_status": "measured",
+      "winner": "tie",
+      "judge_summary": "All three answers are identical and equally unhelpful. Each correctly acknowledges the absence of relevant news articles in the available sources, but none provide any value to the user. In a real scenario, a useful response would either: (1) acknowledge the limitation while offering related context or suggestions for finding information, (2) provide the most recent information available even if not current, or (3) explain what timeframe or sources were searched. All answers score equally low due to complete lack of usefulness."
+    },
+    {
+      "question": "How are Microsoft, Google, and Amazon differentiating their AI platforms?",
+      "evidence_mode": "BM25-only local SQLite evidence",
+      "variants": {
+        "current": {
+          "queries": [
+            "How are Microsoft, Google, and Amazon differentiating their AI platforms?"
+          ],
+          "sources": 0,
+          "cost_usd": 0.0,
+          "cost_status": "not_needed",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No answer provided; unable to evaluate usefulness or factual grounding."
+        },
+        "balanced": {
+          "queries": [
+            "How are Microsoft, Google, and Amazon differentiating their AI platforms?",
+            "Microsoft Azure AI services vs Google Cloud AI vs AWS AI platform features",
+            "Claude vs ChatGPT vs Bedrock: enterprise AI platform differences 2024",
+            "Microsoft Copilot enterprise features vs Google Gemini vs Amazon Q differentiation",
+            "Azure OpenAI integration competitive advantages Google Vertex AI AWS Bedrock 2024",
+            "Microsoft Azure AI competitive advantages 2024 market differentiation",
+            "Google Cloud Gemini vs AWS Bedrock vs Azure OpenAI pricing features comparison"
+          ],
+          "sources": 0,
+          "cost_usd": 0.002005,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No answer provided; unable to evaluate usefulness or factual grounding."
+        },
+        "deep": {
+          "queries": [
+            "How are Microsoft, Google, and Amazon differentiating their AI platforms?",
+            "Microsoft Azure AI services vs Google Cloud AI vs AWS AI platform features",
+            "Claude vs ChatGPT vs Bedrock: enterprise AI platform differences",
+            "Microsoft Copilot integration strategy vs Google Gemini vs Amazon Q",
+            "Microsoft Azure OpenAI Service exclusive partnerships and model access advantages",
+            "Google Cloud Vertex AI custom training and multimodal capabilities differentiation",
+            "AWS Bedrock foundation models selection and managed service advantages",
+            "Microsoft Azure AI competitive advantages pricing and cost optimization 2024",
+            "Google Cloud AI unique capabilities vertical solutions healthcare finance",
+            "AWS Bedrock vs Azure OpenAI vs Vertex AI enterprise adoption and market share",
+            "Microsoft Azure AI Studio vs Google Vertex AI Studio vs AWS SageMaker Studio developer experience and tooling",
+            "Amazon Q vs Microsoft Copilot Pro vs Google Duet AI productivity features and integration breadth",
+            "Azure AI Services pricing models vs Google Cloud AI cost structure vs AWS Bedrock token pricing comparison 2024",
+            "Microsoft Azure AI competitive moat: exclusive OpenAI models vs Google Gemini vs AWS Bedrock 2024",
+            "Google Cloud Vertex AI vs Azure Machine Learning vs AWS SageMaker: model training and deployment differentiation",
+            "AWS Bedrock managed foundation models vs Azure OpenAI vs Google Vertex AI: vendor lock-in and model portability"
+          ],
+          "sources": 0,
+          "cost_usd": 0.005117,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No answer provided; unable to evaluate usefulness or factual grounding."
+        }
+      },
+      "judge_cost_usd": 0.001001,
+      "judge_cost_status": "measured",
+      "winner": "tie",
+      "judge_summary": "All three responses are identical and provide no substantive information. Each states that no relevant news articles were found, which prevents evaluation of coverage, factual accuracy, or usefulness. Without actual content to assess, all answers score equally low."
+    },
+    {
+      "question": "What is the latest on AI agent products and research loops?",
+      "evidence_mode": "BM25-only local SQLite evidence",
+      "variants": {
+        "current": {
+          "queries": [
+            "What is the latest on AI agent products and research loops?"
+          ],
+          "sources": 0,
+          "cost_usd": 0.0,
+          "cost_status": "not_needed",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No information provided. While honest about lack of sources, this fails to be useful to the reader."
+        },
+        "balanced": {
+          "queries": [
+            "What is the latest on AI agent products and research loops?",
+            "AI agent products 2024 latest releases",
+            "research loops autonomous agents systems",
+            "AI agent frameworks tools 2024",
+            "bounded research loops autonomous systems",
+            "bounded research loops AI agents implementation examples",
+            "AI agent products market 2024 OpenAI Anthropic Google"
+          ],
+          "sources": 0,
+          "cost_usd": 0.001659,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No information provided. While honest about lack of sources, this fails to be useful to the reader."
+        },
+        "deep": {
+          "queries": [
+            "What is the latest on AI agent products and research loops?",
+            "AI agent products 2024 latest releases",
+            "research loops autonomous agents systems",
+            "agentic AI frameworks and tools",
+            "AI agent frameworks OpenAI Claude Anthropic 2024",
+            "autonomous agent systems feedback loops evaluation",
+            "bounded research loops information retrieval agents",
+            "bounded research loops information retrieval evaluation metrics",
+            "AI agent products Claude Computer Use Anthropic 2024",
+            "agentic workflows iterative refinement systems latest",
+            "bounded research loops information retrieval agents evaluation metrics",
+            "AI agent research loops iterative refinement latest 2024",
+            "agentic systems bounded search query optimization techniques",
+            "bounded research loops information retrieval agents latest benchmarks 2024",
+            "AI agent products market landscape competitive analysis 2024",
+            "research loop evaluation metrics agent performance assessment"
+          ],
+          "sources": 0,
+          "cost_usd": 0.004533,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No information provided. While honest about lack of sources, this fails to be useful to the reader."
+        }
+      },
+      "judge_cost_usd": 0.001329,
+      "judge_cost_status": "measured",
+      "winner": "tie",
+      "judge_summary": "All three answers are identical and equally unhelpful. Each correctly acknowledges the absence of relevant news articles but provides no value to the user. None score above 1 because they contain zero factual content, coverage, or useful information. In a real scenario, a better response would acknowledge the limitation while offering alternative approaches (e.g., suggesting general knowledge about AI agents, recommending specific sources to check, or asking for clarification on timeframe)."
+    },
+    {
+      "question": "How are publishers and media companies reacting to generative AI deals?",
+      "evidence_mode": "BM25-only local SQLite evidence",
+      "variants": {
+        "current": {
+          "queries": [
+            "How are publishers and media companies reacting to generative AI deals?"
+          ],
+          "sources": 0,
+          "cost_usd": 0.0,
+          "cost_status": "not_needed",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No answer provided; unable to assess usefulness or factual grounding."
+        },
+        "balanced": {
+          "queries": [
+            "How are publishers and media companies reacting to generative AI deals?",
+            "publisher lawsuits against OpenAI Google generative AI copyright",
+            "media company licensing agreements AI training data deals",
+            "major publishers licensing deals OpenAI Google Anthropic 2024",
+            "media industry response generative AI copyright concerns settlements",
+            "New York Times settlement OpenAI AI training data agreement 2024",
+            "publishers refusing AI licensing deals content protection stance"
+          ],
+          "sources": 0,
+          "cost_usd": 0.001919,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No answer provided; unable to assess usefulness or factual grounding."
+        },
+        "deep": {
+          "queries": [
+            "How are publishers and media companies reacting to generative AI deals?",
+            "major publishers licensing deals generative AI companies OpenAI Google",
+            "media companies copyright lawsuits generative AI training data",
+            "publisher concerns risks generative AI content generation",
+            "publisher licensing agreements OpenAI Google Anthropic financial terms",
+            "media companies AI content monetization revenue sharing models",
+            "news organizations stance generative AI regulation policy advocacy",
+            "news publishers AI licensing deals financial terms amounts paid",
+            "media companies generative AI partnerships revenue models 2024",
+            "publisher reactions AI content scraping fair compensation",
+            "New York Times lawsuit OpenAI Microsoft generative AI training data",
+            "publisher AI licensing deals financial impact revenue 2024",
+            "media companies generative AI content attribution compensation models",
+            "publisher AI licensing deals Axel Springer Financial Times News Corp amounts",
+            "media industry generative AI business model impact advertising revenue concerns",
+            "news publishers AI training data opt-out policies content protection 2024",
+            "publisher AI licensing deals Perplexity Apple News+ revenue sharing 2024",
+            "media companies generative AI business model disruption advertising decline concerns",
+            "news publishers AI content licensing negotiations terms conditions exclusivity"
+          ],
+          "sources": 0,
+          "cost_usd": 0.004959,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No answer provided; unable to assess usefulness or factual grounding."
+        }
+      },
+      "judge_cost_usd": 0.00104,
+      "judge_cost_status": "measured",
+      "winner": "tie",
+      "judge_summary": "All three responses are identical and provide no substantive information. Each states that no relevant news articles were found, which prevents evaluation of usefulness, factual accuracy, or coverage. This appears to be a limitation of the source material or search rather than a difference in answer quality."
+    },
+    {
+      "question": "What changed in the last week around robotics plus foundation models?",
+      "evidence_mode": "BM25-only local SQLite evidence",
+      "variants": {
+        "current": {
+          "queries": [
+            "What changed in the last week around robotics plus foundation models?"
+          ],
+          "sources": 0,
+          "cost_usd": 0.0,
+          "cost_status": "not_needed",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "No information provided. While honest about lack of findings, provides zero value to the user seeking recent news on robotics and foundation models."
+        },
+        "balanced": {
+          "queries": [
+            "What changed in the last week around robotics plus foundation models?",
+            "robotics foundation models breakthroughs this week",
+            "latest news AI robots large language models",
+            "robotics foundation models research papers 2024",
+            "embodied AI large language models recent developments",
+            "robot learning foundation models week",
+            "multimodal AI robotics applications latest"
+          ],
+          "sources": 0,
+          "cost_usd": 0.001683,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "Identical to current answer. No information provided. Fails to answer the question or offer alternative assistance."
+        },
+        "deep": {
+          "queries": [
+            "What changed in the last week around robotics plus foundation models?",
+            "robotics foundation models breakthroughs this week",
+            "latest AI robot developments 2024",
+            "foundation models applied to robotics control",
+            "robotics foundation models news week",
+            "large language models robot control recent",
+            "multimodal AI robotics applications latest",
+            "robotics foundation models week of [current date]",
+            "embodied AI large language models recent papers",
+            "robot learning transformer models latest breakthroughs",
+            "robotics foundation models news this week",
+            "robot learning breakthroughs latest 2024",
+            "embodied AI systems recent announcements",
+            "robotics foundation models announcements past 7 days",
+            "robot manipulation language models week",
+            "AI robotics industry news latest week",
+            "robotics foundation models week [specific recent date range]",
+            "robot learning large language models announcements",
+            "embodied AI robotics breakthroughs latest news"
+          ],
+          "sources": 0,
+          "cost_usd": 0.003972,
+          "cost_status": "measured",
+          "answer": "No relevant news articles found to answer this question.",
+          "score": 1,
+          "reason": "Identical to both other answers. No information provided. Does not attempt deeper research, synthesis, or alternative approaches to address the question."
+        }
+      },
+      "judge_cost_usd": 0.001344,
+      "judge_cost_status": "measured",
+      "winner": "tie",
+      "judge_summary": "All three answers are identical and equally unhelpful. Each simply states that no relevant news articles were found without attempting to provide context, suggest where to find such information, clarify the search parameters, or offer any alternative value. A better response would acknowledge the limitation while suggesting how the user might find current information or asking clarifying questions about their specific interests in robotics and foundation models."
+    }
+  ],
+  "environment_notes": [
+    "Local SQLite BM25 retrieval only; async DB/session path is skipped in this environment.",
+    "Semantic/vector retrieval is intentionally disabled because external model downloads are unavailable here.",
+    "Planner, answer, and judge calls are bounded with timeouts and local fallbacks."
+  ]
+}

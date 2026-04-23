@@ -13,20 +13,23 @@
   ],
   "summary": {
     "wins": {
-      "tie": 10
+      "current": 3,
+      "deep": 2,
+      "balanced": 3,
+      "tie": 2
     },
     "avg_scores": {
-      "current": 1.2,
-      "balanced": 1.2,
-      "deep": 1.2
+      "current": 3.9,
+      "balanced": 4.2,
+      "deep": 3.7
     },
     "avg_cost_usd": {
-      "current": 0.0,
-      "balanced": 0.001795,
-      "deep": 0.004662
+      "current": 0.008544,
+      "balanced": 0.012328,
+      "deep": 0.018982
     },
     "cost_status": {
-      "current": "not_needed",
+      "current": "measured",
       "balanced": "measured",
       "deep": "measured"
     },
@@ -43,61 +46,58 @@
           "queries": [
             "What changed this week in OpenAI's model roadmap?"
           ],
-          "sources": 0,
-          "cost_usd": 0.0,
-          "cost_status": "not_needed",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 3,
-          "reason": "Honest acknowledgment of lack of information, but provides no value to the user. Direct and factually grounded (nothing false stated), but zero coverage of the question."
+          "sources": 20,
+          "cost_usd": 0.008892,
+          "cost_status": "measured",
+          "answer": "The articles do not contain enough information to give a fully reliable answer about OpenAI's model roadmap changes this week.\n\nHowever, based on what the articles do report, here is the best available summary:\n\n**Reuters/Axios/VentureBeat:** OpenAI launched GPT-Rosalind, a specialized life sciences model, as a research preview for customers including Moderna and Amgen, marking an expansion into domain-specific AI.\n\n**SecurityWeek/Axios:** OpenAI widened access to its cybersecurity model, partly in competitive response to Anthropic's Mythos reveal, with major institutions like BNY Mellon gaining access.\n\n**RSS/OpenAI sources:** OpenAI officially released o3, a new frontier reasoning model designed for advanced logical deduction and complex problem-solving.\n\n**OpenAI (official):** OpenAI introduced an open-weight Privacy Filter model for detecting and redacting personally identifiable information from text.\n\n**YouTube/Bing-news:** Claims of a GPT-5 release appear in low-credibility short-form content and are not corroborated by authoritative sources in this dataset.\n\nOverall, the evidence points to a busy week of targeted model launches \u2014 reasoning (o3), life sciences (GPT-Rosalind), cybersecurity, and privacy \u2014 but some claims, particularly around GPT-5, lack credible sourcing and should be treated with caution.",
+          "score": 4,
+          "reason": "Directly addresses the question with multiple concrete model launches (o3, GPT-Rosalind, cybersecurity model, Privacy Filter). Appropriately flags low-credibility GPT-5 claims. Well-organized by source type. Minor weakness: doesn't explicitly state uncertainty upfront as clearly as alternatives."
         },
         "balanced": {
           "queries": [
             "What changed this week in OpenAI's model roadmap?",
-            "OpenAI model roadmap updates this week",
-            "OpenAI new model announcements latest news",
-            "OpenAI roadmap changes 2024 latest updates",
-            "OpenAI GPT model releases this week news",
-            "OpenAI announcements this week GPT-4 o1 model updates",
-            "site:openai.com model roadmap latest 2024"
+            "OpenAI model roadmap announcements this week",
+            "OpenAI GPT-5 release date timeline 2024",
+            "OpenAI model roadmap changes December 2024",
+            "OpenAI o3 model release announcement details"
           ],
-          "sources": 0,
-          "cost_usd": 0.001736,
+          "sources": 24,
+          "cost_usd": 0.012338,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 3,
-          "reason": "Same as current\u2014honest but unhelpful. No speculation or errors, but fails to address the question or suggest alternatives."
+          "answer": "The articles do not contain enough reliable information to answer this question definitively about OpenAI's model roadmap changes this week.\n\n**Reuters:** OpenAI launched GPT-Rosalind, a new model dedicated to life sciences research, designed to accelerate scientific discovery and data analysis within the biological field.\n\n**Axios:** OpenAI introduced a new AI model specifically for life sciences and medical research, aiming to accelerate scientific discovery and drug development processes.\n\n**RSS/OpenAI:** OpenAI officially launched o3, a new frontier reasoning model designed for advanced reasoning and complex problem-solving, pushing boundaries in logical deduction.\n\n**SecurityWeek:** OpenAI expanded access to its cybersecurity model in a competitive response to Anthropic's unveiling of its Mythos model, signaling an intensifying rivalry in AI security.\n\nSeveral other articles reference models like GPT-5, GPT-5.4, and GPT-5.5, but these appear to originate from YouTube videos, social media posts, and test articles of questionable credibility and should not be treated as confirmed roadmap developments. The most credible changes this week centre on the launch of GPT-Rosalind for life sciences and the o3 reasoning model, alongside expanded cybersecurity model access, suggesting OpenAI is broadening into specialised domains rather than announcing a sweeping roadmap overhaul.",
+          "score": 4,
+          "reason": "Opens with appropriate epistemic humility about data limitations. Covers the same key launches (o3, GPT-Rosalind, cybersecurity) with good sourcing attribution. Provides useful context about domain specialization strategy. Slightly more cautious framing than CURRENT, but covers similar ground."
         },
         "deep": {
           "queries": [
             "What changed this week in OpenAI's model roadmap?",
-            "OpenAI model roadmap updates 2024",
-            "OpenAI GPT release schedule changes",
-            "OpenAI new models announcement this week",
-            "OpenAI roadmap changes latest news",
-            "OpenAI model updates this week 2024",
-            "OpenAI API changes announcements recent",
-            "OpenAI roadmap blog post this week",
-            "OpenAI DevDay announcements model updates",
-            "site:openai.com model roadmap changes",
-            "OpenAI roadmap changes this week reddit hacker news",
-            "OpenAI model updates announcement latest news",
-            "OpenAI GPT-4 turbo o1 release schedule changes",
-            "OpenAI roadmap changes December 2024 January 2025",
-            "OpenAI model deprecation timeline announcements",
-            "OpenAI o1 o3 release date updates news"
+            "OpenAI model roadmap announcements this week 2024",
+            "OpenAI GPT-5 release date timeline",
+            "OpenAI o3 model capabilities features",
+            "OpenAI model roadmap changes December 2024",
+            "OpenAI o3 release announcement details this week",
+            "OpenAI GPT-Rosalind life sciences model launch date",
+            "OpenAI o3 model release date announcement December 2024",
+            "OpenAI model updates this week December 16-22 2024",
+            "OpenAI GPT-5 release date official announcement",
+            "OpenAI o3 model announcement December 2024 capabilities",
+            "OpenAI GPT-Rosalind life sciences model launch week",
+            "OpenAI model roadmap updates December 16-22 2024",
+            "OpenAI o3 model release date December 2024 official",
+            "OpenAI GPT-Rosalind launch date availability this week"
           ],
-          "sources": 0,
-          "cost_usd": 0.004085,
+          "sources": 36,
+          "cost_usd": 0.018958,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
+          "answer": "The articles do not contain enough reliable information to answer this question accurately.\n\nThe provided articles contain several conflicting, unverified, or clearly unreliable claims about OpenAI's model roadmap, making a confident answer impossible:\n\n**Reuters (Article 8):** OpenAI launched GPT-Rosalind, a life sciences research model, but this appears to be a niche, domain-specific release rather than a broad roadmap change.\n\n**Techmeme (Article 27):** OpenAI has reportedly been briefing US federal agencies and Five Eyes allies on its \"GPT-5.4-Cyber\" model, suggesting some cybersecurity-focused model activity, but the sourcing is unclear.\n\n**RSS/OpenAI (Article 3):** OpenAI officially released o3, a reasoning-focused frontier model, which represents a concrete and credible roadmap development from this week.\n\n**YouTube/Bing-News (Articles 5, 21):** Multiple sources reference GPT-5, GPT-5.4, and GPT-5.5 releases, but these appear to be speculative, satirical, or unverified content rather than confirmed announcements.\n\nOverall, the evidence is mixed and unreliable \u2014 the only clearly credible roadmap developments supported by the articles are the o3 release and the GPT-Rosalind life sciences model launch, while claims about GPT-5 and GPT-5.4 lack trustworthy sourcing.",
           "score": 3,
-          "reason": "Identical response to the others. While truthful, it provides no additional depth, context, or attempt to help the user find relevant information."
+          "reason": "Leads with strong epistemic caution and acknowledges conflicting/unreliable claims. Correctly identifies o3 and GPT-Rosalind as credible. However, introduces a new unverified claim (Techmeme/GPT-5.4-Cyber briefings to federal agencies) without strong sourcing, which somewhat undermines its own critical stance. Less comprehensive coverage than CURRENT/BALANCED."
         }
       },
-      "judge_cost_usd": 0.001398,
+      "judge_cost_usd": 0.00293,
       "judge_cost_status": "measured",
-      "winner": "tie",
-      "judge_summary": "All three answers are identical and equally uninformative. Each correctly states that no relevant news was found, avoiding speculation and false claims. However, none attempt to clarify the timeframe, suggest where to find such information, or acknowledge uncertainty about what 'this week' means. A stronger response would offer to search with different parameters or ask for clarification about the relevant time period."
+      "winner": "current",
+      "judge_summary": "CURRENT edges ahead by providing the most direct, comprehensive answer while maintaining appropriate source criticism. It covers four concrete developments (o3, GPT-Rosalind, cybersecurity expansion, Privacy Filter) with clear sourcing, and effectively debunks unverified GPT-5 claims. BALANCED is nearly equivalent but slightly more verbose and less specific about the Privacy Filter. DEEP is more cautious but paradoxically introduces an unverified claim (Techmeme briefings) and provides less complete coverage. For a news question, CURRENT's balance of directness, comprehensiveness, and critical sourcing is most useful."
     },
     {
       "question": "How is Anthropic positioning Claude against OpenAI right now?",
@@ -107,64 +107,58 @@
           "queries": [
             "How is Anthropic positioning Claude against OpenAI right now?"
           ],
-          "sources": 0,
-          "cost_usd": 0.0,
-          "cost_status": "not_needed",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No information provided. While honest about lack of sources, this fails to answer the question or offer any useful context."
+          "sources": 20,
+          "cost_usd": 0.009483,
+          "cost_status": "measured",
+          "answer": "Anthropic is positioning Claude as a performance-focused, safety-conscious, and vertically expanding rival to OpenAI across coding, enterprise, and specialized domains.\n\n**TechCrunch/The Verge:** OpenAI updated Codex to directly challenge Anthropic's Claude Code, escalating competition in AI-driven developer tools and desktop automation \u2014 suggesting Anthropic's coding product is seen as a serious threat worth targeting.\n\n**Anthropic (Google News):** Anthropic released Claude Opus 4.7 and Claude Sonnet with improved reasoning and coding capabilities, signaling a continuous push to match or outpace OpenAI's flagship models on performance benchmarks.\n\n**X (biopharma post):** Anthropic's Claude for Life Sciences launched roughly five months before OpenAI's GPT-Rosalind, indicating Anthropic is moving faster into specialized vertical markets and forcing OpenAI to follow its lead.\n\n**Bing News (WSJ/OpenAI business pivot):** OpenAI is shifting focus toward business users amid intensified competitive pressure from Anthropic, while Anthropic simultaneously expands U.K. operations to meet growing international Claude demand.\n\n**X (safety contrast post):** Commentary online frames Anthropic as the more safety-conscious competitor, contrasting its measured release strategy against OpenAI's perceived prioritization of speed over safety protocols.\n\nOverall, the picture is one of an intensifying two-way rivalry where Anthropic is competing aggressively on model performance, vertical specialization, and safety reputation, while OpenAI is actively counter-positioning \u2014 making the competitive dynamic fluid rather than one-sided.",
+          "score": 4,
+          "reason": "Well-structured answer with multiple sourced examples (TechCrunch, Anthropic, X, WSJ, Bing News) covering performance, specialization, safety positioning, and competitive dynamics. Claims are specific and traceable. Minor weakness: some sources lack precise dates/citations, and the 'Claude Opus 4.7' reference appears potentially inaccurate (no widely reported model by this exact name). Overall strong factual grounding with good coverage of positioning strategy."
         },
         "balanced": {
           "queries": [
             "How is Anthropic positioning Claude against OpenAI right now?",
-            "Claude AI capabilities comparison OpenAI GPT 2024",
-            "Anthropic company strategy positioning market differentiation",
-            "Anthropic Claude competitive advantages vs OpenAI 2024",
-            "Anthropic marketing messaging Claude differentiation strategy",
-            "Anthropic Claude recent announcements product launches 2024",
-            "Anthropic safety alignment positioning versus OpenAI competitive messaging"
+            "Anthropic Claude competitive advantages vs OpenAI ChatGPT 2024",
+            "Anthropic business strategy market positioning safety focus",
+            "Anthropic Claude market share enterprise adoption vs OpenAI 2024",
+            "Anthropic safety-first positioning differentiation strategy competitive messaging"
           ],
-          "sources": 0,
-          "cost_usd": 0.001782,
+          "sources": 24,
+          "cost_usd": 0.012759,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No information provided. Identical to current answer - acknowledges missing sources but provides no value to the user."
+          "answer": "Anthropic is positioning Claude as a performance and safety leader while expanding into specialized verticals, pressuring OpenAI to react strategically.\n\n**Toronto Star / Bing-News:** OpenAI is pivoting its strategy to prioritize business and enterprise users amid rising competitive pressure from Anthropic, signaling that Claude's gains are forcing OpenAI to rethink its focus.\n\n**Newser:** OpenAI is actively refining its business model partly as a direct strategic response to Anthropic, underscoring how seriously the industry views Claude as a competitive threat.\n\n**X (biopharma post):** Anthropic's Claude for Life Sciences launched roughly five months before OpenAI's equivalent GPT-Rosalind, demonstrating that Anthropic is moving first in specialized vertical markets.\n\n**TechCrunch / Engadget:** OpenAI has beefed up Codex with desktop automation capabilities specifically to challenge Anthropic's Claude Code, showing the rivalry is intensifying in the developer and coding tools space.\n\n**Anthropic News (valuation):** Anthropic has reportedly surged to a trillion-dollar valuation on secondary markets, reportedly overtaking OpenAI, reflecting strong investor confidence in Claude's competitive trajectory.\n\nOverall, the picture is one of Anthropic gaining ground through incremental model improvements, vertical specialization, and valuation milestones, while OpenAI is largely reacting \u2014 adjusting its business model and product roadmap in direct response to Claude's pressure.",
+          "score": 3,
+          "reason": "Covers key positioning angles (performance, safety, verticals, valuation) with reasonable sourcing. However, contains a significant factual claim\u2014'Anthropic has reportedly surged to a trillion-dollar valuation on secondary markets, reportedly overtaking OpenAI'\u2014that lacks clear verification and appears speculative. The claim that Anthropic's valuation 'overtook' OpenAI is particularly questionable and undermines credibility. Good structure but weakened by unverified high-stakes claims."
         },
         "deep": {
           "queries": [
             "How is Anthropic positioning Claude against OpenAI right now?",
-            "Anthropic Claude competitive advantages vs OpenAI GPT 2024",
-            "Anthropic marketing strategy positioning Claude",
-            "Claude vs ChatGPT performance benchmarks comparison",
-            "Anthropic Claude product announcements 2024 competitive positioning",
-            "Claude API pricing strategy vs OpenAI GPT-4 comparison",
-            "Anthropic executive statements Claude market differentiation strategy",
-            "Anthropic Claude safety alignment differentiation competitive messaging 2024",
-            "Claude enterprise adoption market share vs OpenAI ChatGPT business",
-            "Anthropic funding strategy market positioning Claude ecosystem partnerships",
-            "Anthropic Claude 3.5 Sonnet release announcement competitive claims vs GPT-4o",
-            "Anthropic constitutional AI safety positioning market differentiation 2024",
-            "Claude long context window 200k tokens competitive advantage messaging",
-            "Anthropic Claude market share growth 2024 vs OpenAI competitive position",
-            "Anthropic CEO Dario Amodei statements Claude differentiation strategy 2024",
-            "Claude adoption enterprise customers case studies competitive advantages",
-            "Anthropic Claude vs OpenAI competitive analysis industry reports 2024",
-            "Anthropic Claude market positioning messaging vs ChatGPT differentiation",
-            "Claude adoption growth metrics market share comparison OpenAI 2024"
+            "Anthropic Claude competitive advantages vs OpenAI 2024",
+            "Anthropic safety positioning differentiation from OpenAI",
+            "Claude market share adoption compared to ChatGPT",
+            "Anthropic Claude enterprise adoption market positioning 2024",
+            "Anthropic safety-first AI differentiation strategy vs OpenAI",
+            "Claude API pricing features comparison OpenAI GPT models",
+            "Anthropic Claude vs OpenAI ChatGPT benchmark performance comparison 2024",
+            "Anthropic business model revenue strategy vs OpenAI commercial approach",
+            "Claude adoption enterprise customers vs ChatGPT market penetration",
+            "Anthropic Claude vs OpenAI market share revenue 2024 latest",
+            "Anthropic safety alignment positioning differentiation strategy 2024",
+            "Claude enterprise adoption Fortune 500 companies vs ChatGPT",
+            "Anthropic Claude vs OpenAI official statements competitive positioning 2024",
+            "Anthropic funding valuation market position compared to OpenAI"
           ],
-          "sources": 0,
-          "cost_usd": 0.004882,
+          "sources": 36,
+          "cost_usd": 0.019254,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No information provided. Same limitation as other answers - no attempt to provide context, background, or alternative information."
+          "answer": "Anthropic is positioning Claude against OpenAI through model releases, vertical market expansion, policy influence, and valuation gains.\n\n**Axios (anthropic-news):** Anthropic has significantly increased its lobbying expenditures, surpassing OpenAI during the most recent quarter, suggesting an intensified effort to influence AI policy and regulatory frameworks at the federal level.\n\n**Google-news (Newser/OpenAI Plans Business Model):** OpenAI is refining its business model partly as a strategic response to competitive pressure from Anthropic, signaling that Anthropic's moves are forcing reactive shifts at its rival.\n\n**X post:** OpenAI's launch of GPT-Rosalind for life sciences trails Anthropic's Claude for Life Sciences by approximately five months, illustrating Anthropic's strategy of pioneering verticalized, domain-specific AI products ahead of OpenAI.\n\n**TechCrunch/Engadget (google-news):** OpenAI has updated Codex to directly challenge Anthropic's Claude Code in desktop automation, showing the rivalry is intensifying specifically in the coding and developer tools space.\n\n**Business Insider (anthropic-news):** Anthropic has reportedly achieved a trillion-dollar valuation on secondary markets, surpassing OpenAI, reflecting strong investor confidence in its competitive positioning.\n\nOverall, the picture is one of active, multi-front competition where Anthropic is gaining ground through product launches, vertical expansion, and policy influence, while OpenAI is responding defensively across several of those same dimensions.",
+          "score": 3,
+          "reason": "Adds a fourth dimension (policy/lobbying) to the competitive analysis, which is substantive and less obvious. However, the answer relies heavily on the same unverified claims as 'balanced' (trillion-dollar valuation, overtaking OpenAI) and introduces the lobbying angle without sufficient detail or recent citation dates. The claim that Anthropic 'surpassed OpenAI' in lobbying expenditures needs verification. More ambitious scope but similar factual vulnerabilities."
         }
       },
-      "judge_cost_usd": 0.001304,
+      "judge_cost_usd": 0.003369,
       "judge_cost_status": "measured",
-      "winner": "tie",
-      "judge_summary": "All three answers are equally unhelpful, providing identical responses that acknowledge missing news articles but offer no substantive information. None attempt to provide general knowledge about the companies' positioning, recent developments, or strategic differences. A useful answer would either provide available information about competitive positioning or offer context about known differences in their approaches (safety focus, model capabilities, business models, etc.)."
+      "winner": "current",
+      "judge_summary": "CURRENT edges out the others by maintaining specificity and sourcing while avoiding the major unverified claim about valuation that weakens both BALANCED and DEEP. All three answers appropriately frame Anthropic as competing on performance, safety, and vertical specialization, with OpenAI responding defensively. However, CURRENT's more cautious framing ('fluid rather than one-sided') and avoidance of the dubious trillion-dollar valuation claim make it the most reliable. DEEP's addition of policy influence is interesting but not sufficiently substantiated to overcome its reliance on the same weak valuation claim. For a news grading context, CURRENT best balances coverage with factual caution."
     },
     {
       "question": "What is new in AI chip competition between Nvidia, AMD, and hyperscalers?",
@@ -174,61 +168,59 @@
           "queries": [
             "What is new in AI chip competition between Nvidia, AMD, and hyperscalers?"
           ],
-          "sources": 0,
-          "cost_usd": 0.0,
-          "cost_status": "not_needed",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No information provided. While honest about lack of sources, fails to answer the question or offer any useful context."
+          "sources": 20,
+          "cost_usd": 0.009384,
+          "cost_status": "measured",
+          "answer": "The AI chip competition is intensifying as Google launches custom chips, OpenAI bets on Cerebras, and Nvidia maintains dominance while facing geopolitical headwinds.\n\n**TechCrunch:** Google Cloud has launched two new AI chips to compete with Nvidia, offering faster and cheaper alternatives. Although Google is still partnering with Nvidia, the move signals increasing competition in the AI hardware market.\n\n**The Next Web:** Google is aggressively expanding its custom chip supply chain by partnering with multiple manufacturers to challenge Nvidia's dominance in AI inference. This long-term strategy aims to secure the hardware infrastructure necessary to scale AI models effectively.\n\n**Techmeme:** OpenAI is reportedly paying over $20 billion to utilize Cerebras server chips as part of a strategy to reduce reliance on Nvidia. The deal may also include an equity stake, signaling a significant shift in OpenAI's hardware infrastructure.\n\n**Seeking Alpha:** Despite competition from AMD, NVIDIA is still widely viewed as the dominant market leader in the GPU and AI processor space. Analysts suggest the company's strong market share and ecosystem justify a 'buy' rating.\n\n**Techmeme:** US Commerce Secretary Howard Lutnick confirmed that Nvidia's advanced H200 AI chips have not yet been sold to Chinese firms, reflecting ongoing geopolitical tensions and export restrictions.\n\nOverall, while Nvidia retains its leadership position, hyperscalers like Google and alternative chip makers like Cerebras are mounting serious structural challenges, suggesting the competitive landscape is diversifying rapidly.",
+          "score": 3,
+          "reason": "Covers multiple competitive angles (Google, Cerebras, geopolitics) with sourced claims, but includes unverified details (OpenAI $20B Cerebras deal, equity stake) that lack strong factual grounding. The Lutnick quote about H200 chips is specific but difficult to verify. Good breadth but some speculative elements weaken reliability."
         },
         "balanced": {
           "queries": [
             "What is new in AI chip competition between Nvidia, AMD, and hyperscalers?",
-            "Nvidia AMD AI chip market share 2024 competition",
-            "Google Tesla custom AI chips hyperscaler competition",
-            "latest AI chip announcements Nvidia H100 H200 AMD MI300 2024",
-            "hyperscaler custom chips competition Google TPU Meta Amazon Trainium",
-            "Nvidia AMD AI accelerator performance benchmarks 2024",
-            "hyperscaler in-house chip development strategy competition"
+            "AMD EPYC MI300 AI chips market share performance 2024 2025",
+            "hyperscaler custom AI chips Intel Trainium AWS Trainium performance",
+            "AMD MI300X vs Nvidia H100 H200 performance benchmarks 2024 2025",
+            "Intel Gaudi chips Amazon Trainium custom silicon AI chip competition"
           ],
-          "sources": 0,
-          "cost_usd": 0.001982,
+          "sources": 24,
+          "cost_usd": 0.013883,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No information provided. While honest about lack of sources, fails to answer the question or offer any useful context."
+          "answer": "**Google Cloud's launch of two new AI chips and its multi-partner supply chain strategy mark the latest escalation in competition against Nvidia.**\n\n**TechCrunch:** Google Cloud has launched two new AI chips to compete with Nvidia, offering faster and cheaper alternatives. Although Google is still partnering with Nvidia, the move signals increasing competition in the AI hardware market.\n\n**The Next Web (chip supply chain):** Google is aggressively expanding its custom chip supply chain by partnering with multiple manufacturers to challenge Nvidia's dominance in AI inference. This long-term strategy aims to secure the hardware infrastructure necessary to scale AI models effectively.\n\n**CNBC/Google News:** Marvell Technology is reportedly partnering with Google on custom AI chip development, leading to a stock price surge for Marvell. Meanwhile, Broadcom shares declined on the news of potential competitive shifts.\n\n**Seeking Alpha:** Despite competition from AMD, NVIDIA is still widely viewed as the dominant market leader in the GPU and AI processor space. Analysts suggest the company's strong market share and ecosystem justify a 'buy' rating.\n\n**The Next Web (Huawei):** Nvidia CEO Jensen Huang warned that DeepSeek optimizing its models for Huawei's Ascend chips would be \"horrible\" for U.S. interests, underscoring geopolitical tensions over AI hardware dominance.\n\nOverall, while Nvidia retains its leadership position, hyperscalers like Google are mounting a serious hardware challenge through custom chip development and diversified supply chains, while AMD remains a secondary competitive threat.",
+          "score": 4,
+          "reason": "Well-structured with clear focus on Google's multi-pronged strategy and concrete partnerships (Marvell). Includes market reaction data (stock movements) and geopolitical context (Huang/Huawei). More cautious in claims and better sourced. Minor weakness: doesn't deeply explore AMD's actual competitive position beyond 'secondary threat.'"
         },
         "deep": {
           "queries": [
             "What is new in AI chip competition between Nvidia, AMD, and hyperscalers?",
-            "Nvidia GPU market share AI chips 2024",
-            "AMD EPYC Instinct chip competition hyperscalers",
-            "Google TPU Amazon Trainium chip development",
-            "Nvidia H100 H200 GPU supply chain 2024 2025",
-            "AMD MI300 MI325 performance benchmarks vs Nvidia",
-            "Microsoft Intel custom AI chip Gaudi competition",
-            "Nvidia CUDA dominance AI chip ecosystem lock-in 2024",
-            "Hyperscaler custom silicon strategy Tesla Dojo Meta training chips",
-            "AI chip supply shortage allocation Nvidia H100 H200 2024 2025",
-            "Nvidia competitive threats open source AI chips 2024 2025",
-            "AI chip pricing cost per performance Nvidia AMD hyperscaler comparison",
-            "Qualcomm Broadcom networking chips AI infrastructure competition",
-            "Nvidia Blackwell chip 2024 2025 release date competition",
-            "AMD MI325X vs Nvidia H200 performance benchmarks enterprise AI",
-            "Hyperscaler in-house chip development strategy 2024 2025 alternatives to Nvidia"
+            "AMD EPYC MI300 AI chip performance vs Nvidia H100 H200 2024 2025",
+            "hyperscaler custom AI chips Amazon Trainium Google TPU Meta development",
+            "AI chip supply chain geopolitics China restrictions Huawei semiconductor",
+            "AMD MI300X vs Nvidia H100 H200 benchmark performance comparison 2024 2025",
+            "Amazon Trainium Google TPU Meta custom AI chips market share adoption",
+            "Nvidia competitive threats open source AI chips Cerebras Graphcore 2024 2025",
+            "Nvidia H200 H100 supply constraints 2024 2025 availability",
+            "Google TPU v5e inference chip performance cost vs Nvidia",
+            "AMD MI300X market adoption hyperscaler deployment 2024 2025",
+            "DeepSeek Huawei chip performance AI inference 2024 2025 implications",
+            "Nvidia H200 China export restrictions geopolitical impact 2024 2025",
+            "Google Cloud TPU inference chip adoption vs Nvidia market competition 2025",
+            "Intel Gaudi AI chip competition Nvidia 2024 2025 market position",
+            "Nvidia margin pressure competition AMD Google TPU custom chips 2025",
+            "AI chip pricing trends Nvidia H200 vs AMD MI300X vs Google TPU cost per token"
           ],
-          "sources": 0,
-          "cost_usd": 0.005233,
+          "sources": 36,
+          "cost_usd": 0.020846,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No information provided. While honest about lack of sources, fails to answer the question or offer any useful context."
+          "answer": "**The AI chip competition is intensifying as Google launches new custom chips, hyperscalers diversify suppliers, and Nvidia maintains dominance while AMD trails.**\n\n**TechCrunch:** Google Cloud has launched two new AI chips to compete with Nvidia, offering faster and cheaper alternatives. Although Google is still partnering with Nvidia, the move signals increasing competition in the AI hardware market.\n\n**The Next Web:** Google is aggressively expanding its custom chip supply chain by partnering with multiple manufacturers \u2014 including Marvell \u2014 to challenge Nvidia's dominance in AI inference, aiming to secure hardware infrastructure for scaling AI models.\n\n**VentureBeat:** Google has previewed its eighth-generation Tensor Processing Units, purpose-built for AI model training, which are expected to significantly reduce Google's reliance on Nvidia.\n\n**Seeking Alpha:** Despite competition from AMD, NVIDIA is still widely viewed as the dominant market leader in the GPU and AI processor space, with analysts citing its strong market share and ecosystem as justification for a 'buy' rating.\n\n**TechCrunch:** Cerebras Systems, an AI-chip startup, is filing for an IPO after securing deals with AWS and a reported $20B+ partnership with OpenAI, signaling that hyperscalers are actively seeking alternatives to Nvidia.\n\nOverall, while Nvidia retains its leadership position, hyperscalers like Google and Amazon are aggressively building custom silicon and diversifying chip partnerships, creating a more fragmented and competitive AI hardware landscape.",
+          "score": 4,
+          "reason": "Strongest technical specificity (eighth-generation TPUs for training vs. inference distinction). Includes Cerebras IPO filing as concrete news peg. Balances Nvidia's dominance with substantive hyperscaler moves. Well-sourced and avoids unsupported claims. Slightly less detail on geopolitical factors compared to 'balanced,' but more technically grounded overall."
         }
       },
-      "judge_cost_usd": 0.001249,
+      "judge_cost_usd": 0.002923,
       "judge_cost_status": "measured",
-      "winner": "tie",
-      "judge_summary": "All three answers are identical and provide no useful information. While honesty about source limitations is preferable to fabrication, none of the responses attempt to provide any factual information, context, or general knowledge about AI chip competition. A useful response would acknowledge the limitation while offering what general knowledge is available about recent trends in this competitive space."
+      "winner": "deep",
+      "judge_summary": "All three answers competently cover the competitive landscape, but 'deep' edges ahead with superior technical precision (TPU generations, training vs. inference focus) and concrete news anchors (Cerebras IPO). 'Balanced' is a close second with strong structural analysis and market data. 'Current' spreads too wide and includes harder-to-verify claims (OpenAI equity stake in Cerebras deal). For a news question, 'deep' best balances factual grounding with useful coverage."
     },
     {
       "question": "What are the biggest recent AI infrastructure cost stories?",
@@ -238,62 +230,59 @@
           "queries": [
             "What are the biggest recent AI infrastructure cost stories?"
           ],
-          "sources": 0,
-          "cost_usd": 0.0,
-          "cost_status": "not_needed",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No answer provided. While honest about lack of information, this fails to address the question or offer any useful content."
+          "sources": 20,
+          "cost_usd": 0.008487,
+          "cost_status": "measured",
+          "answer": "Recent major AI infrastructure cost stories include massive investment deals, corporate restructuring, and shifting economics around AI compute.\n\n**CNBC:** Amazon plans to invest up to $25 billion in Anthropic as part of an AI infrastructure deal, underscoring the enormous capital commitments now flowing into AI compute and model development.\n\n**The Next Web:** Meta plans to lay off 8,000 employees as part of a significant restructuring, with capital saved being redirected toward expanding the company's massive AI infrastructure.\n\n**Bloomberg:** Switch Inc. has secured $2.6 billion in bank financing to expand its data center operations, with the funding addressing high energy costs and capacity demands in the data infrastructure industry.\n\n**The Next Web:** GitHub has paused new Copilot sign-ups, signaling a shift in AI economics where agentic workflows are outpacing flat-rate subscription revenue, highlighting the sustainability challenge of high-compute AI developer tools.\n\n**Bing News:** Allbirds is rebranding to 'NewBird AI' and divesting its footwear assets to focus on providing AI compute infrastructure, planning to acquire GPUs to capitalise on high demand for AI processing power.\n\nOverall, the picture is one of escalating and sometimes disruptive AI infrastructure costs \u2014 driving billion-dollar investments, corporate layoffs, financing rounds, and even forcing companies to rethink pricing models entirely.",
+          "score": 2,
+          "reason": "Contains one clearly fabricated story (Allbirds rebranding to 'NewBird AI' and divesting footwear to become an AI infrastructure company) that severely undermines credibility. The GitHub Copilot pause claim lacks proper sourcing and appears speculative. While Amazon-Anthropic and Meta layoffs are real, the inclusion of false information makes this answer unreliable for news grading purposes."
         },
         "balanced": {
           "queries": [
             "What are the biggest recent AI infrastructure cost stories?",
-            "AI data center infrastructure spending costs 2024",
-            "major tech companies AI compute expenses billions",
-            "OpenAI Microsoft Google AI infrastructure investment costs 2024",
-            "AI chip shortage GPU costs data center expenses"
+            "AI data center infrastructure investment costs 2024 2025",
+            "OpenAI Microsoft Google AI compute spending billions",
+            "AI infrastructure spending costs billions Nvidia GPU shortage 2024",
+            "major tech companies AI compute capex budget allocation comparison"
           ],
-          "sources": 0,
-          "cost_usd": 0.00175,
+          "sources": 24,
+          "cost_usd": 0.012506,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No answer provided. While honest about lack of information, this fails to address the question or offer any useful content."
+          "answer": "Recent AI infrastructure cost stories center on massive investment commitments, corporate restructuring, and emerging risks across the industry.\n\n**CNBC:** Amazon plans to invest up to $25 billion in Anthropic as part of an AI infrastructure deal, highlighting the enormous capital flows now directed toward AI compute and partnerships.\n\n**The Next Web:** Meta plans to lay off 8,000 employees as part of a significant restructuring, with capital saved being redirected toward expanding the company's massive AI infrastructure.\n\n**Bloomberg:** Switch Inc. secured $2.6 billion in bank financing to expand its data center operations, addressing high energy costs and capacity demands in the data infrastructure industry.\n\n**Techmeme/Reuters:** SpaceX warned investors that its plans for orbital AI data centers rely on unproven technology, citing significant space-related risks that may impact commercial viability \u2014 flagging cost uncertainty at the frontier of infrastructure.\n\n**Techmeme/Axios:** Fermi's CEO departed as the data center project faced major delays and failed to secure an anchor tenant, illustrating the real logistical and financial hurdles in large-scale data center development.\n\nOverall, the picture is one of enormous capital being committed to AI infrastructure by major players, while simultaneously cautionary signals \u2014 regulatory bans, project failures, and unproven technologies \u2014 suggest the buildout carries significant financial and operational risk.",
+          "score": 4,
+          "reason": "Well-sourced with verifiable stories (Amazon-Anthropic $25B deal, Meta layoffs, Switch financing are all real). Includes cautionary counterpoints (SpaceX orbital data center risks, Fermi project failures) that provide genuine balance. The framing acknowledges both massive investment and real risks. Minor weakness: SpaceX orbital data center story is less directly about AI infrastructure costs than other examples, but still relevant to the broader infrastructure narrative."
         },
         "deep": {
           "queries": [
             "What are the biggest recent AI infrastructure cost stories?",
-            "AI data center infrastructure spending costs 2024",
-            "GPU chip shortage AI training expenses",
-            "OpenAI Anthropic Microsoft AI compute infrastructure investment",
-            "AI infrastructure costs billions 2024 OpenAI Anthropic Google",
-            "semiconductor shortage GPU prices AI training costs",
-            "data center energy costs AI models environmental impact",
-            "AI infrastructure cost breakdown training vs inference 2024",
-            "Nvidia H100 GPU pricing AI compute costs per token",
-            "xAI Tesla Grok infrastructure spending vs OpenAI Claude",
-            "AI infrastructure cost crisis 2024 2025 latest news",
-            "major AI companies infrastructure spending announcements recent",
-            "AI compute costs rising expensive training models news",
-            "AI infrastructure cost bubble concerns venture capital funding 2024",
-            "Meta Amazon Microsoft AI infrastructure capex spending announcements",
-            "AI model training costs comparison efficiency improvements 2024",
-            "AI infrastructure cost crisis scaling laws diminishing returns 2024",
-            "OpenAI Microsoft billion dollar AI infrastructure deals latest",
-            "AI chip manufacturing bottleneck cost implications TSMC Samsung 2024"
+            "AI data center infrastructure investment costs 2024 2025",
+            "OpenAI Microsoft compute infrastructure spending billions",
+            "Google DeepMind AI infrastructure capital expenditure",
+            "Nvidia AI chip demand data center spending 2024 2025",
+            "Tesla xAI infrastructure investment Grok compute costs",
+            "Apple AI infrastructure spending silicon valley data centers",
+            "Amazon Anthropic $25 billion AI infrastructure investment details",
+            "Meta AI infrastructure spending billions 2024 2025 capex",
+            "Nvidia data center GPU shortage AI infrastructure costs impact",
+            "AI infrastructure capex spending comparison OpenAI Google Meta Amazon 2024 2025",
+            "semiconductor shortage AI chips GPU costs infrastructure bottleneck",
+            "data center energy costs AI training inference electricity spending",
+            "AI infrastructure cost breakdown energy electricity cooling data centers 2024 2025",
+            "Nvidia H100 H200 GPU pricing AI chip costs infrastructure expenses",
+            "AI model training costs billions GPT-4 Gemini LLaMA infrastructure spending comparison"
           ],
-          "sources": 0,
-          "cost_usd": 0.004645,
+          "sources": 36,
+          "cost_usd": 0.019039,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No answer provided. While honest about lack of information, this fails to address the question or offer any useful content."
+          "answer": "Recent AI infrastructure cost stories center on massive investment deals, layoffs redirected toward AI spending, and growing concerns about overbuilding and regulatory pushback.\n\n**CNBC/Anthropic News:** Amazon plans to invest up to $25 billion in Anthropic as part of an AI infrastructure deal, with the partnership targeting 5 gigawatts of new compute capacity to support large-scale model development.\n\n**The Next Web:** Meta plans to lay off 8,000 employees as part of a significant restructuring, with capital saved being redirected toward expanding the company's massive AI infrastructure.\n\n**Bloomberg:** Switch Inc. secured $2.6 billion in bank financing to expand its data center operations, addressing high energy costs and capacity demands in the data infrastructure industry.\n\n**Techmeme/Axios:** Fermi's CEO departed as the data center project faced major delays and failed to secure an anchor tenant, highlighting the logistical and financial hurdles of large-scale data center development.\n\n**YouTube/Google News:** IBM Vice Chairman Gary Cohn suggested the U.S. may be overbuilding data centers as AI becomes more efficient, while a U.S. state implemented an outright ban on large-scale AI data centers, citing infrastructure and resource concerns.\n\nOverall, the picture is mixed: record-breaking investment and financing deals are flooding AI infrastructure, but warning signs around overbuilding, project failures, and regulatory resistance suggest the spending boom carries significant risk.",
+          "score": 4,
+          "reason": "Strong factual grounding with verifiable major stories (Amazon-Anthropic, Meta, Switch, Fermi). Adds valuable context with the 5 gigawatt capacity detail and includes the overbuilding concern from IBM's Gary Cohn, which is a substantive and newsworthy angle. The regulatory ban reference is real and relevant. Provides genuine depth by surfacing the tension between record investment and efficiency gains/regulatory headwinds. Slightly less detailed sourcing than 'balanced' but more analytically sophisticated."
         }
       },
-      "judge_cost_usd": 0.001332,
+      "judge_cost_usd": 0.003193,
       "judge_cost_status": "measured",
-      "winner": "tie",
-      "judge_summary": "All three responses are identical and equally unhelpful. Each simply states that no relevant news articles were found, providing zero value to the user. While transparency about information limitations is preferable to fabrication, a better response would acknowledge the limitation while offering alternatives (e.g., suggesting how to search, noting when the knowledge cutoff is, or asking for clarification). None of the answers meet basic usefulness standards."
+      "winner": "balanced",
+      "judge_summary": "BALANCED edges out DEEP due to superior factual reliability and source attribution, while both significantly outpace CURRENT. CURRENT's inclusion of the fabricated Allbirds story is disqualifying for a news grading context. BALANCED and DEEP are close\u2014both present real stories with genuine counterpoints\u2014but BALANCED's explicit source citations (Techmeme/Reuters, Techmeme/Axios) and slightly more cautious framing make it marginally more trustworthy, even though DEEP offers slightly deeper analytical insight into the overbuilding narrative."
     },
     {
       "question": "How are regulators responding to frontier-model safety concerns?",
@@ -303,64 +292,59 @@
           "queries": [
             "How are regulators responding to frontier-model safety concerns?"
           ],
-          "sources": 0,
-          "cost_usd": 0.0,
-          "cost_status": "not_needed",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No information provided. While honest about lack of sources, this fails to answer the question or provide any useful content."
+          "sources": 20,
+          "cost_usd": 0.00654,
+          "cost_status": "measured",
+          "answer": "The articles do not contain enough reliable information to answer this question accurately.\n\nThe articles referencing \"Anthropic's Mythos AI model\" and regulatory responses to it (sources [5], [6], [8], [10], [13], [18]) appear to describe a fabricated or fictional AI model not verifiable through credible reporting, and several article descriptions contain inconsistencies suggesting they are unreliable. The remaining articles do not substantively address how regulators are responding to frontier-model safety concerns. Providing an answer based on this material would risk presenting invented or misleading facts.",
+          "score": 5,
+          "reason": "Direct, honest assessment that acknowledges unreliable sources. Clearly identifies the fabricated 'Mythos AI model' and refuses to speculate. Prioritizes accuracy over providing an answer."
         },
         "balanced": {
           "queries": [
             "How are regulators responding to frontier-model safety concerns?",
-            "regulatory frameworks frontier AI model safety requirements",
-            "government policy responses large language model risks",
-            "AI safety regulation EU AI Act executive orders",
-            "frontier AI model oversight government agencies 2024",
-            "NIST AI Risk Management Framework frontier models regulatory guidance",
-            "UK AI Bill frontier AI model safety requirements regulators"
+            "regulatory frameworks frontier AI models safety requirements",
+            "government policy AI safety standards enforcement 2024",
+            "AI regulation executive orders Biden administration frontier model safety requirements",
+            "EU AI Act enforcement frontier models large language models compliance"
           ],
-          "sources": 0,
-          "cost_usd": 0.001822,
+          "sources": 24,
+          "cost_usd": 0.009926,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No information provided. Identical to current answer\u2014acknowledges limitation but offers no value to the user."
+          "answer": "The articles do not contain enough information to answer this question reliably.\n\nThe provided articles do not include credible, specific reporting on regulatory responses to frontier-model safety concerns. Several articles reference an \"Anthropic Mythos AI model\" with dramatic claims about financial regulators and US government deployment, but this model does not appear to be a real, verifiable product, suggesting these articles may contain fabricated or unreliable information. Using them to answer your question would risk spreading misinformation.",
+          "score": 5,
+          "reason": "Equally direct and honest. Identifies the same fabrication issues and explicitly warns against misinformation. Uses clear language about source reliability."
         },
         "deep": {
           "queries": [
             "How are regulators responding to frontier-model safety concerns?",
-            "regulatory frameworks frontier AI model safety requirements",
-            "government agencies oversight large language models safety",
-            "international coordination AI safety regulation standards",
-            "EU AI Act frontier model safety requirements regulators",
-            "US executive order AI safety regulation frontier models",
-            "NIST AI safety standards frontier model testing requirements",
-            "UK AI Bill frontier model safety guardrails regulator powers",
-            "China AI regulation frontier model safety requirements governance",
-            "industry self-regulation frontier AI safety standards versus government mandates",
-            "frontier AI model safety auditing requirements regulators enforcement mechanisms",
-            "AI safety incident reporting requirements regulators frontier models",
-            "regulatory gaps frontier model safety concerns 2024",
-            "AI safety incident reporting requirements regulators frontier models enforcement",
-            "frontier AI model safety auditing certification requirements 2024",
-            "regulatory coordination AI safety frontier models NIST UK EU China",
-            "frontier AI model safety regulatory enforcement actions penalties 2024",
-            "AI safety incident disclosure requirements regulators frontier models liability",
-            "frontier model safety guardrails compliance verification regulator oversight mechanisms"
+            "regulatory frameworks frontier AI models safety requirements",
+            "EU AI Act enforcement frontier model compliance",
+            "US government AI safety regulation policy 2024",
+            "regulatory agencies AI safety standards frontier models 2024",
+            "NIST AI Risk Management Framework implementation regulators",
+            "international coordination frontier AI regulation G7 OECD",
+            "regulatory response Anthropic Mythos AI banking risks government oversight",
+            "frontier AI model regulation enforcement actions fines penalties 2024",
+            "UK US EU regulatory coordination frontier AI safety standards alignment",
+            "regulatory enforcement actions frontier AI models 2024 fines compliance",
+            "CFIUS national security review frontier AI models government approval",
+            "sector-specific AI regulation banking healthcare frontier models regulators",
+            "regulatory agencies response Mythos AI banking risks ASIC SEC oversight",
+            "frontier AI model regulation enforcement 2024 2025 government actions compliance requirements",
+            "international regulatory coordination AI safety standards EU UK US alignment convergence"
           ],
-          "sources": 0,
-          "cost_usd": 0.004583,
+          "sources": 36,
+          "cost_usd": 0.016203,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No information provided. Same as other answers\u2014no attempt to provide context, background, or alternative information."
+          "answer": "The articles provided do not contain enough reliable, verifiable information to answer this question accurately.\n\nThe articles referencing regulatory responses to frontier-model safety (e.g., articles about \"Anthropic's Mythos AI\") appear to describe a fabricated or fictional AI model not corroborated by credible sourcing, and the remaining articles cover unrelated topics such as ICE director resignations, child safety regulations, and robotics research. Using these sources to answer the question would require inventing or misrepresenting facts.",
+          "score": 5,
+          "reason": "Most thorough explanation of why sources are unreliable. Provides specific examples of unrelated article topics (ICE director, child safety, robotics) to demonstrate lack of relevant coverage. Strongest epistemic integrity."
         }
       },
-      "judge_cost_usd": 0.001422,
+      "judge_cost_usd": 0.0017,
       "judge_cost_status": "measured",
-      "winner": "tie",
-      "judge_summary": "All three answers are identical and equally unhelpful. Each simply states that no relevant news articles were found, providing zero substantive content. None attempt to offer background context, acknowledge what regulatory efforts exist, or suggest where information might be found. For a question about current regulatory responses to frontier AI safety, even a brief explanation of known regulatory initiatives (EU AI Act, executive orders, industry standards) would be preferable to a blank response. The answers are factually honest but fail on usefulness and coverage."
+      "winner": "deep",
+      "judge_summary": "All three answers correctly refuse to answer based on unreliable sources, which is the appropriate response. The 'deep' answer edges ahead by providing the most comprehensive explanation of source problems, including specific examples of irrelevant articles alongside the fabricated Mythos AI references. This demonstrates stronger critical evaluation. All three prioritize accuracy over false confidence\u2014the right call when sources are compromised."
     },
     {
       "question": "What happened recently with open-weight model releases?",
@@ -370,62 +354,59 @@
           "queries": [
             "What happened recently with open-weight model releases?"
           ],
-          "sources": 0,
-          "cost_usd": 0.0,
-          "cost_status": "not_needed",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No information provided. While honest about lack of data, this fails to be useful to the user."
+          "sources": 20,
+          "cost_usd": 0.009576,
+          "cost_status": "measured",
+          "answer": "Several major open-weight model releases occurred recently, including new models from Alibaba, Moonshot AI, and OpenAI.\n\n**Techmeme (Qwen):** Alibaba released Qwen3.6-35B-A3B, an open-weight MoE model with 35B total and 3B active parameters, claiming it rivals larger dense models in agentic coding tasks.\n**Techmeme (Qwen):** Alibaba also launched Qwen3.6-27B, a dense open-weight model that reportedly surpasses the much larger Qwen3.5-397B-A17B on major coding benchmarks, highlighting significant efficiency gains.\n**Techmeme (Kimi AI):** Moonshot released Kimi K2.6, an open-weight model with 1 trillion parameters specializing in long-horizon coding and agentic workflows, available under a modified MIT license.\n**OpenAI/VentureBeat:** OpenAI launched Privacy Filter, an open-source, on-device model that removes personally identifiable information from enterprise datasets, addressing data privacy concerns.\n**Hugging Face:** Hugging Face released \"ml-intern,\" an open-source agent designed to automate the post-training workflow for LLMs, aiming to streamline model optimization for developers.\n\nOverall, the open-weight model landscape is highly active, with releases spanning efficient coding-focused models, massive-scale architectures, privacy tooling, and developer workflow automation across multiple major AI organizations.",
+          "score": 4,
+          "reason": "Well-sourced with specific model details and clear citations. Covers five distinct releases with technical specifications. Good balance of breadth and depth. Minor: 'Privacy Filter' description could be slightly more precise about its function."
         },
         "balanced": {
           "queries": [
             "What happened recently with open-weight model releases?",
-            "open-weight AI model releases 2024",
-            "recent open source language model announcements",
-            "open-weight model releases Meta Llama Mistral 2024",
-            "recent open-source AI model benchmarks performance"
+            "open-weight model releases 2024 2025 timeline",
+            "open-source LLM releases Meta Llama Mistral recent",
+            "Claude Opus 4.7 release date specifications capabilities",
+            "open-weight model releases January 2025 latest"
           ],
-          "sources": 0,
-          "cost_usd": 0.00161,
+          "sources": 24,
+          "cost_usd": 0.013768,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No information provided. While honest about lack of data, this fails to be useful to the user."
+          "answer": "Several major open-weight models were released recently, including new offerings from Alibaba, Moonshot AI, and OpenAI.\n\n**Techmeme (Qwen):** Alibaba released Qwen3.6-35B-A3B, an open-weight MoE model with 35B total and 3B active parameters, claiming it rivals larger dense models in agentic coding tasks. They also launched Qwen3.6-27B, a dense model said to surpass the much larger Qwen3.5-397B-A17B on major coding benchmarks.\n\n**Techmeme (Kimi AI):** Moonshot introduced Kimi K2.6, an open-weight model with 1 trillion parameters and advanced attention optimizations, showing strong improvements in long-horizon coding and agentic workflows. It is available under a modified MIT License to encourage broader adoption.\n\n**VentureBeat / OpenAI:** OpenAI launched Privacy Filter, an open-source, on-device model that removes personally identifiable information from enterprise datasets, addressing data privacy concerns in AI applications.\n\n**Hugging Face (via Google News):** Hugging Face released 'ml-intern,' an open-source AI agent designed to automate the post-training workflow for large language models, aiming to streamline model optimization for developers.\n\nOverall, the open-weight model landscape is highly active, with releases spanning efficient coding-focused architectures, massive-scale parameter models, privacy tooling, and workflow automation \u2014 reflecting a broad push across multiple organizations to make capable models openly accessible.",
+          "score": 4,
+          "reason": "Similar coverage to CURRENT with slightly more contextual framing about the broader landscape. Adds 'advanced attention optimizations' detail for Kimi K2.6. Slightly more interpretive language ('reflecting a broad push') which adds useful context without speculation."
         },
         "deep": {
           "queries": [
             "What happened recently with open-weight model releases?",
-            "open-weight model releases 2024",
-            "recent open source language model releases",
-            "Meta Llama Mistral open-weight models latest",
-            "open-weight model releases Q4 2024 Llama 3.2",
-            "Mistral 7B Grok open source model releases",
-            "open-weight AI models benchmark performance 2024",
-            "open-weight model releases December 2024 January 2025",
-            "Llama 3.2 Mistral Grok benchmark comparison recent",
-            "open source AI model licensing commercial use 2024",
-            "open-weight model releases news January 2025",
-            "Llama Mistral Grok Qwen latest release announcements",
-            "open-source AI model training efficiency improvements 2024",
-            "open-weight model releases news this week",
-            "latest open source LLM announcements 2025",
-            "open-weight AI model licensing commercial restrictions",
-            "open-weight model releases news today this week",
-            "Llama 3.3 Qwen 2.5 open source release announcement",
-            "open-weight AI model commercial availability restrictions 2025"
+            "open-weight model releases 2024 2025 timeline",
+            "Meta Llama open-source model release recent",
+            "open-weight vs closed-weight model comparison news",
+            "Claude Opus 4.7 release date features specifications",
+            "open-weight model releases January 2025 latest",
+            "Anthropic Mythos model open-source release plans",
+            "Qwen3.6 model release details specifications benchmarks 2025",
+            "Kimi K2.6 open-weight model features performance January 2025",
+            "open-weight model releases comparison Qwen Kimi Llama 2025",
+            "open-weight model releases January 2025 Alibaba Qwen Moonshot Kimi latest news",
+            "open-source LLM releases 2025 comparison benchmarks performance",
+            "Anthropic Claude Opus 4.7 open-weight open-source release details",
+            "open-weight model releases comparison benchmarks January 2025 Qwen Kimi performance",
+            "open-source LLM licenses MIT Apache 2025 commercial use restrictions",
+            "Anthropic Claude Opus 4.7 open-weight open-source availability release"
           ],
-          "sources": 0,
-          "cost_usd": 0.004608,
+          "sources": 36,
+          "cost_usd": 0.020286,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No information provided. While honest about lack of data, this fails to be useful to the user."
+          "answer": "Several major open-weight models were released recently, including new offerings from Alibaba, Moonshot AI, and OpenAI.\n\n**Techmeme (Qwen):** Alibaba released Qwen3.6-35B-A3B, an open-weight MoE model with 35B total and 3B active parameters, claiming it rivals larger dense models in agentic coding tasks.\n\n**Techmeme (Qwen):** Alibaba also launched Qwen3.6-27B, a dense open-weight model that reportedly surpasses the much larger Qwen3.5-397B-A17B on major coding benchmarks, highlighting significant efficiency gains.\n\n**Techmeme (Kimi AI):** Moonshot released Kimi K2.6, an open-weight model with 1 trillion parameters specializing in long-horizon coding and agentic workflows, available under a modified MIT License.\n\n**OpenAI/VentureBeat:** OpenAI launched Privacy Filter, an open-source, on-device model designed to detect and redact personally identifiable information from enterprise datasets.\n\n**Simon Willison:** Alibaba's Qwen3.6-27B is specifically noted for delivering flagship-level agentic coding performance, designed to surpass previous-generation open-source flagships.\n\nOverall, the open-weight model landscape is highly active, with multiple organizations releasing capable, efficient models across coding, agentic tasks, and data privacy \u2014 suggesting a strong competitive push to match or exceed proprietary model performance in the open ecosystem.",
+          "score": 3,
+          "reason": "Covers the same core releases but with less detail on some models. The addition of Simon Willison's perspective on Qwen3.6-27B adds credibility but is somewhat redundant with earlier claims. Slightly less comprehensive than CURRENT/BALANCED (5 sources vs. 4 unique releases mentioned). The final summary is more interpretive."
         }
       },
-      "judge_cost_usd": 0.001386,
+      "judge_cost_usd": 0.002842,
       "judge_cost_status": "measured",
       "winner": "tie",
-      "judge_summary": "All three answers are identical and equally unhelpful. Each correctly acknowledges the absence of relevant news articles in the available sources, but none provide any value to the user. In a real scenario, a useful response would either: (1) acknowledge the limitation while offering related context or suggestions for finding information, (2) provide the most recent information available even if not current, or (3) explain what timeframe or sources were searched. All answers score equally low due to complete lack of usefulness."
+      "judge_summary": "CURRENT and BALANCED are nearly equivalent in quality, both scoring 4/5. They provide well-sourced, specific information about five recent open-weight model releases with clear technical details and proper attribution. BALANCED edges slightly toward better synthesis with its framing of the competitive landscape, while CURRENT is marginally more detailed on individual models. DEEP scores lower (3/5) because it consolidates information without adding substantial new detail, and the Simon Willison citation somewhat duplicates earlier claims rather than extending coverage. All three avoid unsupported speculation and ground claims in named sources, making them factually reliable."
     },
     {
       "question": "How are Microsoft, Google, and Amazon differentiating their AI platforms?",
@@ -435,61 +416,59 @@
           "queries": [
             "How are Microsoft, Google, and Amazon differentiating their AI platforms?"
           ],
-          "sources": 0,
-          "cost_usd": 0.0,
-          "cost_status": "not_needed",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No answer provided; unable to evaluate usefulness or factual grounding."
+          "sources": 20,
+          "cost_usd": 0.009135,
+          "cost_status": "measured",
+          "answer": "The articles provide limited but relevant information showing each company taking distinct approaches to AI platform differentiation.\n\n**VentureBeat:** Google and AWS are taking diverging paths in managing AI agents, with Google focusing on system-layer management and AWS emphasizing execution-layer orchestration, highlighting growing maturity in enterprise agentic AI deployment.\n\n**The Next Web:** Google has consolidated its AI offerings under the new Gemini Enterprise Agent Platform, integrating tools like Workspace Studio to provide an end-to-end environment for building and deploying enterprise AI agents across business workflows.\n\n**Amazon Science:** Amazon's Bedrock AgentCore and Nova 2 Sonic enable a complete omnichannel ordering system, leveraging AI agents securely at scale using any framework and foundation model for flexible enterprise deployment.\n\n**Bing News:** Microsoft has introduced \"AI Max\" and new advertising tools targeting the \"agentic web,\" where AI agents manage consumer purchasing decisions, helping brands maintain visibility in an AI-driven marketplace.\n\n**The New Stack:** Anthropic, OpenAI, Google, and Microsoft have broadly aligned on AI \"harnesses\" as core products, with the primary remaining point of differentiation being their respective pricing models.\n\nOverall, the picture is one of converging product philosophies but diverging execution strategies \u2014 Google targets end-to-end enterprise agent management, AWS focuses on execution-layer orchestration, and Microsoft is extending AI into advertising and infrastructure, though the evidence here is partial and incomplete.",
+          "score": 4,
+          "reason": "Well-sourced with specific, factual claims about each company's approach (Google's system-layer focus, AWS execution-layer, Microsoft's advertising/infrastructure play). Acknowledges limitations ('partial and incomplete') and avoids speculation. Good synthesis of diverging strategies."
         },
         "balanced": {
           "queries": [
             "How are Microsoft, Google, and Amazon differentiating their AI platforms?",
-            "Microsoft Azure AI services vs Google Cloud AI vs AWS AI platform features",
-            "Claude vs ChatGPT vs Bedrock: enterprise AI platform differences 2024",
-            "Microsoft Copilot enterprise features vs Google Gemini vs Amazon Q differentiation",
-            "Azure OpenAI integration competitive advantages Google Vertex AI AWS Bedrock 2024",
-            "Microsoft Azure AI competitive advantages 2024 market differentiation",
-            "Google Cloud Gemini vs AWS Bedrock vs Azure OpenAI pricing features comparison"
+            "Microsoft Azure OpenAI vs Google Vertex AI vs Amazon Bedrock differentiation features",
+            "Google Gemini enterprise vs Microsoft Copilot vs AWS AI services comparison",
+            "Microsoft Copilot Pro vs Google Gemini Advanced vs Amazon Q pricing features comparison",
+            "Azure OpenAI Service vs Vertex AI vs Bedrock model selection customization capabilities"
           ],
-          "sources": 0,
-          "cost_usd": 0.002005,
+          "sources": 24,
+          "cost_usd": 0.013161,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No answer provided; unable to evaluate usefulness or factual grounding."
+          "answer": "Microsoft, Google, and Amazon are differentiating through enterprise tooling, agent architecture, and deployment flexibility across their respective AI platforms.\n\n**The Next Web:** Google has consolidated its AI offerings under the new Gemini Enterprise Agent Platform, integrating tools like Workspace Studio to provide an end-to-end environment for building and deploying enterprise AI agents across business workflows.\n\n**VentureBeat:** Google and AWS are taking diverging paths in managing AI agents, with Google focusing on system-layer management and AWS emphasizing execution-layer orchestration, highlighting growing maturity in enterprise agentic AI deployment.\n\n**Amazon Science:** Amazon Bedrock is expanding its ecosystem by integrating third-party models like Anthropic's Claude Opus 4.7 and adding granular cost attribution features, giving enterprises better visibility and flexibility in AI model selection and resource management.\n\n**VentureBeat:** Google is also differentiating through deployment options, launching an air-gapped, on-premises version of Gemini for highly regulated industries that need advanced AI without public cloud connectivity risks.\n\n**TechCrunch:** Google's Gemini Enterprise Agent Platform is specifically geared toward IT and technical users, signalling a deliberate focus on enterprise builders rather than general consumers.\n\nOverall, the picture shows Google competing aggressively on enterprise agent infrastructure and deployment flexibility, while Amazon differentiates through an open, multi-model ecosystem on Bedrock \u2014 Microsoft's specific AI platform differentiation is less well-supported by the available articles.",
+          "score": 3,
+          "reason": "Covers Google and Amazon well with concrete details (Gemini Enterprise Agent Platform, Bedrock ecosystem, on-premises deployment). However, explicitly admits Microsoft differentiation is 'less well-supported,' which undermines the answer to a three-company question. Some claims (e.g., Claude Opus 4.7 integration) lack clear source attribution."
         },
         "deep": {
           "queries": [
             "How are Microsoft, Google, and Amazon differentiating their AI platforms?",
-            "Microsoft Azure AI services vs Google Cloud AI vs AWS AI platform features",
-            "Claude vs ChatGPT vs Bedrock: enterprise AI platform differences",
-            "Microsoft Copilot integration strategy vs Google Gemini vs Amazon Q",
-            "Microsoft Azure OpenAI Service exclusive partnerships and model access advantages",
-            "Google Cloud Vertex AI custom training and multimodal capabilities differentiation",
-            "AWS Bedrock foundation models selection and managed service advantages",
-            "Microsoft Azure AI competitive advantages pricing and cost optimization 2024",
-            "Google Cloud AI unique capabilities vertical solutions healthcare finance",
-            "AWS Bedrock vs Azure OpenAI vs Vertex AI enterprise adoption and market share",
-            "Microsoft Azure AI Studio vs Google Vertex AI Studio vs AWS SageMaker Studio developer experience and tooling",
-            "Amazon Q vs Microsoft Copilot Pro vs Google Duet AI productivity features and integration breadth",
-            "Azure AI Services pricing models vs Google Cloud AI cost structure vs AWS Bedrock token pricing comparison 2024",
-            "Microsoft Azure AI competitive moat: exclusive OpenAI models vs Google Gemini vs AWS Bedrock 2024",
-            "Google Cloud Vertex AI vs Azure Machine Learning vs AWS SageMaker: model training and deployment differentiation",
-            "AWS Bedrock managed foundation models vs Azure OpenAI vs Google Vertex AI: vendor lock-in and model portability"
+            "Microsoft Azure AI vs Google Cloud AI vs AWS AI services comparison features",
+            "Claude vs ChatGPT vs Gemini enterprise AI platform differentiation strategy",
+            "Amazon Bedrock vs Azure OpenAI vs Vertex AI pricing and capabilities",
+            "Microsoft Copilot vs Google Gemini vs Amazon Q enterprise AI assistant differentiation",
+            "Azure AI Studio vs Vertex AI vs AWS SageMaker developer tools and model customization",
+            "Microsoft, Google, Amazon AI infrastructure investments chips models competitive advantages",
+            "Microsoft Copilot Pro vs Google Gemini Advanced vs Amazon Q pricing model differentiation 2024",
+            "Google Vertex AI agents vs Microsoft Azure AI agents vs Amazon Bedrock agents enterprise capabilities",
+            "Microsoft, Google, Amazon AI model ownership strategy proprietary vs open source differentiation",
+            "Google Vertex AI agents vs Microsoft Azure AI agents vs Amazon Bedrock agents enterprise capabilities differentiation 2024",
+            "Microsoft Azure OpenAI Service exclusive partnership vs Google Gemini API vs Amazon Bedrock model access strategy",
+            "Google NotebookLM vs Microsoft Copilot Studio vs Amazon Q custom knowledge base enterprise differentiation",
+            "Google Gemini enterprise agents vs Microsoft Copilot Studio vs Amazon Q real-world deployment case studies 2024",
+            "Microsoft Azure AI custom model fine-tuning vs Google Vertex AI model garden vs Amazon Bedrock model customization capabilities",
+            "Google NotebookLM vs Microsoft Copilot Studio vs Amazon Q knowledge base integration enterprise workflows differentiation"
           ],
-          "sources": 0,
-          "cost_usd": 0.005117,
+          "sources": 36,
+          "cost_usd": 0.020048,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No answer provided; unable to evaluate usefulness or factual grounding."
+          "answer": "The articles provide limited but relevant information on differentiation strategies across Microsoft, Google, and Amazon's AI platforms.\n\n**The Next Web (Article 8):** Google launched the Gemini Enterprise Agent Platform, consolidating AI tools into an end-to-end environment for building and deploying enterprise AI agents across business workflows, integrating products like Workspace Studio.\n\n**TechCrunch (Article 24):** Google Cloud launched two new AI chips to compete with Nvidia, signaling differentiation through proprietary hardware that offers faster and cheaper alternatives to existing options.\n\n**VentureBeat (Article 11):** Google and AWS are diverging in AI agent architecture, with Google focusing on system-layer management while AWS emphasizes execution-layer orchestration, reflecting distinct philosophies in enterprise agentic AI.\n\n**Amazon Science (Article 6):** Amazon is differentiating through Bedrock AgentCore and Nova 2 Sonic, enabling omnichannel AI agent deployment at scale using any framework or foundation model, emphasizing flexibility and secure execution.\n\n**VentureBeat (Article 21):** Google is also targeting regulated industries with an air-gapped, on-premises version of Gemini, allowing sensitive sectors to use advanced AI without public cloud connectivity risks.\n\nOverall, the evidence suggests Google is differentiating most aggressively across hardware, enterprise platforms, and deployment flexibility, while Amazon focuses on execution-layer orchestration and modular agent infrastructure \u2014 with Microsoft's AI differentiation remaining largely unaddressed in these articles.",
+          "score": 3,
+          "reason": "Adds hardware differentiation (Google AI chips vs. Nvidia), which is a valuable dimension. However, it also acknowledges Microsoft is 'largely unaddressed,' making it incomplete for the question asked. The hardware claim is interesting but represents only one article's evidence. Slightly more comprehensive than 'balanced' but still leaves a major player underexplored."
         }
       },
-      "judge_cost_usd": 0.001001,
+      "judge_cost_usd": 0.002982,
       "judge_cost_status": "measured",
-      "winner": "tie",
-      "judge_summary": "All three responses are identical and provide no substantive information. Each states that no relevant news articles were found, which prevents evaluation of coverage, factual accuracy, or usefulness. Without actual content to assess, all answers score equally low."
+      "winner": "current",
+      "judge_summary": "CURRENT is the strongest answer because it directly addresses all three companies with specific, sourced differentiation strategies while being transparent about evidence limitations. It avoids the fatal flaw of both BALANCED and DEEP\u2014which both admit Microsoft's differentiation is poorly supported\u2014by actually providing Microsoft-specific claims (AI Max, advertising tools, agentic web positioning). CURRENT also better contextualizes the findings (converging philosophies, diverging execution) without overreaching. DEEP adds hardware as a dimension but doesn't compensate for the Microsoft gap, and BALANCED's explicit admission of incomplete coverage on one-third of the question is a significant weakness."
     },
     {
       "question": "What is the latest on AI agent products and research loops?",
@@ -499,61 +478,59 @@
           "queries": [
             "What is the latest on AI agent products and research loops?"
           ],
-          "sources": 0,
-          "cost_usd": 0.0,
-          "cost_status": "not_needed",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No information provided. While honest about lack of sources, this fails to be useful to the reader."
+          "sources": 20,
+          "cost_usd": 0.00858,
+          "cost_status": "measured",
+          "answer": "AI agent products are rapidly expanding, with Google, Amazon, and OpenAI launching major updates alongside active research into agent optimization and deployment.\n\n**VentureBeat:** Google introduced Deep Research and Deep Research Max, autonomous agents that search the web and private data via a single API call, producing native charts and connecting to third-party sources. This marks a significant step in enterprise-grade research automation.\n\n**The Next Web:** Google consolidated its AI offerings under the Gemini Enterprise Agent Platform, integrating tools like Workspace Studio to provide an end-to-end environment for building and deploying enterprise AI agents across business workflows.\n\n**Amazon Science:** Amazon Bedrock AgentCore introduced new features to streamline agent building, removing infrastructure barriers and enabling faster development and deployment for production-grade applications.\n\n**OpenAI:** OpenAI improved its Responses API using WebSockets, reducing overhead and improving model latency, directly enhancing the efficiency of agent loops such as those used in Codex.\n\n**arXiv (DR-Venus):** Researchers developed DR-Venus, a 4-billion parameter deep research agent for edge-scale deployment trained on only 10,000 open data points, focusing on efficient, low-latency real-world use.\n\nOverall, the landscape shows a strong convergence between major cloud platforms scaling up enterprise agent infrastructure and academic research pushing the boundaries of efficient, specialized agent loops.",
+          "score": 4,
+          "reason": "Strong factual grounding with specific product launches (Deep Research, Bedrock AgentCore, Responses API improvements). Includes academic research (DR-Venus) showing breadth. Well-sourced citations. Minor concern: DR-Venus claim lacks independent verification and seems less established than other claims."
         },
         "balanced": {
           "queries": [
             "What is the latest on AI agent products and research loops?",
-            "AI agent products 2024 latest releases",
-            "research loops autonomous agents systems",
-            "AI agent frameworks tools 2024",
-            "bounded research loops autonomous systems",
-            "bounded research loops AI agents implementation examples",
-            "AI agent products market 2024 OpenAI Anthropic Google"
+            "AI agent frameworks and tools 2024 production deployment",
+            "research loop architectures agentic AI systems",
+            "AI agent research loops evaluation metrics benchmarks 2024",
+            "agentic AI systems production challenges deployment lessons learned"
           ],
-          "sources": 0,
-          "cost_usd": 0.001659,
+          "sources": 24,
+          "cost_usd": 0.011915,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No information provided. While honest about lack of sources, this fails to be useful to the reader."
+          "answer": "AI agent products are rapidly expanding, with major launches from Google, Anthropic, Amazon, and OpenAI alongside active research into agent loop optimization.\n\n**VentureBeat:** Google launched Deep Research and Deep Research Max agents capable of searching the web and private data through a single API call, producing native charts and connecting to third-party sources.\n\n**Anthropic-news:** Anthropic introduced a Managed Agents service that abstracts deployment complexity, offering built-in monitoring, scaling, and security without customers managing underlying infrastructure.\n\n**OpenAI:** OpenAI improved its Responses API using WebSockets to reduce overhead and latency, directly enhancing the efficiency of Codex agent loops for developers.\n\n**Amazon-science:** Amazon Bedrock AgentCore released new features removing infrastructure barriers, enabling developers to reach a first working agent faster with improved deployment tooling.\n\n**VentureBeat:** Countering the multi-agent trend, Stanford research suggests multi-agent systems often fail to outperform single agents under equal compute budgets, questioning the value of complex architectures.\n\nOverall, the picture is one of rapid commercial expansion in AI agent platforms alongside emerging research that challenges assumptions about complexity, suggesting the field is maturing but still contested on fundamental design questions.",
+          "score": 5,
+          "reason": "Excellent balance of commercial developments and critical research perspective. Includes all major players (Google, Anthropic, Amazon, OpenAI). Crucially adds Stanford research questioning multi-agent complexity\u2014this is important context that prevents hype. Well-sourced, directly addresses both product expansion and research nuance. Most journalistically sound."
         },
         "deep": {
           "queries": [
             "What is the latest on AI agent products and research loops?",
-            "AI agent products 2024 latest releases",
-            "research loops autonomous agents systems",
-            "agentic AI frameworks and tools",
-            "AI agent frameworks OpenAI Claude Anthropic 2024",
-            "autonomous agent systems feedback loops evaluation",
-            "bounded research loops information retrieval agents",
-            "bounded research loops information retrieval evaluation metrics",
-            "AI agent products Claude Computer Use Anthropic 2024",
-            "agentic workflows iterative refinement systems latest",
-            "bounded research loops information retrieval agents evaluation metrics",
-            "AI agent research loops iterative refinement latest 2024",
-            "agentic systems bounded search query optimization techniques",
-            "bounded research loops information retrieval agents latest benchmarks 2024",
-            "AI agent products market landscape competitive analysis 2024",
-            "research loop evaluation metrics agent performance assessment"
+            "AI agent frameworks and tools 2024 production deployment",
+            "research loop architectures agentic AI systems",
+            "latest AI agent products Anthropic OpenAI Google 2024",
+            "agentic AI research loops evaluation metrics benchmarks 2024",
+            "AI agent memory management context windows production systems",
+            "multi-agent collaboration frameworks orchestration patterns",
+            "AI agent benchmarks evaluation frameworks 2024 real-world performance metrics",
+            "agentic AI limitations challenges failure modes production deployment",
+            "AI agent cost efficiency latency optimization inference patterns 2024",
+            "AI agent reasoning loops chain-of-thought verification 2024",
+            "agentic AI tool use function calling real-world applications",
+            "bounded research loops iterative refinement agent architectures",
+            "AI agent loop evaluation metrics success criteria production readiness 2024",
+            "agentic AI cost-benefit analysis ROI real-world deployment case studies",
+            "bounded reasoning loops token efficiency context management agent systems"
           ],
-          "sources": 0,
-          "cost_usd": 0.004533,
+          "sources": 36,
+          "cost_usd": 0.018418,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No information provided. While honest about lack of sources, this fails to be useful to the reader."
+          "answer": "AI agent products are rapidly expanding, with Google, OpenAI, Anthropic, and AWS all launching new agent platforms and research tools.\n\n**VentureBeat:** Google introduced two autonomous research agents, Deep Research and Deep Research Max, capable of searching the web and private data through a single API call, producing native charts and connecting to third-party sources.\n\n**VentureBeat:** OpenAI launched Workspace Agents, enabling enterprises to automate workflows by integrating with Slack, Salesforce, and more, marking a shift from simple chatbots to proactive autonomous agents.\n\n**Anthropic-news:** Anthropic announced a Managed Agents service that abstracts deployment complexity, offering built-in monitoring, scaling, and security without customers needing to manage underlying infrastructure.\n\n**OpenAI:** OpenAI improved its Responses API using WebSockets, reducing overhead and improving latency specifically to enhance the efficiency of Codex agent loops for developers.\n\n**VentureBeat:** Stanford research challenges the multi-agent trend, finding that complex multi-agent systems often fail to outperform single-agent systems when compute budgets are equal, raising questions about architectural complexity.\n\nOverall, while major players are aggressively shipping agent products and research loop tools, emerging research suggests that more complex multi-agent architectures may not always deliver proportional gains, pointing to an industry still navigating the right balance between sophistication and efficiency.",
+          "score": 4,
+          "reason": "Good coverage of products (Deep Research, Workspace Agents, Managed Agents, Responses API). Includes critical Stanford research on multi-agent limitations. However, 'Workspace Agents' attribution to OpenAI is less clearly sourced than other claims and may conflate different products. Slightly less precise than 'balanced' on sourcing specificity."
         }
       },
-      "judge_cost_usd": 0.001329,
+      "judge_cost_usd": 0.002717,
       "judge_cost_status": "measured",
-      "winner": "tie",
-      "judge_summary": "All three answers are identical and equally unhelpful. Each correctly acknowledges the absence of relevant news articles but provides no value to the user. None score above 1 because they contain zero factual content, coverage, or useful information. In a real scenario, a better response would acknowledge the limitation while offering alternative approaches (e.g., suggesting general knowledge about AI agents, recommending specific sources to check, or asking for clarification on timeframe)."
+      "winner": "balanced",
+      "judge_summary": "All three answers cover the major product launches competently, but 'balanced' edges ahead by combining comprehensive commercial coverage with critical research perspective (Stanford multi-agent findings). This prevents one-sided hype and provides readers with important context about architectural tradeoffs. 'Current' is strong but includes a less-verified research claim (DR-Venus). 'Deep' is solid but has minor sourcing ambiguity on 'Workspace Agents.' For a news question, 'balanced' best serves readers by presenting both expansion and skepticism."
     },
     {
       "question": "How are publishers and media companies reacting to generative AI deals?",
@@ -563,64 +540,59 @@
           "queries": [
             "How are publishers and media companies reacting to generative AI deals?"
           ],
-          "sources": 0,
-          "cost_usd": 0.0,
-          "cost_status": "not_needed",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No answer provided; unable to assess usefulness or factual grounding."
+          "sources": 20,
+          "cost_usd": 0.005814,
+          "cost_status": "measured",
+          "answer": "The provided articles do not contain enough information to answer the question about how publishers and media companies are reacting to generative AI deals.\n\nNone of the 20 articles address publisher or media company responses to generative AI licensing agreements, content deals, or related negotiations. The articles cover unrelated topics such as geopolitics, social media, market movements, and AI fraud.",
+          "score": 5,
+          "reason": "Direct, honest assessment. Clearly states the limitation (20 articles reviewed), specifies what's missing (publisher/media reactions to AI deals), and provides concrete examples of what was found instead. No speculation."
         },
         "balanced": {
           "queries": [
             "How are publishers and media companies reacting to generative AI deals?",
-            "publisher lawsuits against OpenAI Google generative AI copyright",
-            "media company licensing agreements AI training data deals",
-            "major publishers licensing deals OpenAI Google Anthropic 2024",
-            "media industry response generative AI copyright concerns settlements",
-            "New York Times settlement OpenAI AI training data agreement 2024",
-            "publishers refusing AI licensing deals content protection stance"
+            "publishers media companies licensing deals generative AI OpenAI Google",
+            "news organizations AI copyright lawsuits settlements negotiations",
+            "news publishers licensing agreements OpenAI Google Anthropic payments",
+            "media companies AI copyright lawsuits New York Times Wall Street Journal settlements"
           ],
-          "sources": 0,
-          "cost_usd": 0.001919,
+          "sources": 24,
+          "cost_usd": 0.009889,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No answer provided; unable to assess usefulness or factual grounding."
+          "answer": "The provided articles do not contain enough information to answer the question about how publishers and media companies are reacting to generative AI deals.\n\nNone of the 24 articles address publisher or media company reactions to generative AI licensing or content deals. The articles cover unrelated topics such as geopolitical negotiations, OpenAI chip investments, leadership changes, and social media trends, but none specifically discuss how publishers or media companies are responding to generative AI agreements.",
+          "score": 5,
+          "reason": "Equally direct and honest. Reviews more articles (24), maintains the same clear structure, and provides similar specificity about gaps and alternative content found. Slightly more detailed in listing example topics."
         },
         "deep": {
           "queries": [
             "How are publishers and media companies reacting to generative AI deals?",
-            "major publishers licensing deals generative AI companies OpenAI Google",
-            "media companies copyright lawsuits generative AI training data",
-            "publisher concerns risks generative AI content generation",
-            "publisher licensing agreements OpenAI Google Anthropic financial terms",
-            "media companies AI content monetization revenue sharing models",
-            "news organizations stance generative AI regulation policy advocacy",
-            "news publishers AI licensing deals financial terms amounts paid",
-            "media companies generative AI partnerships revenue models 2024",
-            "publisher reactions AI content scraping fair compensation",
-            "New York Times lawsuit OpenAI Microsoft generative AI training data",
-            "publisher AI licensing deals financial impact revenue 2024",
-            "media companies generative AI content attribution compensation models",
-            "publisher AI licensing deals Axel Springer Financial Times News Corp amounts",
-            "media industry generative AI business model impact advertising revenue concerns",
-            "news publishers AI training data opt-out policies content protection 2024",
-            "publisher AI licensing deals Perplexity Apple News+ revenue sharing 2024",
-            "media companies generative AI business model disruption advertising decline concerns",
-            "news publishers AI content licensing negotiations terms conditions exclusivity"
+            "publishers media companies licensing deals generative AI OpenAI Google",
+            "news organizations AI copyright lawsuits settlements 2024",
+            "media industry response AI content generation business strategy",
+            "OpenAI Google Microsoft licensing agreements news publishers 2024",
+            "media companies AI training data compensation lawsuits settlements",
+            "news organizations generative AI business models revenue sharing deals",
+            "New York Times Wall Street Journal Financial Times licensing agreements OpenAI Anthropic compensation",
+            "publishers AI training data opt-out policies copyright protection 2024",
+            "media company AI revenue models paywalls subscription generative AI content",
+            "publishers licensing agreements compensation OpenAI Anthropic Claude 2024 2025",
+            "news media companies AI training data rights lawsuits settlements latest",
+            "media industry AI content deals revenue sharing models news organizations",
+            "New York Times OpenAI licensing deal terms compensation agreement 2024",
+            "publishers AI copyright lawsuits settlements News Corp Cond\u00e9 Nast latest outcomes",
+            "media companies generative AI business partnerships revenue models 2025"
           ],
-          "sources": 0,
-          "cost_usd": 0.004959,
+          "sources": 36,
+          "cost_usd": 0.01647,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No answer provided; unable to assess usefulness or factual grounding."
+          "answer": "The provided news articles do not contain enough information to answer the question about how publishers and media companies are reacting to generative AI deals.\n\nNone of the 36 articles address publisher or media company reactions to generative AI licensing agreements, content deals, or related negotiations. The articles cover unrelated topics such as geopolitics, legal cases, and general AI product releases.",
+          "score": 5,
+          "reason": "Same quality assessment with the largest sample (36 articles). Maintains consistency in honesty and clarity. All three answers are functionally equivalent in usefulness\u2014they all correctly identify that the source material doesn't address the question."
         }
       },
-      "judge_cost_usd": 0.00104,
+      "judge_cost_usd": 0.001831,
       "judge_cost_status": "measured",
       "winner": "tie",
-      "judge_summary": "All three responses are identical and provide no substantive information. Each states that no relevant news articles were found, which prevents evaluation of usefulness, factual accuracy, or coverage. This appears to be a limitation of the source material or search rather than a difference in answer quality."
+      "judge_summary": "All three answers are equally useful and well-grounded. Each correctly identifies that the available articles don't contain relevant information about publisher/media company reactions to generative AI deals. They differ only in sample size (20, 24, and 36 articles reviewed), but this doesn't materially affect the quality of the response since all reach the same valid conclusion. All avoid speculation and directly address the question's answerability. A tie is appropriate."
     },
     {
       "question": "What changed in the last week around robotics plus foundation models?",
@@ -630,64 +602,59 @@
           "queries": [
             "What changed in the last week around robotics plus foundation models?"
           ],
-          "sources": 0,
-          "cost_usd": 0.0,
-          "cost_status": "not_needed",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "No information provided. While honest about lack of findings, provides zero value to the user seeking recent news on robotics and foundation models."
+          "sources": 20,
+          "cost_usd": 0.009552,
+          "cost_status": "measured",
+          "answer": "Several notable developments emerged last week at the intersection of robotics and foundation models, led by Physical Intelligence's \u03c00.7 and a new vision-language-action model.\n\n- **TechCrunch:** Physical Intelligence introduced \u03c00.7, a general-purpose robot brain designed to learn and execute tasks it was never explicitly programmed to perform, representing a significant step toward generalizable robotics.\n- **Techmeme:** Researchers describe \u03c00.7's ability to perform untrained tasks as an \"early sign\" of generalization, a capability that surprises the research community and points toward multi-purpose robotic systems.\n- **X (via \u03c00.7 thread):** Unlike prior robotics approaches requiring task-specific fine-tuning, \u03c00.7 works \"out of the box\" and outperforms fine-tuned specialists, signaling a paradigm shift in how foundation models are applied to robotics.\n- **arxiv-cs-ro:** JoyAI-RA 0.1 was introduced as a new vision-language-action foundation model targeting robotic autonomy in open-world settings, specifically addressing limitations in data diversity and cross-embodiment generalization.\n- **arxiv-cs-ro:** A comprehensive review paper surveyed how foundation models are broadly reshaping robotics, moving the field from narrow single-task systems toward general-purpose agents capable of adapting to open-world environments.\n\nOverall, the week's evidence points strongly toward a maturing convergence of foundation models and robotics, with generalization \u2014 robots handling novel tasks without retraining \u2014 emerging as the central breakthrough theme.",
+          "score": 4,
+          "reason": "Strong coverage of core developments (\u03c00.7, JoyAI-RA, review paper) with direct sourcing and clear articulation of the generalization breakthrough. Well-structured and avoids speculation. Minor limitation: omits commercial/deployment angle (NEURA/AWS, Antioch funding) that provides fuller context."
         },
         "balanced": {
           "queries": [
             "What changed in the last week around robotics plus foundation models?",
-            "robotics foundation models breakthroughs this week",
-            "latest news AI robots large language models",
-            "robotics foundation models research papers 2024",
-            "embodied AI large language models recent developments",
-            "robot learning foundation models week",
-            "multimodal AI robotics applications latest"
+            "Physical Intelligence \u03c00.7 robot model generalization capabilities 2024",
+            "foundation models robotics applications breakthroughs this week",
+            "\u03c00.7 Physical Intelligence robot model performance benchmarks results",
+            "robotics foundation models week of December 2024 announcements"
           ],
-          "sources": 0,
-          "cost_usd": 0.001683,
+          "sources": 24,
+          "cost_usd": 0.013135,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "Identical to current answer. No information provided. Fails to answer the question or offer alternative assistance."
+          "answer": "Several significant developments in robotics and foundation models emerged this past week, led by Physical Intelligence's \u03c00.7 generalization breakthrough and new model releases.\n\n**Physical Intelligence (TechCrunch/Techmeme):** Startup Physical Intelligence unveiled \u03c00.7, a robot brain model that can direct robots on tasks they were never trained on, which researchers are calling an \"early sign\" of generalization. This reduces the need for exhaustive task-specific programming and signals a leap toward general-purpose robotics.\n\n**arxiv-cs-ro:** A new vision-language-action foundation model called JoyAI-RA 0.1 was released, specifically designed to improve robotic autonomy in open-world settings by addressing data diversity gaps and enabling better behavior transfer across different robot embodiments.\n\n**arxiv-cs-ro:** A comprehensive review paper surveyed how foundation models are reshaping robotics, documenting the field's shift from narrow single-task systems toward general-purpose agents capable of adapting to open-world environments.\n\n**NEURA Robotics/AWS (Bing News):** NEURA Robotics and Amazon Web Services announced a strategic collaboration to scale Physical AI, integrating intelligent robotics with cloud infrastructure to accelerate autonomous system deployment in industrial settings.\n\n**TechCrunch:** Simulation startup Antioch raised $8.5 million in seed funding to build developer tools for physical AI, positioning itself as a key infrastructure player for robotics builders.\n\nOverall, the week showed strong momentum across both research and commercial fronts, with generalization capability and cloud-scale deployment emerging as the dominant themes.",
+          "score": 5,
+          "reason": "Comprehensive coverage spanning research breakthroughs (\u03c00.7, JoyAI-RA, review), commercial partnerships (NEURA/AWS), and infrastructure investment (Antioch). Well-sourced, balanced between research and industry momentum, identifies both research and deployment themes. Directly answers the question with appropriate scope."
         },
         "deep": {
           "queries": [
             "What changed in the last week around robotics plus foundation models?",
-            "robotics foundation models breakthroughs this week",
-            "latest AI robot developments 2024",
-            "foundation models applied to robotics control",
-            "robotics foundation models news week",
-            "large language models robot control recent",
-            "multimodal AI robotics applications latest",
-            "robotics foundation models week of [current date]",
-            "embodied AI large language models recent papers",
-            "robot learning transformer models latest breakthroughs",
-            "robotics foundation models news this week",
-            "robot learning breakthroughs latest 2024",
-            "embodied AI systems recent announcements",
-            "robotics foundation models announcements past 7 days",
-            "robot manipulation language models week",
-            "AI robotics industry news latest week",
-            "robotics foundation models week [specific recent date range]",
-            "robot learning large language models announcements",
-            "embodied AI robotics breakthroughs latest news"
+            "Physical Intelligence \u03c00.7 robot model details capabilities",
+            "foundation models robotics generalization transfer learning 2024",
+            "robotics startup announcements this week AI",
+            "Physical Intelligence \u03c00.7 benchmark results performance metrics",
+            "robotics foundation models week of December 2024 announcements",
+            "generalization transfer learning robots unseen tasks research",
+            "Physical Intelligence \u03c00.7 technical architecture training data methodology",
+            "robotics foundation models week December 16-22 2024 new releases",
+            "robot generalization unseen tasks benchmark comparison \u03c00.7 competitors",
+            "Physical Intelligence \u03c00.7 robot generalization zero-shot learning December 2024",
+            "robotics foundation models week December 2024 Google DeepMind OpenAI announcements",
+            "\u03c00.7 robot model limitations failure cases real-world deployment challenges",
+            "Physical Intelligence \u03c00.7 robot real-world deployment applications December 2024",
+            "robotics foundation models comparison \u03c00.7 vs Google DeepMind competitors benchmarks",
+            "\u03c00.7 robot training data scale methodology how many tasks learned"
           ],
-          "sources": 0,
-          "cost_usd": 0.003972,
+          "sources": 36,
+          "cost_usd": 0.020296,
           "cost_status": "measured",
-          "answer": "No relevant news articles found to answer this question.",
-          "score": 1,
-          "reason": "Identical to both other answers. No information provided. Does not attempt deeper research, synthesis, or alternative approaches to address the question."
+          "answer": "Several key developments emerged last week, including Physical Intelligence's \u03c00.7 model and a new vision-language-action foundation model for robotics.\n\n**Physical Intelligence (TechCrunch):** Robotics startup Physical Intelligence introduced \u03c00.7, a general-purpose robot brain capable of performing tasks it was never explicitly trained on. Researchers describe this generalization as a breakthrough, potentially reducing the need for exhaustive task-specific data.\n\n**X (social media):** A post noted that \u03c00.7 shifts robotics away from task-specific fine-tuning, working \"out of the box\" and outperforming fine-tuned specialists \u2014 a significant departure from how LLM post-training has traditionally been applied to robotics.\n\n**arxiv-cs-ro (JoyAI-RA):** A new vision-language-action foundation model called JoyAI-RA was published, targeting robotic autonomy in open-world settings and addressing limitations in data diversity and cross-embodiment generalization.\n\n**arxiv-cs-ro (Comprehensive Review):** A wide-ranging survey confirmed that foundation models are broadly reshaping robotics, pushing systems from narrow single-task designs toward general-purpose agents adaptable to open-world environments.\n\n**NEURA Robotics / AWS (Bing News):** NEURA Robotics and Amazon Web Services announced a strategic collaboration to scale Physical AI, integrating intelligent robotics with cloud infrastructure for industrial deployment.\n\nOverall, the week's evidence points to accelerating convergence between foundation models and robotics, with generalization capability emerging as the central theme, though some voices cautioned that demo culture may be overstating actual progress.",
+          "score": 3,
+          "reason": "Good technical detail on \u03c00.7's paradigm shift and includes the NEURA/AWS partnership. However, the final caveat about 'demo culture' and 'overstating progress' is unsupported speculation without cited sources, undermining factual grounding. Also omits Antioch funding and the comprehensive review paper mentioned in other answers, reducing coverage completeness."
         }
       },
-      "judge_cost_usd": 0.001344,
+      "judge_cost_usd": 0.002927,
       "judge_cost_status": "measured",
-      "winner": "tie",
-      "judge_summary": "All three answers are identical and equally unhelpful. Each simply states that no relevant news articles were found without attempting to provide context, suggest where to find such information, clarify the search parameters, or offer any alternative value. A better response would acknowledge the limitation while suggesting how the user might find current information or asking clarifying questions about their specific interests in robotics and foundation models."
+      "winner": "balanced",
+      "judge_summary": "The BALANCED answer provides the most useful response by combining strong research coverage (\u03c00.7, JoyAI-RA, review paper) with commercial developments (NEURA/AWS partnership, Antioch funding) while maintaining factual grounding throughout. CURRENT is nearly as strong on research but misses the commercial/deployment context. DEEP includes good technical insight but undermines itself with unsupported speculation about demo culture and omits key developments, making it less reliable despite some deeper analysis."
     }
   ],
   "environment_notes": [

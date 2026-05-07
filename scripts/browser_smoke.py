@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
+import json
 import os
 import socket
 import subprocess
@@ -18,6 +20,10 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--repo-root", default=".", help="Repository root to run against.")
     parser.add_argument("--output", required=True, help="PNG path for the captured screenshot.")
+    parser.add_argument(
+        "--meta-output",
+        help="Optional JSON path for the captured page signature.",
+    )
     parser.add_argument("--url-path", default="/", help="Relative path to open in the browser.")
     parser.add_argument("--startup-timeout", type=float, default=20.0, help="Seconds to wait for the app to boot.")
     return parser.parse_args()
@@ -55,7 +61,11 @@ def _wait_for_health(base_url: str, proc: subprocess.Popen[bytes], deadline_s: f
     raise RuntimeError(f"server did not become healthy within {deadline_s}s")
 
 
-async def _capture(base_url: str, output_path: Path, url_path: str) -> None:
+def _normalize_text(text: str) -> str:
+    return " ".join(text.split())
+
+
+async def _capture(base_url: str, output_path: Path, url_path: str) -> dict[str, object]:
     from playwright.async_api import async_playwright
 
     async with async_playwright() as playwright:
@@ -66,11 +76,25 @@ async def _capture(base_url: str, output_path: Path, url_path: str) -> None:
             title = await page.title()
             if "News Digest" not in title:
                 raise RuntimeError(f"unexpected page title: {title!r}")
-            panel_count = await page.locator("section.panel").count()
+            panels = page.locator("section.panel")
+            panel_count = await panels.count()
             if panel_count < 2:
                 raise RuntimeError(f"expected at least 2 panels, found {panel_count}")
+            panel_texts: list[str] = []
+            for idx in range(panel_count):
+                panel_text = await panels.nth(idx).inner_text()
+                panel_texts.append(_normalize_text(panel_text))
+            combined_text = "\n".join(panel_texts)
+            signature = {
+                "title": title,
+                "panel_count": panel_count,
+                "panel_text_hash": hashlib.sha256(combined_text.encode("utf-8")).hexdigest(),
+                "panel_text_preview": combined_text[:500],
+                "url_path": url_path,
+            }
             output_path.parent.mkdir(parents=True, exist_ok=True)
             await page.screenshot(path=str(output_path), full_page=True)
+            return signature
         finally:
             await browser.close()
 
@@ -163,6 +187,7 @@ def main() -> int:
     args = _parse_args()
     repo_root = Path(args.repo_root).resolve()
     output_path = Path(args.output).resolve()
+    meta_output = Path(args.meta_output).resolve() if args.meta_output else None
 
     sys.path.insert(0, str(repo_root))
 
@@ -211,7 +236,10 @@ def main() -> int:
         base_url = f"http://127.0.0.1:{port}"
         try:
             _wait_for_health(base_url, proc, deadline_s=args.startup_timeout)
-            asyncio.run(_capture(base_url, output_path, args.url_path))
+            signature = asyncio.run(_capture(base_url, output_path, args.url_path))
+            if meta_output is not None:
+                meta_output.parent.mkdir(parents=True, exist_ok=True)
+                meta_output.write_text(json.dumps(signature, indent=2))
         finally:
             proc.terminate()
             try:

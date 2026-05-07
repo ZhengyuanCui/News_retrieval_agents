@@ -92,17 +92,44 @@ jobs:
           git worktree add /tmp/pr-smoke-base "${{ github.event.pull_request.base.sha }}"
           uv run python scripts/browser_smoke.py \
             --repo-root /tmp/pr-smoke-base \
-            --output artifacts/browser-smoke-before.png
+            --output artifacts/browser-smoke-before.png \
+            --meta-output artifacts/browser-smoke-before.json
 
       - name: Capture PR head screenshot
         run: |
           uv run python scripts/browser_smoke.py \
             --repo-root . \
-            --output artifacts/browser-smoke-after.png
+            --output artifacts/browser-smoke-after.png \
+            --meta-output artifacts/browser-smoke-after.json
+
+      - name: Decide if browser-visible output changed
+        id: compare_browser_output
+        if: github.event_name == 'pull_request'
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          before = json.loads(Path("artifacts/browser-smoke-before.json").read_text())
+          after = json.loads(Path("artifacts/browser-smoke-after.json").read_text())
+          changed = before != after
+          summary = []
+          if before.get("title") != after.get("title"):
+              summary.append("title")
+          if before.get("panel_count") != after.get("panel_count"):
+              summary.append("panel_count")
+          if before.get("panel_text_hash") != after.get("panel_text_hash"):
+              summary.append("panel_text_hash")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"changed={'true' if changed else 'false'}\n")
+              fh.write(f"fields={','.join(summary) if summary else 'none'}\n")
+          print({"changed": changed, "fields": summary})
+          PY
 
       - name: Upload browser smoke artifacts
         id: upload_browser_smoke
-        if: always()
+        if: github.event_name != 'pull_request' || steps.compare_browser_output.outputs.changed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: browser-smoke-screenshots
@@ -110,13 +137,14 @@ jobs:
           if-no-files-found: warn
 
       - name: Comment browser smoke evidence on PR
-        if: github.event_name == 'pull_request' && always()
+        if: github.event_name == 'pull_request' && steps.compare_browser_output.outputs.changed == 'true'
         continue-on-error: true
         uses: actions/github-script@v7
         env:
           ARTIFACT_URL: ${{ steps.upload_browser_smoke.outputs.artifact-url }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
+          CHANGED_FIELDS: ${{ steps.compare_browser_output.outputs.fields }}
         with:
           script: |
             const marker = "<!-- browser-smoke-evidence -->";
@@ -124,6 +152,8 @@ jobs:
             const status = process.env.JOB_STATUS || "unknown";
             const body = `${marker}
             Browser smoke status: \`${status}\`
+
+            Browser-visible fields changed: ${process.env.CHANGED_FIELDS}
 
             Before merge verification for this PR now includes:
             - \`browser-smoke-before.png\`: base branch app screenshot

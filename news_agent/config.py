@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     # ── OpenAI TTS ────────────────────────────────────────────────────────────
     openai_api_key: str = ""
     podcast_voice: str = "alloy"  # alloy | echo | fable | onyx | nova | shimmer
+    podcast_format: str = "dialogue"  # dialogue | monologue
+    podcast_host_voice: str = "alloy"
+    podcast_analyst_voice: str = "onyx"
+    podcast_dialogue_max_turns: int = 12
 
     # ── Twitter / X ───────────────────────────────────────────────────────────
     twitter_bearer_token: str | None = None

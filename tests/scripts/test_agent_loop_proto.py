@@ -75,3 +75,22 @@ def test_no_evidence_fallback_marks_current_cost_unknown():
     _, cost, cost_status = result
     assert cost == 0.0
     assert cost_status == "not_needed"
+
+
+def test_default_db_path_uses_main_workspace_db():
+    mod = _load_module()
+
+    assert mod._default_db_path() == Path("/mnt/c/ZhengyuanCui/Projects/News_retrieval_agents/data/news.db")
+
+
+def test_bm25_query_uses_content_tokens_not_full_question():
+    mod = _load_module()
+
+    query = mod._bm25_query("What changed this week in OpenAI's model roadmap?")
+
+    assert '"openai"' in query.lower()
+    assert '"model"' in query.lower()
+    assert '"roadmap"' in query.lower()
+    assert '"what"' not in query.lower()
+    assert '"this"' not in query.lower()
+    assert '"week"' not in query.lower()

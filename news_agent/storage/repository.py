@@ -4,8 +4,9 @@ import asyncio
 import logging
 import re
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
-from sqlalchemy import delete, select, text, update
+from sqlalchemy import delete, or_, select, text, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +21,9 @@ from news_agent.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from news_agent.pipeline.query_router import QueryFilters
 
 
 def _fts_escape(query: str) -> str:
@@ -221,6 +225,7 @@ class NewsRepository:
         languages: list[str] | None = None,
         min_relevance: float = 4.0,
         hybrid_alpha: float | None = None,
+        filters: QueryFilters | None = None,
     ) -> list[NewsItem]:
         """Content-based search using BM25 + semantic (RRF merge).
 
@@ -253,6 +258,27 @@ class NewsRepository:
         ]
         if languages:
             base_where.append(NewsItemORM.language.in_(languages))
+        if filters:
+            if filters.sources:
+                base_where.append(NewsItemORM.source.in_(filters.sources))
+            if filters.topics:
+                topic_terms = [t.strip() for t in filters.topics if t.strip()]
+                if topic_terms:
+                    base_where.append(or_(*[NewsItemORM.topic.ilike(term) for term in topic_terms]))
+            if filters.entities:
+                entity_terms = [e.strip() for e in filters.entities if e.strip()]
+                if entity_terms:
+                    base_where.append(
+                        or_(
+                            *[
+                                or_(
+                                    NewsItemORM.title.ilike(f"%{term}%"),
+                                    NewsItemORM.content.ilike(f"%{term}%"),
+                                )
+                                for term in entity_terms
+                            ]
+                        )
+                    )
         dismissed = self._dismissed_subquery()
         if dismissed is not None:
             base_where.append(NewsItemORM.id.notin_(dismissed))

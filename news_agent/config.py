@@ -162,6 +162,8 @@ class Settings(BaseSettings):
     # _rrf_merge's dict size bounded regardless of upstream behaviour. 200
     # comfortably exceeds the default limit*3 semantic top_k with headroom.
     search_rrf_top_k: int = 200
+    smart_filter_enabled: bool = False
+    smart_filter_timeout_seconds: float = 3.0
 
     # ── Personalization ───────────────────────────────────────────────────────
     # When True, a user downvote inserts a row in DismissedItemORM and the item

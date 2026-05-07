@@ -9,6 +9,11 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -59,3 +64,201 @@ jobs:
           else
             echo "Skipping quality auto-fix smoke; suite not present on this branch."
           fi
+
+  browser_smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install browser smoke dependencies
+        run: uv sync --extra dev --extra e2e
+
+      - name: Install Chromium
+        run: uv run playwright install --with-deps chromium
+
+      - name: Capture base branch screenshot
+        if: github.event_name == 'pull_request'
+        run: |
+          git worktree add /tmp/pr-smoke-base "${{ github.event.pull_request.base.sha }}"
+          uv run python scripts/browser_smoke.py \
+            --repo-root /tmp/pr-smoke-base \
+            --output artifacts/browser-smoke-before.png \
+            --meta-output artifacts/browser-smoke-before.json
+
+      - name: Capture PR head screenshot
+        run: |
+          uv run python scripts/browser_smoke.py \
+            --repo-root . \
+            --output artifacts/browser-smoke-after.png \
+            --meta-output artifacts/browser-smoke-after.json
+
+      - name: Decide if browser-visible output changed
+        id: compare_browser_output
+        if: github.event_name == 'pull_request'
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          before = json.loads(Path("artifacts/browser-smoke-before.json").read_text())
+          after = json.loads(Path("artifacts/browser-smoke-after.json").read_text())
+          changed = before != after
+          summary = []
+          if before.get("title") != after.get("title"):
+              summary.append("title")
+          if before.get("panel_count") != after.get("panel_count"):
+              summary.append("panel_count")
+          if before.get("panel_text_hash") != after.get("panel_text_hash"):
+              summary.append("panel_text_hash")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"changed={'true' if changed else 'false'}\n")
+              fh.write(f"fields={','.join(summary) if summary else 'none'}\n")
+          print({"changed": changed, "fields": summary})
+          PY
+
+      - name: Upload browser smoke artifacts
+        id: upload_browser_smoke
+        if: github.event_name != 'pull_request' || steps.compare_browser_output.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-smoke-screenshots
+          path: artifacts/browser-smoke-*.png
+          if-no-files-found: warn
+
+      - name: Comment browser smoke evidence on PR
+        if: github.event_name == 'pull_request' && steps.compare_browser_output.outputs.changed == 'true'
+        continue-on-error: true
+        uses: actions/github-script@v7
+        env:
+          ARTIFACT_URL: ${{ steps.upload_browser_smoke.outputs.artifact-url }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
+          CHANGED_FIELDS: ${{ steps.compare_browser_output.outputs.fields }}
+        with:
+          script: |
+            const marker = "<!-- browser-smoke-evidence -->";
+            const artifactUrl = process.env.ARTIFACT_URL || process.env.RUN_URL;
+            const status = process.env.JOB_STATUS || "unknown";
+            const body = `${marker}
+            Browser smoke status: \`${status}\`
+
+            Browser-visible fields changed: ${process.env.CHANGED_FIELDS}
+
+            Before merge verification for this PR now includes:
+            - \`browser-smoke-before.png\`: base branch app screenshot
+            - \`browser-smoke-after.png\`: PR head app screenshot
+
+            Screenshot artifact: ${artifactUrl}
+            Workflow run: ${process.env.RUN_URL}`;
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) =>
+              comment.user?.type === "Bot" && comment.body?.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }
+
+  debug_failed_checks:
+    needs:
+      - smoke
+      - browser_smoke
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - collector_state
+          - podcast_dialogue
+          - query_router
+          - spike_b_proto
+          - quality_auto_fix
+          - browser_smoke
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install debug dependencies
+        run: uv sync --extra dev --extra e2e
+
+      - name: Install Chromium for browser debug
+        if: matrix.suite == 'browser_smoke'
+        run: uv run playwright install --with-deps chromium
+
+      - name: Rerun failed suite in debug mode
+        continue-on-error: true
+        run: |
+          mkdir -p debug-logs
+          case "${{ matrix.suite }}" in
+            collector_state)
+              uv run pytest tests/collectors/test_collector_state.py -vv -x -s 2>&1 | tee debug-logs/collector_state.log
+              ;;
+            podcast_dialogue)
+              uv run pytest tests/pipeline/test_podcast.py tests/test_cli.py -vv -x -s 2>&1 | tee debug-logs/podcast_dialogue.log
+              ;;
+            query_router)
+              uv run pytest tests/pipeline/test_query_router.py tests/storage/test_search_filters.py tests/web/test_query_router_app.py -vv -x -s 2>&1 | tee debug-logs/query_router.log
+              ;;
+            spike_b_proto)
+              uv run pytest tests/scripts/test_agent_loop_proto.py -vv -x -s 2>&1 | tee debug-logs/spike_b_proto.log
+              ;;
+            quality_auto_fix)
+              if [ -d tests/auto_fix ] && [ -f tests/test_scheduler.py ]; then
+                uv run pytest tests/auto_fix/test_pr_submitter.py tests/auto_fix/test_rule_fixer.py tests/auto_fix/test_agent_fixer.py tests/test_cli.py tests/test_scheduler.py -vv -x -s 2>&1 | tee debug-logs/quality_auto_fix.log
+              else
+                echo "quality auto-fix suite not present on this branch" | tee debug-logs/quality_auto_fix.log
+              fi
+              ;;
+            browser_smoke)
+              uv run python scripts/browser_smoke.py --repo-root . --output debug-logs/browser-smoke-after.png --meta-output debug-logs/browser-smoke-after.json 2>&1 | tee debug-logs/browser_smoke.log
+              ;;
+          esac
+
+      - name: Upload debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-${{ matrix.suite }}
+          path: debug-logs/*
+          if-no-files-found: warn

@@ -53,4 +53,9 @@ jobs:
 
       - name: Run quality auto-fix smoke
         if: matrix.suite == 'quality_auto_fix'
-        run: uv run pytest tests/auto_fix/test_pr_submitter.py tests/auto_fix/test_rule_fixer.py tests/auto_fix/test_agent_fixer.py tests/test_cli.py tests/test_scheduler.py -q
+        run: |
+          if [ -d tests/auto_fix ] && [ -f tests/test_scheduler.py ]; then
+            uv run pytest tests/auto_fix/test_pr_submitter.py tests/auto_fix/test_rule_fixer.py tests/auto_fix/test_agent_fixer.py tests/test_cli.py tests/test_scheduler.py -q
+          else
+            echo "Skipping quality auto-fix smoke; suite not present on this branch."
+          fi

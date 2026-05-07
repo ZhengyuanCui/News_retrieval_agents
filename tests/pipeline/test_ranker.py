@@ -11,9 +11,11 @@ from __future__ import annotations
 
 import math
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 
+import news_agent.pipeline.ranker as ranker
 from news_agent.pipeline.ranker import _SOURCE_AUTHORITY, rank_by_query
 from tests.conftest import hours_ago, make_item
 
@@ -287,3 +289,37 @@ class TestRankByQuery:
         assert ranked[0].source == "reuters", (
             "Fresh reuters article should beat stale tweet despite higher tweet relevance"
         )
+
+    def test_ranker_reads_top_k_from_config(self, monkeypatch: pytest.MonkeyPatch):
+        class FakeModel:
+            def encode(self, texts, batch_size, show_progress_bar, normalize_embeddings):
+                return [
+                    [1.0, 0.0],
+                    [1.0, 0.0],
+                    [0.9, 0.1],
+                    [0.8, 0.2],
+                    [0.7, 0.3],
+                    [0.6, 0.4],
+                    [0.5, 0.5],
+                ]
+
+        captured: dict[str, int] = {}
+
+        class FakeCrossEncoder:
+            def predict(self, pairs, show_progress_bar=False):
+                captured["pair_count"] = len(pairs)
+                return list(range(len(pairs), 0, -1))
+
+        monkeypatch.setattr(ranker, "get_model", lambda: FakeModel())
+        monkeypatch.setattr(ranker, "_get_cross_encoder", lambda: FakeCrossEncoder())
+        monkeypatch.setattr(ranker, "settings", SimpleNamespace(cross_encoder_top_k=5))
+
+        items = [
+            make_item(url=f"https://example.com/{idx}", title=f"Item {idx}", content=f"Content {idx}")
+            for idx in range(6)
+        ]
+
+        ranked = rank_by_query("AI news", items)
+
+        assert len(ranked) == 6
+        assert captured["pair_count"] == 5

@@ -1,62 +1,56 @@
-"""Offline cross-encoder reranker benchmark.
+"""Offline cross-encoder reranker benchmark for cross_encoder_top_k tuning.
 
-Compares:
-    cross-encoder/ms-marco-MiniLM-L-6-v2   (current production)
-    mixedbread-ai/mxbai-rerank-xsmall-v1   (candidate)
+Compares the production reranker, cross-encoder/ms-marco-MiniLM-L-6-v2,
+with two different rerank slice sizes:
+    top_k=20   (legacy behavior)
+    top_k=10   (#14 candidate default)
 
-Reads the labeled eval set at tests/fixtures/rerank_eval.json, runs each
-model over every query's 40 candidates, reports NDCG@10, MRR@10, latency
-(median / P95 / P99, split cold-vs-warm), and per-bucket NDCG@10.
+Reads the labeled eval set at tests/fixtures/rerank_eval.json, reranks only
+the configured top-k slice for each query, leaves the remaining candidates in
+their original order, and reports NDCG@5, NDCG@10, MRR@10, and latency.
 
 Writes detailed results to scripts/rerank_bench_results.json and prints a
 markdown comparison table to stdout.
-
-Run from the spike/rerank-mxbai-eval worktree:
-    python3 scripts/bench_rerank.py
 """
 from __future__ import annotations
 
 import json
+import math
 import statistics
 import time
 from collections import defaultdict
 from pathlib import Path
 
-import numpy as np
-from sklearn.metrics import ndcg_score
-
 FIXTURE = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "rerank_eval.json"
 RESULTS_OUT = Path(__file__).resolve().parent / "rerank_bench_results.json"
 
-MODELS = [
-    "cross-encoder/ms-marco-MiniLM-L-6-v2",
-    "mixedbread-ai/mxbai-rerank-xsmall-v1",
-]
-
-TOP_K = 10
+MODEL_NAME = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+RERANK_TOP_KS = [20, 10]
+METRIC_K_NDCG = (5, 10)
+METRIC_K_MRR = 10
 
 
-def ndcg_at_k(labels_in_original_order: list[int], scores_in_original_order: list[float], k: int = TOP_K) -> float:
-    """NDCG@k for a single query.
-
-    We pass y_true (binary relevance) and y_score (reranker scores) both in
-    the ORIGINAL candidate order to sklearn.ndcg_score — it internally ranks
-    by y_score and computes gain against y_true. This is the documented usage
-    and avoids the double-sort bug of passing labels-in-reranked-order.
-
-    All-zero y_true → sklearn returns 0.0 (documented behavior). We return 0.0
-    in that case too, so skip-queries contribute equally to both models.
-    """
-    if sum(labels_in_original_order) == 0:
+def ndcg_at_k(labels_in_ranked_order: list[int], k: int) -> float:
+    """NDCG@k for an already-ranked result list."""
+    if sum(labels_in_ranked_order) == 0:
         return 0.0
-    y_true = np.asarray([labels_in_original_order], dtype=float)
-    y_score = np.asarray([scores_in_original_order], dtype=float)
-    return float(ndcg_score(y_true, y_score, k=k))
+    gains = labels_in_ranked_order[:k]
+    ideal = sorted(labels_in_ranked_order, reverse=True)[:k]
+
+    def dcg(vs: list[int]) -> float:
+        total = 0.0
+        for rank, rel in enumerate(vs, start=1):
+            total += rel / math.log2(rank + 1)
+        return total
+
+    actual = dcg(gains)
+    best = dcg(ideal)
+    return actual / best if best else 0.0
 
 
-def mrr_at_k(labels_in_reranked_order: list[int], k: int = TOP_K) -> float:
+def mrr_at_k(labels_in_ranked_order: list[int], k: int = METRIC_K_MRR) -> float:
     """Reciprocal rank of the first relevant item within the top-k, else 0."""
-    for rank, lab in enumerate(labels_in_reranked_order[:k], start=1):
+    for rank, lab in enumerate(labels_in_ranked_order[:k], start=1):
         if lab == 1:
             return 1.0 / rank
     return 0.0
@@ -64,19 +58,11 @@ def mrr_at_k(labels_in_reranked_order: list[int], k: int = TOP_K) -> float:
 
 # --- Self-test for ndcg_score usage on a known answer ---------------------
 def _sanity_ndcg() -> None:
-    """Pin sklearn.ndcg_score behavior on a toy example so we catch any drift.
-
-    Candidates A,B,C,D,E with labels [1,0,1,0,0].
-    Reranker scores [0.9, 0.1, 0.8, 0.2, 0.0] → reranked order A, C, B, D, E.
-    Ideal order: A, C, B, D, E as well.  Expected NDCG@3 ≈ 1.0.
-    With scores [0.1, 0.9, 0.0, 0.2, 0.8] → reranked order B, E, D, A, C.
-    Top-3 gains = [0,0,0] (A and C fall outside top-3), DCG=0, NDCG=0.0.
-    """
-    labels = [1, 0, 1, 0, 0]
-    good = [0.9, 0.1, 0.8, 0.2, 0.0]
-    bad =  [0.1, 0.9, 0.0, 0.2, 0.8]
-    g = ndcg_at_k(labels, good, k=3)
-    b = ndcg_at_k(labels, bad, k=3)
+    """Pin NDCG behavior on already-ranked lists so metric drift is obvious."""
+    good = [1, 1, 0, 0, 0]
+    bad = [0, 0, 0, 1, 1]
+    g = ndcg_at_k(good, k=3)
+    b = ndcg_at_k(bad, k=3)
     assert abs(g - 1.0) < 1e-9, f"expected NDCG@3 = 1.0, got {g}"
     assert abs(b - 0.0) < 1e-9, f"expected NDCG@3 = 0.0, got {b}"
 
@@ -98,8 +84,8 @@ def load_fixture() -> dict:
     return data
 
 
-def bench_model(model_name: str, queries: list[dict]) -> dict:
-    print(f"\n═══ {model_name} ═══")
+def bench_top_k(model_name: str, rerank_top_k: int, queries: list[dict]) -> dict:
+    print(f"\n═══ {model_name} / top_k={rerank_top_k} ═══")
     print("  loading model...")
     t_load = time.perf_counter()
     from sentence_transformers import CrossEncoder
@@ -113,35 +99,34 @@ def bench_model(model_name: str, queries: list[dict]) -> dict:
     for qi, q in enumerate(queries):
         text = q["query"]
         cands = q["candidates"]
+        rerank_slice = cands[:rerank_top_k]
+        untouched_tail = cands[rerank_top_k:]
         pairs = [
             (text, f"{(c['title'] or '').strip()} {(c['summary'] or '').strip()}")
-            for c in cands
+            for c in rerank_slice
         ]
-        labels = [int(c["label"]) for c in cands]
+        labels_rerank_slice = [int(c["label"]) for c in rerank_slice]
+        labels_untouched_tail = [int(c["label"]) for c in untouched_tail]
 
         t0 = time.perf_counter()
         raw_scores = model.predict(pairs, show_progress_bar=False)
         dt_ms = (time.perf_counter() - t0) * 1000.0
         latencies_ms.append(dt_ms)
 
-        # Cast to plain floats for JSON serialization.
         scores = [float(s) for s in raw_scores]
-
-        # Reranked label order for MRR@10.
-        order = sorted(range(len(cands)), key=lambda i: scores[i], reverse=True)
-        labels_reranked = [labels[i] for i in order]
-
-        ndcg = ndcg_at_k(labels, scores, k=TOP_K)
-        mrr = mrr_at_k(labels_reranked, k=TOP_K)
+        order = sorted(range(len(rerank_slice)), key=lambda i: scores[i], reverse=True)
+        labels_ranked = [labels_rerank_slice[i] for i in order] + labels_untouched_tail
 
         per_query.append(
             {
                 "query": text,
                 "bucket": q["bucket"],
-                "ndcg@10": ndcg,
-                "mrr@10": mrr,
+                "rerank_top_k": rerank_top_k,
+                "ndcg@5": ndcg_at_k(labels_ranked, k=5),
+                "ndcg@10": ndcg_at_k(labels_ranked, k=10),
+                "mrr@10": mrr_at_k(labels_ranked, k=10),
                 "latency_ms": dt_ms,
-                "n_positive": sum(labels),
+                "n_positive": sum(labels_ranked),
             }
         )
 
@@ -149,7 +134,8 @@ def bench_model(model_name: str, queries: list[dict]) -> dict:
             print(f"  [{qi+1}/{len(queries)}] latest latency={dt_ms:.1f}ms")
 
     # Aggregate
-    ndcg_vals = [r["ndcg@10"] for r in per_query]
+    ndcg5_vals = [r["ndcg@5"] for r in per_query]
+    ndcg10_vals = [r["ndcg@10"] for r in per_query]
     mrr_vals = [r["mrr@10"] for r in per_query]
 
     def pct(vs: list[float], p: float) -> float:
@@ -177,9 +163,11 @@ def bench_model(model_name: str, queries: list[dict]) -> dict:
 
     return {
         "model": model_name,
+        "rerank_top_k": rerank_top_k,
         "load_time_s": load_time_s,
         "n_queries": len(per_query),
-        "mean_ndcg@10": statistics.mean(ndcg_vals) if ndcg_vals else 0.0,
+        "mean_ndcg@5": statistics.mean(ndcg5_vals) if ndcg5_vals else 0.0,
+        "mean_ndcg@10": statistics.mean(ndcg10_vals) if ndcg10_vals else 0.0,
         "mean_mrr@10": statistics.mean(mrr_vals) if mrr_vals else 0.0,
         "latency_ms": {
             "cold": cold_ms,
@@ -198,12 +186,12 @@ def format_table(results: list[dict]) -> str:
     def fmt(v, d=3):
         return f"{v:.{d}f}"
     lines = [
-        "| Model | NDCG@10 | MRR@10 | P95 latency (ms) | Cold (ms) |",
-        "|---|---|---|---|---|",
+        "| Variant | NDCG@5 | NDCG@10 | MRR@10 | P95 latency (ms) | Cold (ms) |",
+        "|---|---|---|---|---|---|",
     ]
     for r in results:
         lines.append(
-            f"| {r['model'].split('/')[-1]} | {fmt(r['mean_ndcg@10'])} | {fmt(r['mean_mrr@10'])} "
+            f"| top_k={r['rerank_top_k']} | {fmt(r['mean_ndcg@5'])} | {fmt(r['mean_ndcg@10'])} | {fmt(r['mean_mrr@10'])} "
             f"| {fmt(r['latency_ms']['warm_p95'], 1)} | {fmt(r['latency_ms']['cold'], 1)} |"
         )
     return "\n".join(lines)
@@ -212,7 +200,7 @@ def format_table(results: list[dict]) -> str:
 def format_bucket_table(results: list[dict], buckets_n: dict[str, int]) -> str:
     r0, r1 = results[0], results[1]
     lines = [
-        "| Bucket | ms-marco | mxbai | Δ |",
+        f"| Bucket | top_k={r0['rerank_top_k']} | top_k={r1['rerank_top_k']} | Δ |",
         "|---|---|---|---|",
     ]
     for b in ["nl", "entity", "ticker", "time"]:
@@ -224,29 +212,25 @@ def format_bucket_table(results: list[dict], buckets_n: dict[str, int]) -> str:
 
 
 def verdict(results: list[dict]) -> tuple[str, str]:
-    msmarco = next(r for r in results if "ms-marco" in r["model"])
-    mxbai = next(r for r in results if "mxbai" in r["model"])
-    d_ndcg = mxbai["mean_ndcg@10"] - msmarco["mean_ndcg@10"]
-    p95 = mxbai["latency_ms"]["warm_p95"]
-
-    # Kill criteria first (stricter)
-    if d_ndcg < 0 or p95 > 600:
-        why = []
-        if d_ndcg < 0:
-            why.append(f"mxbai NDCG@10 regresses by {-d_ndcg:.3f}")
-        if p95 > 600:
-            why.append(f"mxbai P95 {p95:.0f}ms > 600ms ceiling")
-        return "KILL", "; ".join(why)
-    # Ship criteria
-    if d_ndcg >= 0.03 and p95 <= 400:
-        return "SHIP", f"mxbai NDCG@10 gains +{d_ndcg:.3f} (≥0.03) and P95 {p95:.0f}ms (≤400ms)"
-    # Otherwise ambiguous
-    bits = []
-    if d_ndcg < 0.03:
-        bits.append(f"NDCG@10 gain only +{d_ndcg:.3f} (<0.03 ship threshold)")
-    if 400 < p95 <= 600:
-        bits.append(f"P95 {p95:.0f}ms in ambiguous band (400-600ms)")
-    return "AMBIGUOUS", "; ".join(bits) if bits else "thresholds not met in either direction"
+    baseline = next(r for r in results if r["rerank_top_k"] == 20)
+    candidate = next(r for r in results if r["rerank_top_k"] == 10)
+    ndcg5_drop = baseline["mean_ndcg@5"] - candidate["mean_ndcg@5"]
+    p95_drop_ratio = 1.0 - (
+        candidate["latency_ms"]["warm_p95"] / baseline["latency_ms"]["warm_p95"]
+        if baseline["latency_ms"]["warm_p95"] > 0
+        else 0.0
+    )
+    if ndcg5_drop <= 0.01 and p95_drop_ratio >= 0.30:
+        return "SHIP", (
+            f"NDCG@5 drop {ndcg5_drop:.3f} (<= 0.01) and P95 latency improvement "
+            f"{p95_drop_ratio * 100:.1f}% (>= 30%)"
+        )
+    reasons = []
+    if ndcg5_drop > 0.01:
+        reasons.append(f"NDCG@5 drop {ndcg5_drop:.3f} exceeds 0.01")
+    if p95_drop_ratio < 0.30:
+        reasons.append(f"P95 latency improvement only {p95_drop_ratio * 100:.1f}%")
+    return "REVERT", "; ".join(reasons)
 
 
 def main() -> None:
@@ -263,8 +247,8 @@ def main() -> None:
         buckets_n[q["bucket"]] += 1
 
     results: list[dict] = []
-    for model_name in MODELS:
-        res = bench_model(model_name, queries)
+    for rerank_top_k in RERANK_TOP_KS:
+        res = bench_top_k(MODEL_NAME, rerank_top_k, queries)
         results.append(res)
 
     out = {

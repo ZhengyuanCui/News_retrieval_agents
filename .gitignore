@@ -82,3 +82,6 @@ tmp/
 /test_stderr.txt
 /test_keywords.py
 /test_twitter.py
+
+# Generated benchmark output; keep the harness, not the local result blob.
+/scripts/rerank_bench_results.json

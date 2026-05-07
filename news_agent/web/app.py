@@ -298,6 +298,11 @@ async def startup():
         for f in legacy_dir.glob("*.mp3"):
             f.unlink(missing_ok=True)
 
+    # Test mode short-circuit: skip ML warmup, scheduler, and initial fetch so
+    # e2e tests boot quickly against a seeded temp DB without outbound calls.
+    if _settings.news_agent_test_mode:
+        return
+
     # Pre-warm ML models in a background thread so the first search doesn't
     # pay the model-loading cost (~5-15s for sentence-transformers + spam classifier)
     import asyncio as _asyncio
@@ -734,6 +739,18 @@ async def generate_podcast(topic: str, hours: float = 24):
     if topic in _podcast_generating:
         return {"started": False, "reason": "already generating"}
 
+    if _settings.news_agent_fake_podcast:
+        cached = _podcast_cache.get(topic)
+        if cached and cached["hours"] != hours:
+            del _podcast_cache[topic]
+            _podcast_errors.pop(topic, None)
+        _podcast_errors.pop(topic, None)
+        _podcast_cache[topic] = {
+            "audio": b"ID3fake-podcast-audio",
+            "hours": hours,
+        }
+        return {"started": True, "mode": "fake"}
+
     if not _has_llm_key():
         return {"started": False, "reason": "No LLM API key set in .env (LLM_API_KEY or ANTHROPIC_API_KEY)"}
 
@@ -833,6 +850,13 @@ async def set_default_topics(payload: DefaultTopicsPayload):
 async def newsletter_send_now():
     """Trigger a one-off newsletter send right now (uses current default topics
     and SMTP settings). Returns the outcome synchronously so the UI can show it."""
+    if _settings.news_agent_fake_newsletter:
+        return {
+            "ok": True,
+            "mode": "fake",
+            "sent": True,
+        }
+
     from news_agent.pipeline.newsletter import send_newsletter_now
     try:
         result = await send_newsletter_now()

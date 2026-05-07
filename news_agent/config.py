@@ -218,6 +218,14 @@ class Settings(BaseSettings):
     # emails small.
     newsletter_attach_audio: bool = True
 
+    # ── Test / smoke helpers ─────────────────────────────────────────────────
+    # Short-circuit heavy startup work so browser smoke runs can boot against
+    # seeded local data without schedulers, model warmup, or outbound fetches.
+    news_agent_test_mode: bool = False
+    # Deterministic fake modes used by browser smoke and focused web tests.
+    news_agent_fake_podcast: bool = False
+    news_agent_fake_newsletter: bool = False
+
     # ── SMTP (for newsletter) ─────────────────────────────────────────────────
     # Gmail: host=smtp.gmail.com, port=587, user=your@gmail.com,
     #   password=APP-PASSWORD (16-char app password, not your login password).

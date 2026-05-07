@@ -741,6 +741,52 @@ async def test_podcast_audio_404_when_not_ready(client):
     assert resp.status_code == 404
 
 
+@pytest.mark.asyncio
+async def test_newsletter_send_uses_fake_success_when_enabled(client, monkeypatch):
+    from news_agent.config import settings
+
+    monkeypatch.setattr(settings, "news_agent_fake_newsletter", True)
+
+    resp = await client.post("/api/newsletter/send")
+
+    assert resp.status_code == 200
+    assert resp.json() == {
+        "ok": True,
+        "mode": "fake",
+        "sent": True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_podcast_status_can_become_ready_in_fake_mode(client, monkeypatch):
+    from news_agent.config import settings
+    from news_agent.web import app as app_module
+
+    monkeypatch.setattr(settings, "news_agent_fake_podcast", True)
+    app_module._podcast_cache.clear()
+    app_module._podcast_errors.clear()
+    app_module._podcast_generating.clear()
+
+    started = await client.post("/api/podcast/ai", params={"hours": 24})
+    assert started.status_code == 200
+    assert started.json() == {"started": True, "mode": "fake"}
+
+    status = await client.get("/api/podcast/ai/status", params={"hours": 24})
+    assert status.status_code == 200
+    assert status.json() == {
+        "generating": False,
+        "ready": True,
+        "url": "/api/podcast/ai/audio",
+        "error": None,
+    }
+
+    audio = await client.get("/api/podcast/ai/audio")
+    assert audio.status_code == 200
+    assert audio.headers["content-type"] == "audio/mpeg"
+    assert audio.headers["content-disposition"] == 'inline; filename="ai-briefing.mp3"'
+    assert audio.content == b"ID3fake-podcast-audio"
+
+
 # ── Newsletter audio endpoints ────────────────────────────────────────────────
 #
 # These endpoints back the <audio> player embedded in the daily newsletter.

@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import datetime, timedelta
 from pathlib import Path
 
 
@@ -74,13 +75,96 @@ async def _capture(base_url: str, output_path: Path, url_path: str) -> None:
             await browser.close()
 
 
+async def _seed_items(database_url: str) -> None:
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+    from news_agent.models import Base, NewsItem
+    from news_agent.storage.repository import NewsRepository
+
+    engine = create_async_engine(
+        database_url,
+        echo=False,
+        connect_args={"check_same_thread": False, "timeout": 10},
+    )
+    session_factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(
+            text(
+                "CREATE VIRTUAL TABLE IF NOT EXISTS news_items_fts "
+                "USING fts5(id UNINDEXED, title, content, tokenize='porter unicode61')"
+            )
+        )
+
+    now = datetime.utcnow()
+    items = [
+        NewsItem(
+            source="openai",
+            topic="ai",
+            title="OpenAI ships a new reasoning model",
+            url="https://example.com/openai-reasoning-model",
+            content="OpenAI released a new reasoning model with faster tool use.",
+            summary="OpenAI released a new reasoning model with faster tool use.",
+            published_at=now - timedelta(hours=2),
+            fetched_at=now - timedelta(hours=1),
+            relevance_score=9.0,
+            raw_score=0.7,
+        ),
+        NewsItem(
+            source="anthropic",
+            topic="ai",
+            title="Anthropic expands Claude deployment options",
+            url="https://example.com/anthropic-deployment-options",
+            content="Anthropic added new deployment options for Claude customers.",
+            summary="Anthropic added new deployment options for Claude customers.",
+            published_at=now - timedelta(hours=4),
+            fetched_at=now - timedelta(hours=1),
+            relevance_score=8.2,
+            raw_score=0.5,
+        ),
+        NewsItem(
+            source="reuters",
+            topic="stocks",
+            title="NVIDIA shares rise after data-center demand forecast",
+            url="https://example.com/nvidia-demand-forecast",
+            content="NVIDIA shares rose after updated guidance on data-center demand.",
+            summary="NVIDIA shares rose after updated guidance on data-center demand.",
+            published_at=now - timedelta(hours=3),
+            fetched_at=now - timedelta(hours=1),
+            relevance_score=8.5,
+            raw_score=0.6,
+        ),
+        NewsItem(
+            source="bloomberg",
+            topic="stocks",
+            title="Fed officials signal caution on rate cuts",
+            url="https://example.com/fed-rate-cuts",
+            content="Federal Reserve officials signaled caution on the timing of rate cuts.",
+            summary="Federal Reserve officials signaled caution on the timing of rate cuts.",
+            published_at=now - timedelta(hours=6),
+            fetched_at=now - timedelta(hours=1),
+            relevance_score=7.8,
+            raw_score=0.4,
+        ),
+    ]
+
+    async with session_factory() as session:
+        repo = NewsRepository(session)
+        await repo.upsert_many(items)
+        await repo.set_setting("default_topics", "ai|stocks")
+        await session.commit()
+
+    await engine.dispose()
+
+
 def main() -> int:
     args = _parse_args()
     repo_root = Path(args.repo_root).resolve()
     output_path = Path(args.output).resolve()
 
     sys.path.insert(0, str(repo_root))
-    from tests.e2e.fixtures import seed_items
 
     with tempfile.TemporaryDirectory(prefix="browser-smoke-") as work_dir:
         work_path = Path(work_dir)
@@ -89,7 +173,7 @@ def main() -> int:
         audio_dir.mkdir()
         database_url = f"sqlite+aiosqlite:///{db_path}"
 
-        asyncio.run(seed_items(database_url))
+        asyncio.run(_seed_items(database_url))
 
         env = {
             **os.environ,

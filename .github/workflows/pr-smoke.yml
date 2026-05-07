@@ -1,0 +1,61 @@
+name: PR Smoke
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - collector_state
+          - podcast_dialogue
+          - query_router
+          - spike_b_proto
+          - quality_auto_fix
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run collector-state smoke
+        if: matrix.suite == 'collector_state'
+        run: uv run pytest tests/collectors/test_collector_state.py -q
+
+      - name: Run podcast-dialogue smoke
+        if: matrix.suite == 'podcast_dialogue'
+        run: uv run pytest tests/pipeline/test_podcast.py tests/test_cli.py -q
+
+      - name: Run query-router smoke
+        if: matrix.suite == 'query_router'
+        run: uv run pytest tests/pipeline/test_query_router.py tests/storage/test_search_filters.py tests/web/test_query_router_app.py -q
+
+      - name: Run Spike B prototype smoke
+        if: matrix.suite == 'spike_b_proto'
+        run: uv run pytest tests/scripts/test_agent_loop_proto.py -q
+
+      - name: Run quality auto-fix smoke
+        if: matrix.suite == 'quality_auto_fix'
+        run: |
+          if [ -d tests/auto_fix ] && [ -f tests/test_scheduler.py ]; then
+            uv run pytest tests/auto_fix/test_pr_submitter.py tests/auto_fix/test_rule_fixer.py tests/auto_fix/test_agent_fixer.py tests/test_cli.py tests/test_scheduler.py -q
+          else
+            echo "Skipping quality auto-fix smoke; suite not present on this branch."
+          fi

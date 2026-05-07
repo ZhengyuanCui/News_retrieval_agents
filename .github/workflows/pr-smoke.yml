@@ -189,3 +189,76 @@ jobs:
                 body,
               });
             }
+
+  debug_failed_checks:
+    needs:
+      - smoke
+      - browser_smoke
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - collector_state
+          - podcast_dialogue
+          - query_router
+          - spike_b_proto
+          - quality_auto_fix
+          - browser_smoke
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install debug dependencies
+        run: uv sync --extra dev --extra e2e
+
+      - name: Install Chromium for browser debug
+        if: matrix.suite == 'browser_smoke'
+        run: uv run playwright install --with-deps chromium
+
+      - name: Rerun failed suite in debug mode
+        continue-on-error: true
+        run: |
+          mkdir -p debug-logs
+          case "${{ matrix.suite }}" in
+            collector_state)
+              uv run pytest tests/collectors/test_collector_state.py -vv -x -s 2>&1 | tee debug-logs/collector_state.log
+              ;;
+            podcast_dialogue)
+              uv run pytest tests/pipeline/test_podcast.py tests/test_cli.py -vv -x -s 2>&1 | tee debug-logs/podcast_dialogue.log
+              ;;
+            query_router)
+              uv run pytest tests/pipeline/test_query_router.py tests/storage/test_search_filters.py tests/web/test_query_router_app.py -vv -x -s 2>&1 | tee debug-logs/query_router.log
+              ;;
+            spike_b_proto)
+              uv run pytest tests/scripts/test_agent_loop_proto.py -vv -x -s 2>&1 | tee debug-logs/spike_b_proto.log
+              ;;
+            quality_auto_fix)
+              if [ -d tests/auto_fix ] && [ -f tests/test_scheduler.py ]; then
+                uv run pytest tests/auto_fix/test_pr_submitter.py tests/auto_fix/test_rule_fixer.py tests/auto_fix/test_agent_fixer.py tests/test_cli.py tests/test_scheduler.py -vv -x -s 2>&1 | tee debug-logs/quality_auto_fix.log
+              else
+                echo "quality auto-fix suite not present on this branch" | tee debug-logs/quality_auto_fix.log
+              fi
+              ;;
+            browser_smoke)
+              uv run python scripts/browser_smoke.py --repo-root . --output debug-logs/browser-smoke-after.png --meta-output debug-logs/browser-smoke-after.json 2>&1 | tee debug-logs/browser_smoke.log
+              ;;
+          esac
+
+      - name: Upload debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-${{ matrix.suite }}
+          path: debug-logs/*
+          if-no-files-found: warn

@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     # ── OpenAI TTS ────────────────────────────────────────────────────────────
     openai_api_key: str = ""
     podcast_voice: str = "alloy"  # alloy | echo | fable | onyx | nova | shimmer
+    podcast_format: str = "dialogue"  # dialogue | monologue
+    podcast_host_voice: str = "alloy"
+    podcast_analyst_voice: str = "onyx"
+    podcast_dialogue_max_turns: int = 12
 
     # ── Twitter / X ───────────────────────────────────────────────────────────
     twitter_bearer_token: str | None = None
@@ -162,6 +166,8 @@ class Settings(BaseSettings):
     # _rrf_merge's dict size bounded regardless of upstream behaviour. 200
     # comfortably exceeds the default limit*3 semantic top_k with headroom.
     search_rrf_top_k: int = 200
+    smart_filter_enabled: bool = False
+    smart_filter_timeout_seconds: float = 3.0
 
     # ── Personalization ───────────────────────────────────────────────────────
     # When True, a user downvote inserts a row in DismissedItemORM and the item

@@ -322,13 +322,14 @@ def _generate_topic_audio(
     topic: str,
     items: list[NewsItem],
     output_path: Path,
+    podcast_format: str | None = None,
 ) -> Path | None:
     """Build an MP3 briefing for a single topic. Returns path or None on failure."""
     if not items:
         return None
     gen = PodcastGenerator()
     try:
-        return gen.generate(items, topic, output_path)
+        return gen.generate(items, topic, output_path, format=podcast_format)
     except Exception as e:
         logger.error("Audio generation for topic '%s' failed: %s", topic, e, exc_info=True)
         return None
@@ -347,6 +348,7 @@ async def build_and_send_newsletter(
     recipient: str | None = None,
     include_audio: bool | None = None,
     refresh: bool | None = None,
+    podcast_format: str | None = None,
 ) -> dict:
     """Build and send the daily newsletter. Returns a summary dict.
 
@@ -440,7 +442,12 @@ async def build_and_send_newsletter(
         try:
             loop = asyncio.get_event_loop()
             result_path = await loop.run_in_executor(
-                None, _generate_topic_audio, topic, items, tmp_path,
+                None,
+                lambda: (
+                    _generate_topic_audio(topic, items, tmp_path)
+                    if podcast_format is None
+                    else _generate_topic_audio(topic, items, tmp_path, podcast_format)
+                ),
             )
             if result_path and tmp_path.exists():
                 data = tmp_path.read_bytes()

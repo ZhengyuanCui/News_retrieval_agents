@@ -161,6 +161,11 @@ class Settings(BaseSettings):
     # When T2-A (smart filter) detects a ticker-like query, this alpha is used
     # instead of default_hybrid_alpha. Unused until T2-A lands.
     ticker_alpha: float = 0.75
+    # Per-list cap on BM25 / semantic result sets before RRF fusion. Prevents
+    # an expanded semantic list from dominating the fused ranking and keeps
+    # _rrf_merge's dict size bounded regardless of upstream behaviour. 200
+    # comfortably exceeds the default limit*3 semantic top_k with headroom.
+    search_rrf_top_k: int = 200
 
     # ── Personalization ───────────────────────────────────────────────────────
     # When True, a user downvote inserts a row in DismissedItemORM and the item
@@ -169,6 +174,12 @@ class Settings(BaseSettings):
     # Set False to preserve legacy behaviour where downvotes only influenced
     # future ranking scores without hiding the downvoted item itself.
     dismiss_on_downvote: bool = True
+
+    # ── Cost tracking ─────────────────────────────────────────────────────────
+    # In-memory ring buffer of per-LLM-call token/cost/latency records exposed
+    # via /api/cost/summary.  Disable to skip litellm callback registration.
+    cost_tracker_max_entries: int = 10_000
+    cost_tracker_enabled: bool = True
 
     # ── Storage ───────────────────────────────────────────────────────────────
     database_url: str = "sqlite+aiosqlite:///data/news.db"

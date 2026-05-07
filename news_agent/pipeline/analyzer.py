@@ -9,11 +9,16 @@ import litellm
 
 from news_agent.config import settings
 from news_agent.models import NewsItem
+from news_agent.pipeline.cost import caller_tag, install_callbacks
 
 logger = logging.getLogger(__name__)
 
 # Suppress litellm's verbose output
 litellm.suppress_debug_info = True
+
+# Register cost-tracking callbacks once at module import.  Idempotent — safe
+# if other modules also call install_callbacks() on import.
+install_callbacks()
 
 ITEM_ANALYSIS_PROMPT = """\
 You are a news analyst. Analyze the following {n} news items about "{topic}" and for each one provide:
@@ -247,12 +252,15 @@ class LLMAnalyzer:
                     slot = pool[(batch_idx + attempt) % len(pool)]
                     await slot.acquire()  # enforce per-model RPM interval
                     try:
-                        response = await litellm.acompletion(
-                            model=slot.model,
-                            max_tokens=4096,
-                            messages=messages,
-                            **({"api_key": slot.api_key} if slot.api_key else {}),
-                        )
+                        # Tag as analyzer.batch so /api/cost/summary attributes
+                        # bulk item-scoring spend separately from digest/Q&A.
+                        with caller_tag("analyzer.batch"):
+                            response = await litellm.acompletion(
+                                model=slot.model,
+                                max_tokens=4096,
+                                messages=messages,
+                                **({"api_key": slot.api_key} if slot.api_key else {}),
+                            )
                         raw = response.choices[0].message.content.strip()
 
                         if "```" in raw:
@@ -318,14 +326,17 @@ class LLMAnalyzer:
 
         for attempt in range(3):
             try:
-                response = await litellm.acompletion(
-                    model=model,
-                    max_tokens=1500,
-                    messages=[{"role": "user", "content": DIGEST_PROMPT.format(
-                        n=len(top_items), topic_label=topic_label, items_text=items_text,
-                    )}],
-                    **({"api_key": api_key} if api_key else {}),
-                )
+                # Tag the blocking digest path distinctly so cost summary can
+                # separate /api/digest-fragment (non-stream) from SSE streams.
+                with caller_tag("analyzer.digest"):
+                    response = await litellm.acompletion(
+                        model=model,
+                        max_tokens=1500,
+                        messages=[{"role": "user", "content": DIGEST_PROMPT.format(
+                            n=len(top_items), topic_label=topic_label, items_text=items_text,
+                        )}],
+                        **({"api_key": api_key} if api_key else {}),
+                    )
                 return response.choices[0].message.content.strip()
             except litellm.RateLimitError:
                 wait = 30 * (attempt + 1)
@@ -359,17 +370,20 @@ class LLMAnalyzer:
 
         for attempt in range(3):
             try:
-                response = await litellm.acompletion(
-                    model=model,
-                    max_tokens=1500,
-                    messages=[{"role": "user", "content": prompt}],
-                    stream=True,
-                    **({"api_key": api_key} if api_key else {}),
-                )
-                async for chunk in response:
-                    delta = chunk.choices[0].delta.content
-                    if delta:
-                        yield delta
+                # Wrap the entire stream: litellm's success callback fires
+                # after the final chunk, so the tag must still be active then.
+                with caller_tag("analyzer.digest_stream"):
+                    response = await litellm.acompletion(
+                        model=model,
+                        max_tokens=1500,
+                        messages=[{"role": "user", "content": prompt}],
+                        stream=True,
+                        **({"api_key": api_key} if api_key else {}),
+                    )
+                    async for chunk in response:
+                        delta = chunk.choices[0].delta.content
+                        if delta:
+                            yield delta
                 return
             except litellm.RateLimitError:
                 wait = 30 * (attempt + 1)
@@ -400,18 +414,21 @@ class LLMAnalyzer:
 
         for attempt in range(3):
             try:
-                response = await litellm.acompletion(
-                    model=model,
-                    max_tokens=800,
-                    messages=[{"role": "user", "content": prompt}],
-                    stream=True,
-                    **({"api_key": api_key} if api_key else {}),
-                )
-                async for chunk in response:
-                    delta = chunk.choices[0].delta
-                    text = getattr(delta, "content", None) or ""
-                    if text:
-                        yield text
+                # Q&A path — separate tag so spend can be attributed to user
+                # searches vs topic digests.
+                with caller_tag("analyzer.qa"):
+                    response = await litellm.acompletion(
+                        model=model,
+                        max_tokens=800,
+                        messages=[{"role": "user", "content": prompt}],
+                        stream=True,
+                        **({"api_key": api_key} if api_key else {}),
+                    )
+                    async for chunk in response:
+                        delta = chunk.choices[0].delta
+                        text = getattr(delta, "content", None) or ""
+                        if text:
+                            yield text
                 return
             except litellm.RateLimitError:
                 wait = 30 * (attempt + 1)
